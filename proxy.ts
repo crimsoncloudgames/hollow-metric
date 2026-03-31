@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/middleware";
+import { COOKIE_NAMES } from "@/lib/cookie-consent";
 
 function getSafeRedirectPath(candidate: string | null) {
   if (!candidate || !candidate.startsWith("/") || candidate.startsWith("//")) {
@@ -34,6 +35,13 @@ export async function proxy(request: NextRequest) {
     const redirectPath = getSafeRedirectPath(request.nextUrl.searchParams.get("next"));
     return NextResponse.redirect(new URL(redirectPath, request.url));
   }
+
+  supabaseResponse.cookies.set(COOKIE_NAMES.authState, user ? "signed-in" : "guest", {
+    maxAge: 60 * 60 * 24 * 7,
+    path: "/",
+    sameSite: "lax",
+    secure: true,
+  });
 
   return supabaseResponse;
 }

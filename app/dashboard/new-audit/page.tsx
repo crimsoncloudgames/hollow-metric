@@ -3,6 +3,9 @@
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
+import { setCookieValue, getCookieValue } from "@/lib/client-cookies";
+import { COOKIE_NAMES } from "@/lib/cookie-consent";
+import { hasFunctionalCookieConsent } from "@/lib/client-consent";
 
 const loadingPhases = [
   "Fetching Steam Data...",
@@ -46,11 +49,31 @@ function NewAuditPageInner() {
     setInput(prefilledInput);
   }, [prefilledInput]);
 
+  useEffect(() => {
+    if (prefilledInput) return;
+
+    const prefsRaw = getCookieValue(COOKIE_NAMES.analysisPrefs);
+    if (!prefsRaw) return;
+
+    try {
+      const prefs = JSON.parse(prefsRaw) as { lastInput?: string };
+      if (prefs.lastInput) {
+        setInput(prefs.lastInput);
+      }
+    } catch {
+      // Ignore malformed preference cookies.
+    }
+  }, [prefilledInput]);
+
   const onRunAudit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
     setPhaseIndex(0);
+
+    if (hasFunctionalCookieConsent() && input.trim()) {
+      setCookieValue(COOKIE_NAMES.analysisPrefs, JSON.stringify({ lastInput: input.trim() }), 60 * 60 * 24 * 7);
+    }
 
     const supabase = createClient();
     if (!supabase) {

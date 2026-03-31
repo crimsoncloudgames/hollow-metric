@@ -61,9 +61,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const header = getHeaderText(pathname);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 flex">
-      <aside className="w-64 h-screen border-r border-slate-900 bg-slate-950 flex flex-col px-5 py-6 sticky top-0">
-        <div className="mb-10">
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-200 lg:flex-row">
+      <aside className="w-full border-b border-slate-900 bg-slate-950 px-4 py-4 sm:px-5 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:border-b-0 lg:border-r lg:py-6">
+        <div className="mb-6 lg:mb-10">
           <Link href="/landing" className="inline-flex items-center gap-3">
             <Image
               src="/HM Logo Icon.webp"
@@ -73,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className="h-10 w-10 rounded-lg object-cover"
               priority
             />
-            <div className="text-2xl font-black italic text-white tracking-tight">
+            <div className="text-xl font-black italic tracking-tight text-white sm:text-2xl">
               Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">v0.3.3</span>
             </div>
           </Link>
@@ -82,7 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </p>
         </div>
 
-        <nav className="space-y-2">
+        <nav className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -107,7 +107,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        <div className="mt-auto border-t border-slate-900 pt-4">
+        <div className="mt-5 border-t border-slate-900 pt-4 lg:mt-auto">
           <div className="flex items-center gap-3 mb-3 rounded-2xl border border-slate-800 bg-slate-900/40 px-3 py-2">
             <UserCircle2 size={18} className="text-slate-400" />
             <div>
@@ -134,9 +134,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      <main className="flex-1 bg-slate-950 p-12 overflow-y-auto min-h-screen">
+      <main className="min-h-screen flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-6 lg:p-12">
         <header className="mb-10 border-b border-slate-900 pb-6">
-          <h1 className="text-3xl font-black text-white tracking-tight">{header.title}</h1>
+          <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{header.title}</h1>
           <p className="text-slate-500 mt-2">{header.subtitle}</p>
         </header>
 

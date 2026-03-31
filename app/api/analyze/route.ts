@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js';
 import { openai } from '@/lib/openai';
+import { COOKIE_NAMES, parseCookieHeader, readConsentFromCookieMap, sanitizeAppIdList } from '@/lib/cookie-consent';
 import { createClient as createSupabaseServerClient, hasSupabaseServerEnv } from '@/utils/supabase/server';
 
 type AnalyzeRequestBody = {
@@ -11,6 +12,117 @@ type AnalyzeRequestBody = {
     appId?: string;
     preview?: boolean;
 };
+
+type CachedPreviewRow = {
+    preview_tag: string | null;
+    preview_short_desc: string | null;
+    preview_status: string | null;
+};
+
+type CookieAnalysisPayload = {
+    previewMode: boolean;
+    appId: string;
+    isSignedIn: boolean;
+    tag: string | null;
+    shortDesc: string | null;
+};
+
+function parseJsonCookie<T>(raw: string | undefined, fallback: T): T {
+    if (!raw) return fallback;
+    try {
+        return JSON.parse(raw) as T;
+    } catch {
+        return fallback;
+    }
+}
+
+function appendTrackingCookies(
+    response: NextResponse,
+    requestCookieMap: Record<string, string>,
+    payload: CookieAnalysisPayload
+) {
+    const consent = readConsentFromCookieMap(requestCookieMap);
+    const canStoreOptional = consent.functional || consent.personalization;
+
+    response.cookies.set(COOKIE_NAMES.blurState, payload.previewMode && !payload.isSignedIn ? 'locked' : 'unlocked', {
+        maxAge: 60 * 60 * 24,
+        path: '/',
+        sameSite: 'lax',
+        secure: true,
+    });
+
+    if (payload.previewMode && payload.appId) {
+        const previewUsed = parseJsonCookie<{ appIds: string[] }>(requestCookieMap[COOKIE_NAMES.previewLimit], { appIds: [] });
+        const appIds = Array.from(new Set([...sanitizeAppIdList(previewUsed.appIds), payload.appId])).slice(0, 30);
+        response.cookies.set(COOKIE_NAMES.previewLimit, JSON.stringify({ appIds, updatedAt: new Date().toISOString() }), {
+            maxAge: 60 * 60 * 24,
+            path: '/',
+            sameSite: 'lax',
+            secure: true,
+        });
+    }
+
+    if (!canStoreOptional) {
+        return response;
+    }
+
+    if (payload.appId) {
+        const recentAppIds = sanitizeAppIdList(
+            parseJsonCookie<{ appIds: string[] }>(requestCookieMap[COOKIE_NAMES.recentAppIds], { appIds: [] }).appIds
+        );
+        const mergedAppIds = Array.from(new Set([payload.appId, ...recentAppIds])).slice(0, 12);
+
+        response.cookies.set(COOKIE_NAMES.recentAppIds, JSON.stringify({ appIds: mergedAppIds }), {
+            maxAge: 60 * 60 * 24 * 7,
+            path: '/',
+            sameSite: 'lax',
+            secure: true,
+        });
+    }
+
+    if (payload.appId && payload.shortDesc) {
+        const shortDescPreview = payload.shortDesc.slice(0, 320);
+        response.cookies.set(
+            COOKIE_NAMES.lastAnalysis,
+            JSON.stringify({
+                appId: payload.appId,
+                tag: payload.tag,
+                shortDesc: shortDescPreview,
+                at: new Date().toISOString(),
+            }),
+            {
+                maxAge: 60 * 60 * 24,
+                path: '/',
+                sameSite: 'lax',
+                secure: true,
+            }
+        );
+    }
+
+    const usage = parseJsonCookie<{ total: number; preview: number; full: number }>(requestCookieMap[COOKIE_NAMES.usage], {
+        total: 0,
+        preview: 0,
+        full: 0,
+    });
+
+    response.cookies.set(
+        COOKIE_NAMES.usage,
+        JSON.stringify({
+            total: usage.total + 1,
+            preview: usage.preview + (payload.previewMode ? 1 : 0),
+            full: usage.full + (payload.previewMode ? 0 : 1),
+            updatedAt: new Date().toISOString(),
+        }),
+        {
+            maxAge: 60 * 60 * 24 * 7,
+            path: '/',
+            sameSite: 'lax',
+            secure: true,
+        }
+    );
+
+    return response;
+}
 
 function getRequestIp(req: Request): string | null {
     const forwardedFor = req.headers.get('x-forwarded-for');
@@ -61,6 +173,7 @@ export async function POST(req: Request) {
         }
 
         const payload = (await req.json()) as AnalyzeRequestBody;
+        const requestCookieMap = parseCookieHeader(req.headers.get('cookie'));
         const userGame = (payload.userGame || '').trim();
         const isUrl = Boolean(payload.isUrl);
         const previewMode = Boolean(payload.preview);
@@ -100,17 +213,11 @@ export async function POST(req: Request) {
                 );
             }
 
-            const requestIp = getRequestIp(req);
-            if (!requestIp) {
-                return NextResponse.json(
-                    {
-                        error: 'Could not verify your free-preview eligibility from this network. Please sign in to continue.',
-                    },
-                    { status: 400 }
-                );
-            }
-
-            previewIpHash = hashIp(requestIp);
+            const previewCookie = parseJsonCookie<{ appIds: string[] }>(requestCookieMap[COOKIE_NAMES.previewLimit], {
+                appIds: [],
+            });
+            const previewCookieAppIds = sanitizeAppIdList(previewCookie.appIds);
+            const previewCookieHasAppId = previewCookieAppIds.includes(appId);
             supabaseAdmin = getSupabaseAdminClient();
             const retentionDays = getPreviewRetentionDays();
             const retentionCutoffIso = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
@@ -136,6 +243,69 @@ export async function POST(req: Request) {
                     { status: 500 }
                 );
             }
+
+            const cachedPreviewLookup = await supabaseAdmin
+                .from('free_preview_usage')
+                .select('preview_tag, preview_short_desc, preview_status')
+                .eq('steam_app_id', appId)
+                .gte('created_at', retentionCutoffIso)
+                .limit(1)
+                .maybeSingle<CachedPreviewRow>();
+
+            if (cachedPreviewLookup.error) {
+                console.error('Preview cache lookup failed:', cachedPreviewLookup.error);
+                return NextResponse.json(
+                    { error: 'Could not validate free preview usage right now. Please try again shortly.' },
+                    { status: 500 }
+                );
+            }
+
+            if (cachedPreviewLookup.data?.preview_short_desc) {
+                const cachedResponse = NextResponse.json({
+                    suggestedTags: [cachedPreviewLookup.data.preview_tag ?? 'Discoverability'],
+                    storeAudit: {
+                        shortDesc: {
+                            status: cachedPreviewLookup.data.preview_status ?? 'Warning',
+                            feedback: cachedPreviewLookup.data.preview_short_desc,
+                        },
+                    },
+                    competitors: [],
+                    analysis: '',
+                    cachedPreview: true,
+                    blurLocked: previewMode && !isSignedIn,
+                });
+
+                return appendTrackingCookies(cachedResponse, requestCookieMap, {
+                    previewMode,
+                    appId,
+                    isSignedIn,
+                    tag: cachedPreviewLookup.data.preview_tag,
+                    shortDesc: cachedPreviewLookup.data.preview_short_desc,
+                });
+            }
+
+            if (previewCookieHasAppId) {
+                return NextResponse.json(
+                    {
+                        error:
+                            'You have reached the free preview limit for this Steam App ID. Sign up or buy credits to keep analyzing.',
+                        errorCode: 'FREE_PREVIEW_LIMIT_REACHED',
+                    },
+                    { status: 429 }
+                );
+            }
+
+            const requestIp = getRequestIp(req);
+            if (!requestIp) {
+                return NextResponse.json(
+                    {
+                        error: 'Could not verify your free-preview eligibility from this network. Please sign in to continue.',
+                    },
+                    { status: 400 }
+                );
+            }
+
+            previewIpHash = hashIp(requestIp);
 
             const [ipLookup, appLookup] = await Promise.all([
                 supabaseAdmin
@@ -243,15 +413,60 @@ export async function POST(req: Request) {
             : [];
 
         result.suggestedTags = previewMode ? suggestedTags.slice(0, 1) : suggestedTags;
+        result.blurLocked = previewMode && !isSignedIn;
+
+        const previewTag = typeof result.suggestedTags?.[0] === 'string' ? result.suggestedTags[0] : null;
+        const previewShortDesc =
+            typeof result?.storeAudit?.shortDesc?.feedback === 'string'
+                ? result.storeAudit.shortDesc.feedback
+                : null;
+        const previewStatus =
+            typeof result?.storeAudit?.shortDesc?.status === 'string'
+                ? result.storeAudit.shortDesc.status
+                : null;
 
         if (requiresFreePreviewLimitCheck && supabaseAdmin && previewIpHash) {
             const { error: insertError } = await supabaseAdmin.from('free_preview_usage').insert({
                 ip_hash: previewIpHash,
                 steam_app_id: appId,
+                preview_tag: previewTag,
+                preview_short_desc: previewShortDesc,
+                preview_status: previewStatus,
             });
 
             if (insertError) {
                 if (insertError.code === '23505') {
+                    const cachedPreviewLookup = await supabaseAdmin
+                        .from('free_preview_usage')
+                        .select('preview_tag, preview_short_desc, preview_status')
+                        .eq('steam_app_id', appId)
+                        .limit(1)
+                        .maybeSingle<CachedPreviewRow>();
+
+                    if (!cachedPreviewLookup.error && cachedPreviewLookup.data?.preview_short_desc) {
+                        const cachedRaceResponse = NextResponse.json({
+                            suggestedTags: [cachedPreviewLookup.data.preview_tag ?? 'Discoverability'],
+                            storeAudit: {
+                                shortDesc: {
+                                    status: cachedPreviewLookup.data.preview_status ?? 'Warning',
+                                    feedback: cachedPreviewLookup.data.preview_short_desc,
+                                },
+                            },
+                            competitors: [],
+                            analysis: '',
+                            cachedPreview: true,
+                            blurLocked: previewMode && !isSignedIn,
+                        });
+
+                        return appendTrackingCookies(cachedRaceResponse, requestCookieMap, {
+                            previewMode,
+                            appId,
+                            isSignedIn,
+                            tag: cachedPreviewLookup.data.preview_tag,
+                            shortDesc: cachedPreviewLookup.data.preview_short_desc,
+                        });
+                    }
+
                     return NextResponse.json(
                         {
                             error:
@@ -270,7 +485,14 @@ export async function POST(req: Request) {
             }
         }
 
-        return NextResponse.json(result);
+        const successResponse = NextResponse.json(result);
+        return appendTrackingCookies(successResponse, requestCookieMap, {
+            previewMode,
+            appId,
+            isSignedIn,
+            tag: previewTag,
+            shortDesc: previewShortDesc,
+        });
     } catch (error) {
         console.error('Audit Route Error:', error);
         const message = error instanceof Error ? error.message : 'Audit failed';

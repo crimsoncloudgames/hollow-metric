@@ -3,10 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { getCookieValue, setCookieValue } from "@/lib/client-cookies";
+import { hasFunctionalCookieConsent } from "@/lib/client-consent";
+import { COOKIE_NAMES } from "@/lib/cookie-consent";
 
 type TeaserAuditResult = {
   suggestedTags?: string[];
   competitors?: Array<{ name: string }>;
+  blurLocked?: boolean;
+  cachedPreview?: boolean;
   storeAudit?: {
     shortDesc?: {
       status?: string;
@@ -67,6 +72,27 @@ function buildAuthHref(pathname: "/login" | "/signup", submittedInput: string) {
   return `${pathname}?next=${encodeURIComponent(nextPath)}`;
 }
 
+function getBlurredPreviewSegments(text: string) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length <= 8) {
+    return {
+      clear: text,
+      softBlur: "",
+      hardBlur: "",
+    };
+  }
+
+  const clearEnd = Math.max(1, Math.floor(words.length * 0.64));
+  const softBlurEnd = Math.max(clearEnd + 1, Math.floor(words.length * 0.85));
+
+  return {
+    clear: words.slice(0, clearEnd).join(" "),
+    softBlur: words.slice(clearEnd, softBlurEnd).join(" "),
+    hardBlur: words.slice(softBlurEnd).join(" "),
+  };
+}
+
 export default function LandingPage() {
   const [input, setInput] = useState("");
   const [submittedInput, setSubmittedInput] = useState("");
@@ -74,6 +100,7 @@ export default function LandingPage() {
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewErrorCode, setPreviewErrorCode] = useState<string | null>(null);
+  const [isBlurLocked, setIsBlurLocked] = useState(true);
 
   useEffect(() => {
     const sections = document.querySelectorAll(".fade-in");
@@ -89,11 +116,31 @@ export default function LandingPage() {
     });
   }, []);
 
+  useEffect(() => {
+    const blurCookie = getCookieValue(COOKIE_NAMES.blurState);
+    if (blurCookie === "unlocked") {
+      setIsBlurLocked(false);
+    }
+
+    const prefsRaw = getCookieValue(COOKIE_NAMES.analysisPrefs);
+    if (!prefsRaw) return;
+
+    try {
+      const prefs = JSON.parse(prefsRaw) as { lastInput?: string };
+      if (prefs.lastInput && !input) {
+        setInput(prefs.lastInput);
+      }
+    } catch {
+      // Ignore malformed preference cookies.
+    }
+  }, []);
+
   const previewTag = preview?.suggestedTags?.[0] ?? "Discoverability";
   const previewFeedback =
     preview?.storeAudit?.shortDesc?.feedback ??
     "Lead with clearer gameplay language in your short description.";
   const previewStatus = preview?.storeAudit?.shortDesc?.status ?? "Warning";
+  const previewFeedbackSegments = getBlurredPreviewSegments(previewFeedback);
   const signupPreviewHref = buildAuthHref("/signup", submittedInput || input.trim());
   const loginPreviewHref = buildAuthHref("/login", submittedInput || input.trim());
   const isFreePreviewLimitReached = previewErrorCode === "FREE_PREVIEW_LIMIT_REACHED";
@@ -109,6 +156,10 @@ export default function LandingPage() {
     setPreviewError(null);
     setPreviewErrorCode(null);
     setSubmittedInput(trimmedInput);
+
+    if (hasFunctionalCookieConsent()) {
+      setCookieValue(COOKIE_NAMES.analysisPrefs, JSON.stringify({ lastInput: trimmedInput }), 60 * 60 * 24 * 7);
+    }
 
     try {
       const response = await fetch("/api/analyze", {
@@ -143,6 +194,7 @@ export default function LandingPage() {
       const data = (await response.json()) as TeaserAuditResult;
       setPreview(data);
       setPreviewErrorCode(null);
+      setIsBlurLocked(Boolean(data.blurLocked));
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Could not generate a preview right now.";
@@ -168,16 +220,18 @@ export default function LandingPage() {
 
         {/* NAV */}
         <header className="sticky top-0 z-30 mt-4 flex items-center justify-between rounded-full border border-slate-800/80 bg-slate-950/70 px-4 py-3 backdrop-blur-xl sm:px-6">
-          <Link href="/landing" className="relative inline-flex">
+          <Link href="/landing" className="relative inline-block w-[min(62vw,18rem)] sm:w-[min(44vw,19rem)] md:w-[18rem]">
             <Image
               src="/HM logo icon with text webP.webp"
               alt="Hollow Metric"
               width={300}
               height={70}
-              className="h-14 w-auto"
+              className="h-auto w-full"
               priority
             />
-            <p className="absolute bottom-0.5 left-16 text-[10px] font-medium leading-none text-slate-500">A tool by Crimson Cloud Games</p>
+            <p className="absolute bottom-[6%] left-[34%] text-[8px] font-medium leading-none text-slate-500 sm:text-[9px] md:text-[10px] whitespace-nowrap">
+              A tool by Crimson Cloud Games
+            </p>
           </Link>
           <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
             <Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link>
@@ -277,7 +331,7 @@ export default function LandingPage() {
                         Free preview shows one top tag only. Full tag set unlocks after sign-in or credits.
                       </p>
                     </div>
-                    <div className="min-w-[240px] rounded-3xl border border-blue-600/30 bg-blue-600/10 px-5 py-4">
+                    <div className="w-full lg:w-auto lg:min-w-[240px] rounded-3xl border border-blue-600/30 bg-blue-600/10 px-5 py-4">
                       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Full Audit Unlocks</p>
                       <p className="text-sm text-slate-200">
                         Complete copy audit, tag analysis, break-even estimate, and saved reports.
@@ -291,7 +345,21 @@ export default function LandingPage() {
                       <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-yellow-300">
                         {previewStatus}
                       </span>
-                      <p className="mt-4 text-base leading-7 text-slate-200">{previewFeedback}</p>
+                      <p className="mt-4 text-base leading-7 text-slate-200">
+                        {isBlurLocked ? (
+                          <>
+                            <span>{previewFeedbackSegments.clear}</span>
+                            {previewFeedbackSegments.softBlur && (
+                              <span className="blur-[1px]"> {previewFeedbackSegments.softBlur}</span>
+                            )}
+                            {previewFeedbackSegments.hardBlur && (
+                              <span className="blur-[2.4px]"> {previewFeedbackSegments.hardBlur}</span>
+                            )}
+                          </>
+                        ) : (
+                          previewFeedback
+                        )}
+                      </p>
                     </article>
                     <article className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6">
                       <p className="mb-3 text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">Recommended Tag</p>
@@ -554,9 +622,11 @@ export default function LandingPage() {
         <footer className="fade-in border-t border-slate-800 py-10 text-sm text-slate-400">
           <div className="grid gap-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
             <div>
-              <div className="relative inline-flex">
-                <Image src="/HM logo icon with text webP.webp" alt="Hollow Metric" width={300} height={70} className="h-14 w-auto" />
-                <p className="absolute bottom-0.5 left-16 text-[10px] font-medium leading-none text-slate-500">A tool by Crimson Cloud Games</p>
+              <div className="relative inline-block w-[min(72vw,20rem)] sm:w-[min(52vw,19rem)] md:w-[18.75rem]">
+                <Image src="/HM logo icon with text webP.webp" alt="Hollow Metric" width={300} height={70} className="h-auto w-full" />
+                <p className="absolute bottom-[6%] left-[34%] text-[9px] font-medium leading-none text-slate-500 sm:text-[10px] whitespace-nowrap">
+                  A tool by Crimson Cloud Games
+                </p>
               </div>
               <p className="mt-3 max-w-md leading-7">
                 Steam page audit, tag improvement, and break-even estimation for indie developers before launch.

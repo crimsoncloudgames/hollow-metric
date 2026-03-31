@@ -79,20 +79,20 @@ function LoginPage() {
     <main className="min-h-screen bg-slate-950 flex items-center justify-center px-4 relative overflow-hidden">
       {/* Background glow */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600 opacity-10 rounded-full blur-3xl" />
+        <div className="absolute left-1/2 top-1/2 h-[42vh] max-h-[400px] w-[92vw] max-w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600 opacity-10 blur-3xl" />
       </div>
 
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/landing">
-            <span className="text-blue-500 font-black italic text-3xl tracking-tight cursor-pointer">Hollow Metric</span>
+            <span className="cursor-pointer text-2xl font-black italic tracking-tight text-blue-500 sm:text-3xl">Hollow Metric</span>
           </Link>
-          <p className="text-slate-400 text-sm mt-1 uppercase tracking-widest font-bold">Market Intelligence Engine</p>
+          <p className="mt-1 text-xs font-bold uppercase tracking-widest text-slate-400 sm:text-sm">Market Intelligence Engine</p>
         </div>
 
         {/* Card */}
-        <div className="bg-slate-900/70 backdrop-blur-md border border-slate-800 rounded-3xl p-8 shadow-2xl">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur-md sm:p-8">
           <h1 className="text-2xl font-black text-white mb-1">Welcome back</h1>
           <p className="text-slate-400 text-sm mb-6">Sign in to access your audit library.</p>
 
