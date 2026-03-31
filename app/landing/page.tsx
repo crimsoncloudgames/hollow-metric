@@ -15,6 +15,11 @@ type TeaserAuditResult = {
   };
 };
 
+type PreviewApiError = {
+  error?: string;
+  errorCode?: string;
+};
+
 const pricingPlans = [
   {
     name: "Free Preview",
@@ -43,7 +48,7 @@ const faqs = [
   },
   {
     question: "Do I need an account?",
-    answer: "No for the preview. Yes for the full results.",
+    answer: "No for the preview. Yes to unlock full results.",
   },
   {
     question: "Is this exact financial advice?",
@@ -68,6 +73,7 @@ export default function LandingPage() {
   const [preview, setPreview] = useState<TeaserAuditResult | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewErrorCode, setPreviewErrorCode] = useState<string | null>(null);
 
   useEffect(() => {
     const sections = document.querySelectorAll(".fade-in");
@@ -90,14 +96,18 @@ export default function LandingPage() {
   const previewStatus = preview?.storeAudit?.shortDesc?.status ?? "Warning";
   const signupPreviewHref = buildAuthHref("/signup", submittedInput || input.trim());
   const loginPreviewHref = buildAuthHref("/login", submittedInput || input.trim());
+  const isFreePreviewLimitReached = previewErrorCode === "FREE_PREVIEW_LIMIT_REACHED";
 
   const handlePreview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedInput = input.trim();
     if (!trimmedInput) return;
 
+    let apiErrorCode: string | null = null;
+
     setIsLoadingPreview(true);
     setPreviewError(null);
+    setPreviewErrorCode(null);
     setSubmittedInput(trimmedInput);
 
     try {
@@ -108,17 +118,36 @@ export default function LandingPage() {
           userGame: trimmedInput,
           isUrl: trimmedInput.includes("store.steampowered.com/app/"),
           appId: extractAppId(trimmedInput),
+          preview: true,
         }),
       });
 
-      if (!response.ok) throw new Error("Could not generate a preview right now.");
+      if (!response.ok) {
+        let apiMessage = "Could not generate a preview right now.";
+
+        try {
+          const errorJson = (await response.json()) as PreviewApiError;
+          if (typeof errorJson.error === "string" && errorJson.error.trim()) {
+            apiMessage = errorJson.error;
+          }
+          if (typeof errorJson.errorCode === "string" && errorJson.errorCode.trim()) {
+            apiErrorCode = errorJson.errorCode;
+          }
+        } catch {
+          // Ignore JSON parse errors and fall back to the generic message.
+        }
+
+        throw new Error(apiMessage);
+      }
 
       const data = (await response.json()) as TeaserAuditResult;
       setPreview(data);
+      setPreviewErrorCode(null);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Could not generate a preview right now.";
       setPreviewError(message);
+      setPreviewErrorCode(apiErrorCode);
       setPreview(null);
     } finally {
       setIsLoadingPreview(false);
@@ -196,7 +225,12 @@ export default function LandingPage() {
                 {isLoadingPreview ? "Checking..." : "Analyze My Steam Page"}
               </button>
             </div>
-            <p className="mt-3 text-center text-xs text-slate-400">Takes less than 30 seconds. No signup required. See what players notice first.</p>
+            <p className="mt-3 text-center text-xs text-slate-400">
+              Takes less than 30 seconds. No signup required for your first preview.
+            </p>
+            <p className="mt-1 text-center text-xs text-slate-500">
+              Free preview is limited to one use per IP address and Steam App ID. Login/Sign Up and buy more credit for more analyses.
+            </p>
           </form>
         </section>
 
@@ -216,6 +250,16 @@ export default function LandingPage() {
                 <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6 text-red-200">
                   <p className="mb-2 text-lg font-black text-white">Preview unavailable</p>
                   <p>{previewError}</p>
+                  {isFreePreviewLimitReached && (
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                      <Link href={signupPreviewHref} className="rounded-2xl bg-blue-600 px-5 py-2.5 text-center text-sm font-bold text-white transition hover:bg-blue-500">
+                        Sign Up To Continue
+                      </Link>
+                      <Link href="/pricing" className="rounded-2xl border border-slate-600 px-5 py-2.5 text-center text-sm font-semibold text-slate-100 transition hover:border-blue-500 hover:text-blue-300">
+                        Buy Credits
+                      </Link>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -227,7 +271,10 @@ export default function LandingPage() {
                       <h2 className="text-3xl font-black text-white">Here is the first thing to fix.</h2>
                       <p className="mt-3 max-w-2xl text-slate-400">
                         This is a narrow preview. A full audit expands this into a complete store
-                        review with copy breakdown, tags, and break-even numbers.
+                        review with copy breakdown, full tag coverage, and break-even numbers.
+                      </p>
+                      <p className="mt-2 max-w-2xl text-xs text-slate-500">
+                        Free preview shows one top tag only. Full tag set unlocks after sign-in or credits.
                       </p>
                     </div>
                     <div className="min-w-[240px] rounded-3xl border border-blue-600/30 bg-blue-600/10 px-5 py-4">
@@ -321,7 +368,7 @@ export default function LandingPage() {
               },
               {
                 title: "Know your numbers",
-                body: "Estimate when you break even before launch.",
+                body: "Estimate how many copies you need to sell to break even before launch.",
                 accent: "border-blue-600/40 bg-blue-600/5",
               },
             ].map((card) => (
@@ -488,7 +535,7 @@ export default function LandingPage() {
                 href="#top"
                 className="rounded-full bg-blue-600 px-8 py-3 font-bold text-white transition hover:bg-blue-500"
               >
-                Check My Steam Page
+                Analyze My Steam Page
               </Link>
               <Link
                 href="/signup?next=%2Fdashboard"
