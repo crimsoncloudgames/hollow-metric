@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, Suspense, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
 const getSafeRedirectPath = (candidate: string | null) => {
@@ -13,20 +13,19 @@ const getSafeRedirectPath = (candidate: string | null) => {
 };
 
 function SignUpPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const redirectPath = getSafeRedirectPath(searchParams.get("next"));
   const loginHref = `/login?next=${encodeURIComponent(redirectPath)}`;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     setLoading(true);
 
     const supabase = createClient();
@@ -36,7 +35,7 @@ function SignUpPageInner() {
       return;
     }
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -53,13 +52,21 @@ function SignUpPageInner() {
       return;
     }
 
-    setSuccess("Account created. Check your email to confirm your account.");
+    const loginParams = new URLSearchParams({ next: redirectPath });
+
+    if (data.session) {
+      loginParams.set("signup", "success");
+    } else {
+      loginParams.set("signup", "confirm");
+    }
+
+    router.push(`/login?${loginParams.toString()}`);
+    router.refresh();
     setLoading(false);
   };
 
   const handleGithubSignUp = async () => {
     setError(null);
-    setSuccess(null);
     setLoading(true);
 
     const supabase = createClient();
@@ -158,9 +165,6 @@ function SignUpPageInner() {
             </div>
             {error && (
               <p className="text-sm text-red-300 border border-red-500/30 bg-red-500/10 rounded-xl px-3 py-2">{error}</p>
-            )}
-            {success && (
-              <p className="text-sm text-green-300 border border-green-500/30 bg-green-500/10 rounded-xl px-3 py-2">{success}</p>
             )}
             <button
               type="submit"

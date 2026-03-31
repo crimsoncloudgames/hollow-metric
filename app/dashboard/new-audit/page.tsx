@@ -86,7 +86,18 @@ function NewAuditPageInner() {
       });
 
       if (!auditRes.ok) {
-        throw new Error("Audit failed. Please try again.");
+        let apiMessage = "Audit failed. Please try again.";
+
+        try {
+          const errorJson = await auditRes.json();
+          if (typeof errorJson?.error === "string" && errorJson.error.trim()) {
+            apiMessage = errorJson.error;
+          }
+        } catch {
+          // Ignore JSON parse errors and keep generic message.
+        }
+
+        throw new Error(apiMessage);
       }
 
       const reportJson = await auditRes.json();

@@ -3,6 +3,13 @@ import { openai } from '@/lib/openai';
 
 export async function POST(req: Request) {
     try {
+        if (!process.env.OPENAI_API_KEY) {
+            return NextResponse.json(
+                { error: 'Server is missing OPENAI_API_KEY. Add it in Vercel environment variables.' },
+                { status: 500 }
+            );
+        }
+
         const { userGame, isUrl, appId } = await req.json();
         let finalContext = userGame;
 
@@ -67,6 +74,7 @@ export async function POST(req: Request) {
 
     } catch (error) {
         console.error("Audit Route Error:", error);
-        return NextResponse.json({ error: "Audit failed" }, { status: 500 });
+        const message = error instanceof Error ? error.message : "Audit failed";
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

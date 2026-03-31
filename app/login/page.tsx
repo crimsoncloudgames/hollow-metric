@@ -20,6 +20,7 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const redirectPath = getSafeRedirectPath(searchParams.get("next"));
+  const signupStatus = searchParams.get("signup");
   const signUpHref = `/signup?next=${encodeURIComponent(redirectPath)}`;
 
   const handleSubmit = async (e: FormEvent) => {
@@ -94,6 +95,18 @@ function LoginPage() {
         <div className="bg-slate-900/70 backdrop-blur-md border border-slate-800 rounded-3xl p-8 shadow-2xl">
           <h1 className="text-2xl font-black text-white mb-1">Welcome back</h1>
           <p className="text-slate-400 text-sm mb-6">Sign in to access your audit library.</p>
+
+          {signupStatus === "confirm" && (
+            <p className="text-sm text-green-300 border border-green-500/30 bg-green-500/10 rounded-xl px-3 py-2 mb-5">
+              Account created. Check your email to confirm your account, then sign in.
+            </p>
+          )}
+
+          {signupStatus === "success" && (
+            <p className="text-sm text-green-300 border border-green-500/30 bg-green-500/10 rounded-xl px-3 py-2 mb-5">
+              Account created successfully. You can sign in now.
+            </p>
+          )}
 
           {/* GitHub */}
           <button

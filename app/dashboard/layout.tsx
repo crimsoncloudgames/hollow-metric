@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
@@ -63,7 +64,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-slate-950 text-slate-200 flex">
       <aside className="w-64 h-screen border-r border-slate-900 bg-slate-950 flex flex-col px-5 py-6 sticky top-0">
         <div className="mb-10">
-          <Link href="/landing" className="inline-block">
+          <Link href="/landing" className="inline-flex items-center gap-3">
+            <Image
+              src="/HM Logo Icon.webp"
+              alt="Hollow Metric logo"
+              width={40}
+              height={40}
+              className="h-10 w-10 rounded-lg object-cover"
+              priority
+            />
             <div className="text-2xl font-black italic text-white tracking-tight">
               Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">v0.3.3</span>
             </div>
