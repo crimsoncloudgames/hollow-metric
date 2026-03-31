@@ -14,6 +14,7 @@ function getConsentCookieMap(): Record<string, string> {
 }
 
 export default function CookieConsentBanner() {
+  const isLocalhost = typeof window !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
   const [isOpen, setIsOpen] = useState(() => !getCookieValue(COOKIE_NAMES.consent));
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [functional, setFunctional] = useState(false);
@@ -24,7 +25,7 @@ export default function CookieConsentBanner() {
     return readConsentFromCookieMap(getConsentCookieMap());
   }, []);
 
-  if (!isOpen) return null;
+  if (!isOpen || isLocalhost) return null;
 
   const saveConsent = (next: { functional: boolean; analytics: boolean; personalization: boolean }) => {
     setCookieValue(
