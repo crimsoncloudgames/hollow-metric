@@ -170,12 +170,12 @@ export default function LandingPage() {
         </header>
 
         {/* SECTION 1: HERO */}
-        <section className="fade-in pt-20 pb-16 text-center">
+        <section className="fade-in pt-16 pb-12 text-center">
           <h1 className="hero-glow mx-auto max-w-4xl text-4xl font-black italic leading-[1.05] text-white sm:text-5xl lg:text-6xl">
-            Your Steam page might be costing you wishlists.
+            Your Steam page is probably costing you wishlists.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-            Fix what players don&apos;t understand, improve your tags, and see how many copies you actually need to break even before you launch.
+            Fix what players don&apos;t understand, improve your tags, and see how many copies you need to break even before launch.
           </p>
 
           <form
@@ -199,7 +199,7 @@ export default function LandingPage() {
                 {isLoadingPreview ? "Checking..." : "Check My Steam Page"}
               </button>
             </div>
-            <p className="mt-3 text-center text-xs text-slate-500">Instant preview. No signup required.</p>
+            <p className="mt-3 text-center text-xs text-slate-400">Takes less than 30 seconds. No signup required.</p>
           </form>
         </section>
 
@@ -283,11 +283,12 @@ export default function LandingPage() {
         )}
 
         {/* SECTION 2: PROBLEM */}
-        <section className="fade-in py-20 border-t border-slate-800/60">
+        <section className="fade-in py-12 border-t border-slate-800/60">
           <div className="max-w-2xl">
             <h2 className="text-3xl font-black leading-tight text-white md:text-4xl">
               If your page doesn&apos;t click, your game won&apos;t either.
             </h2>
+            <p className="mt-4 text-lg font-semibold leading-7 text-blue-300">If players don&apos;t understand your page in seconds, they leave.</p>
             <ul className="mt-8 space-y-4">
               {[
                 "Players don't understand your game in seconds",
@@ -300,30 +301,30 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
-            <p className="mt-8 text-slate-500 italic">You don&apos;t notice this anymore. New players do.</p>
           </div>
         </section>
 
         {/* SECTION 3: WHAT YOU GET */}
-        <section className="fade-in py-20 border-t border-slate-800/60">
-          <h2 className="mb-10 text-3xl font-black text-white md:text-4xl">
+        <section className="fade-in py-12 border-t border-slate-800/60">
+          <h2 className="mb-6 text-3xl font-black text-white md:text-4xl">
             Three things that matter before launch
           </h2>
+          <p className="mb-8 text-base font-semibold text-blue-300">Know how many copies you need to break even.</p>
           <div className="grid gap-5 md:grid-cols-3">
             {[
               {
                 title: "Fix your Steam page",
-                body: "See what's unclear and what needs to change.",
+                body: "Find what is unclear and fix it fast.",
                 accent: "border-slate-800",
               },
               {
                 title: "Get better tags",
-                body: "Based on how your game actually reads.",
+                body: "Get tags that match how your game reads.",
                 accent: "border-slate-800",
               },
               {
                 title: "Know your numbers",
-                body: "Estimate how many copies you need to break even.",
+                body: "Estimate break-even before you launch.",
                 accent: "border-blue-600/40 bg-blue-600/5",
               },
             ].map((card) => (
@@ -339,8 +340,8 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 4: SAMPLE OUTPUT */}
-        <section id="product-preview" className="fade-in py-20 border-t border-slate-800/60">
-          <div className="mb-10">
+        <section id="product-preview" className="fade-in py-12 border-t border-slate-800/60">
+          <div className="mb-8">
             <h2 className="text-3xl font-black text-white md:text-4xl">See what you&apos;ll actually get</h2>
             <div className="mt-4 flex flex-wrap gap-4 text-slate-400 text-sm">
               {["What's working", "What's confusing", "What to fix first"].map((item) => (
@@ -421,10 +422,11 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 5: PRICING */}
-        <section className="fade-in py-20 border-t border-slate-800/60">
-          <div className="mb-10">
-            <h2 className="text-3xl font-black text-white md:text-4xl">Start free. Buy credits when you need deeper answers.</h2>
+        <section className="fade-in py-12 border-t border-slate-800/60">
+          <div className="mb-8">
+            <h2 className="text-3xl font-black text-white md:text-4xl">Start free. Pay only when you want the full breakdown.</h2>
             <p className="mt-3 max-w-2xl text-slate-400">Try the preview first. Unlock full launch feedback only when you need it.</p>
+            <p className="mt-4 text-sm font-semibold text-blue-300">Most users spend ~7 credits for a full launch check.</p>
           </div>
           <div className="grid gap-5 lg:grid-cols-3">
             {pricingPlans.map((plan) => (
@@ -466,7 +468,7 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 6: FAQ */}
-        <section className="fade-in py-20 border-t border-slate-800/60">
+        <section className="fade-in py-12 border-t border-slate-800/60">
           <h2 className="mb-8 text-3xl font-black text-white md:text-4xl">Common questions</h2>
           <div className="space-y-4 max-w-3xl">
             {faqs.map((faq) => (
@@ -479,7 +481,7 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 7: FINAL CTA */}
-        <section className="fade-in py-16">
+        <section className="fade-in py-12">
           <div className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.22),rgba(15,23,42,0.92))] p-10 text-center shadow-2xl">
             <h2 className="mx-auto max-w-2xl text-3xl font-black text-white sm:text-4xl">
               Fix what&apos;s costing you wishlists before you launch.
