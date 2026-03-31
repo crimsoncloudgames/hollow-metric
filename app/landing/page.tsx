@@ -20,30 +20,30 @@ const pricingPlans = [
     name: "Free Preview",
     price: "$0",
     featured: false,
-    items: ["1 surfaced problem", "1 tag direction hint", "limited preview", "no credit card required"],
+    items: ["1 surfaced problem", "1 tag direction hint", "Limited preview", "No credit card required"],
   },
   {
     name: "10 Credits",
     price: "$24",
     featured: true,
-    items: ["use credits anytime", "full audit: 5 credits", "tag generator: 2 credits", "break-even analysis: 2 credits", "launch pack: 7 credits"],
+    items: ["Use credits anytime", "Full audit: 5 credits", "Tag generator: 2 credits", "Break-even analysis: 2 credits", "Launch pack: 7 credits"],
   },
   {
     name: "25 Credits",
     price: "$49",
     featured: false,
-    items: ["lower cost per use", "ideal for multiple revisions", "best for active launches"],
+    items: ["Lower cost per use", "Ideal for multiple revisions", "Best for active launches"],
   },
 ];
 
 const faqs = [
   {
     question: "What does this analyze?",
-    answer: "Your Steam page, tags, and basic revenue assumptions.",
+    answer: "Your Steam page, tags, and basic revenue estimates.",
   },
   {
     question: "Do I need an account?",
-    answer: "No for the preview. Yes for full results.",
+    answer: "No for the preview. Yes for the full results.",
   },
   {
     question: "Is this exact financial advice?",
@@ -139,19 +139,16 @@ export default function LandingPage() {
 
         {/* NAV */}
         <header className="sticky top-0 z-30 mt-4 flex items-center justify-between rounded-full border border-slate-800/80 bg-slate-950/70 px-4 py-3 backdrop-blur-xl sm:px-6">
-          <Link href="/landing" className="flex items-center gap-3">
+          <Link href="/landing" className="relative inline-flex">
             <Image
-              src="/HM Logo Icon.webp"
-              alt="Hollow Metric logo"
-              width={44}
-              height={44}
-              className="h-11 w-11 rounded-xl object-cover"
+              src="/HM logo icon with text webP.webp"
+              alt="Hollow Metric"
+              width={300}
+              height={70}
+              className="h-14 w-auto"
               priority
             />
-            <div>
-              <span className="text-2xl font-black italic tracking-tight text-blue-500">Hollow Metric</span>
-              <p className="text-[10px] font-medium leading-none text-slate-500 mt-0.5">A tool by Crimson Cloud Games</p>
-            </div>
+            <p className="absolute bottom-0.5 left-16 text-[10px] font-medium leading-none text-slate-500">A tool by Crimson Cloud Games</p>
           </Link>
           <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
             <Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link>
@@ -170,12 +167,12 @@ export default function LandingPage() {
         </header>
 
         {/* SECTION 1: HERO */}
-        <section className="fade-in pt-16 pb-12 text-center">
+        <section className="fade-in pt-14 pb-10 text-center">
           <h1 className="hero-glow mx-auto max-w-4xl text-4xl font-black italic leading-[1.05] text-white sm:text-5xl lg:text-6xl">
-            Your Steam page is probably costing you wishlists.
+            Your Steam page is costing you wishlists.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-            Fix what players don&apos;t understand, improve your tags, and see how many copies you need to break even before launch.
+            Fix what players don&apos;t understand, improve your tags, and see how many copies you need to sell to break even before launch.
           </p>
 
           <form
@@ -196,10 +193,10 @@ export default function LandingPage() {
                 disabled={isLoadingPreview || !input.trim()}
                 className="h-14 rounded-2xl bg-blue-600 px-7 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isLoadingPreview ? "Checking..." : "Check My Steam Page"}
+                {isLoadingPreview ? "Checking..." : "Analyze My Steam Page"}
               </button>
             </div>
-            <p className="mt-3 text-center text-xs text-slate-400">Takes less than 30 seconds. No signup required.</p>
+            <p className="mt-3 text-center text-xs text-slate-400">Takes less than 30 seconds. No signup required. See what players notice first.</p>
           </form>
         </section>
 
@@ -283,7 +280,7 @@ export default function LandingPage() {
         )}
 
         {/* SECTION 2: PROBLEM */}
-        <section className="fade-in py-12 border-t border-slate-800/60">
+        <section className="fade-in py-10 border-t border-slate-800/60">
           <div className="max-w-2xl">
             <h2 className="text-3xl font-black leading-tight text-white md:text-4xl">
               If your page doesn&apos;t click, your game won&apos;t either.
@@ -292,7 +289,7 @@ export default function LandingPage() {
             <ul className="mt-8 space-y-4">
               {[
                 "Players don't understand your game in seconds",
-                "Your tags don't match how your game actually looks",
+                "Your tags don't match how your game comes across to players",
                 "You're guessing your pricing and break-even",
               ].map((point) => (
                 <li key={point} className="flex items-start gap-3 text-slate-300 text-lg leading-7">
@@ -305,7 +302,7 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 3: WHAT YOU GET */}
-        <section className="fade-in py-12 border-t border-slate-800/60">
+        <section className="fade-in py-10 border-t border-slate-800/60">
           <h2 className="mb-6 text-3xl font-black text-white md:text-4xl">
             Three things that matter before launch
           </h2>
@@ -319,12 +316,12 @@ export default function LandingPage() {
               },
               {
                 title: "Get better tags",
-                body: "Get tags that match how your game reads.",
+                body: "Get tags that match how your game comes across to players.",
                 accent: "border-slate-800",
               },
               {
                 title: "Know your numbers",
-                body: "Estimate break-even before you launch.",
+                body: "Estimate when you break even before launch.",
                 accent: "border-blue-600/40 bg-blue-600/5",
               },
             ].map((card) => (
@@ -340,9 +337,9 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 4: SAMPLE OUTPUT */}
-        <section id="product-preview" className="fade-in py-12 border-t border-slate-800/60">
+        <section id="product-preview" className="fade-in py-10 border-t border-slate-800/60">
           <div className="mb-8">
-            <h2 className="text-3xl font-black text-white md:text-4xl">See what you&apos;ll actually get</h2>
+            <h2 className="text-3xl font-black text-white md:text-4xl">See what you&apos;ll get</h2>
             <div className="mt-4 flex flex-wrap gap-4 text-slate-400 text-sm">
               {["What's working", "What's confusing", "What to fix first"].map((item) => (
                 <span key={item} className="flex items-center gap-2">
@@ -414,7 +411,7 @@ export default function LandingPage() {
                   href="#top"
                   className="inline-block rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
                 >
-                  Check My Steam Page
+                  Analyze My Steam Page
                 </Link>
               </div>
             </div>
@@ -422,7 +419,7 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 5: PRICING */}
-        <section className="fade-in py-12 border-t border-slate-800/60">
+        <section className="fade-in py-10 border-t border-slate-800/60">
           <div className="mb-8">
             <h2 className="text-3xl font-black text-white md:text-4xl">Start free. Pay only when you want the full breakdown.</h2>
             <p className="mt-3 max-w-2xl text-slate-400">Try the preview first. Unlock full launch feedback only when you need it.</p>
@@ -468,7 +465,7 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 6: FAQ */}
-        <section className="fade-in py-12 border-t border-slate-800/60">
+        <section className="fade-in py-10 border-t border-slate-800/60">
           <h2 className="mb-8 text-3xl font-black text-white md:text-4xl">Common questions</h2>
           <div className="space-y-4 max-w-3xl">
             {faqs.map((faq) => (
@@ -481,7 +478,7 @@ export default function LandingPage() {
         </section>
 
         {/* SECTION 7: FINAL CTA */}
-        <section className="fade-in py-12">
+        <section className="fade-in py-10">
           <div className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.22),rgba(15,23,42,0.92))] p-10 text-center shadow-2xl">
             <h2 className="mx-auto max-w-2xl text-3xl font-black text-white sm:text-4xl">
               Fix what&apos;s costing you wishlists before you launch.
@@ -503,12 +500,17 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* PRE-FOOTER TAGLINE */}
+        <p className="fade-in pb-6 pt-0 mt-0 text-center text-xs text-slate-500">A tool for indie developers by an indie developer.</p>
+
         {/* FOOTER */}
         <footer className="fade-in border-t border-slate-800 py-10 text-sm text-slate-400">
           <div className="grid gap-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
             <div>
-              <p className="text-2xl font-black italic text-blue-500">Hollow Metric</p>
-              <p className="mt-1 text-[11px] text-slate-500">A tool by Crimson Cloud Games</p>
+              <div className="relative inline-flex">
+                <Image src="/HM logo icon with text webP.webp" alt="Hollow Metric" width={300} height={70} className="h-14 w-auto" />
+                <p className="absolute bottom-0.5 left-16 text-[10px] font-medium leading-none text-slate-500">A tool by Crimson Cloud Games</p>
+              </div>
               <p className="mt-3 max-w-md leading-7">
                 Steam page audit, tag improvement, and break-even estimation for indie developers before launch.
               </p>
