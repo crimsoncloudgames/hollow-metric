@@ -7,6 +7,7 @@ export const COOKIE_NAMES = {
   usage: "hm_analysis_usage",
   recentAppIds: "hm_recent_app_ids",
   analysisPrefs: "hm_analysis_prefs",
+  landingAccess: "hm_landing_access",
 } as const;
 
 export type CookieConsent = {

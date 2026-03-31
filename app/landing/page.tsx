@@ -93,7 +93,15 @@ function getBlurredPreviewSegments(text: string) {
   };
 }
 
+const LANDING_UNLOCK_USERNAME = "JeanPierresewebsitetool";
+const LANDING_UNLOCK_PASSWORD = "9406155081086";
+const LANDING_ACCESS_TOKEN = "granted_v2";
+
 export default function LandingPage() {
+  const [gateUsername, setGateUsername] = useState("");
+  const [gatePassword, setGatePassword] = useState("");
+  const [gateError, setGateError] = useState<string | null>(null);
+  const [isLandingUnlocked, setIsLandingUnlocked] = useState(false);
   const [input, setInput] = useState("");
   const [submittedInput, setSubmittedInput] = useState("");
   const [preview, setPreview] = useState<TeaserAuditResult | null>(null);
@@ -117,6 +125,11 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
+    const landingAccessCookie = getCookieValue(COOKIE_NAMES.landingAccess);
+    if (landingAccessCookie === LANDING_ACCESS_TOKEN) {
+      setIsLandingUnlocked(true);
+    }
+
     const blurCookie = getCookieValue(COOKIE_NAMES.blurState);
     if (blurCookie === "unlocked") {
       setIsBlurLocked(false);
@@ -135,6 +148,19 @@ export default function LandingPage() {
     }
   }, []);
 
+  const handleUnlockLanding = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (gateUsername === LANDING_UNLOCK_USERNAME && gatePassword === LANDING_UNLOCK_PASSWORD) {
+      setCookieValue(COOKIE_NAMES.landingAccess, LANDING_ACCESS_TOKEN, 60 * 60 * 24);
+      setGateError(null);
+      setIsLandingUnlocked(true);
+      return;
+    }
+
+    setGateError("Incorrect username or password.");
+  };
+
   const previewTag = preview?.suggestedTags?.[0] ?? "Discoverability";
   const previewFeedback =
     preview?.storeAudit?.shortDesc?.feedback ??
@@ -144,6 +170,51 @@ export default function LandingPage() {
   const signupPreviewHref = buildAuthHref("/signup", submittedInput || input.trim());
   const loginPreviewHref = buildAuthHref("/login", submittedInput || input.trim());
   const isFreePreviewLimitReached = previewErrorCode === "FREE_PREVIEW_LIMIT_REACHED";
+
+  if (!isLandingUnlocked) {
+    return (
+      <main className="min-h-screen bg-white px-6 py-16 text-black">
+        <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-bold">This site is under construction.</h1>
+          <p className="mt-3 text-sm text-slate-700">
+            Temporary access is restricted. Enter the username and password to preview the landing page.
+          </p>
+
+          <form onSubmit={handleUnlockLanding} className="mt-6 space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">Username</label>
+              <input
+                type="text"
+                value={gateUsername}
+                onChange={(e) => setGateUsername(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                autoComplete="username"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">Password</label>
+              <input
+                type="password"
+                value={gatePassword}
+                onChange={(e) => setGatePassword(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                autoComplete="current-password"
+              />
+            </div>
+
+            {gateError && <p className="text-sm text-red-600">{gateError}</p>}
+
+            <button
+              type="submit"
+              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-500"
+            >
+              Unlock Landing Page
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
 
   const handlePreview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
