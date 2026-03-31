@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { createClient } from "@/utils/supabase/client";
+import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
 type ReportRow = {
   id: string;
@@ -45,6 +45,14 @@ export default function ReportDetailPage() {
     const loadReport = async () => {
       setIsLoading(true);
       setError(null);
+
+      if (!supabase) {
+        if (!mounted) return;
+        setError(missingSupabaseClientEnvMessage);
+        setReport(null);
+        setIsLoading(false);
+        return;
+      }
 
       const { data, error: queryError } = await supabase
         .from("reports")

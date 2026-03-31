@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 import {
   Rocket,
   FolderOpen,
@@ -109,6 +109,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={async () => {
               const supabase = createClient();
+              if (!supabase) {
+                console.error(missingSupabaseClientEnvMessage);
+                return;
+              }
+
               await supabase.auth.signOut();
               router.push("/login");
             }}

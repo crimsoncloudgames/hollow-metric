@@ -2,7 +2,7 @@
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
 const loadingPhases = [
   "Fetching Steam Data...",
@@ -52,6 +52,12 @@ function NewAuditPageInner() {
     setError(null);
     setIsLoading(true);
     setPhaseIndex(0);
+
+    if (!supabase) {
+      setError(missingSupabaseClientEnvMessage);
+      setIsLoading(false);
+      return;
+    }
 
     const phaseTimer = setInterval(() => {
       setPhaseIndex((prev) => Math.min(prev + 1, loadingPhases.length - 1));

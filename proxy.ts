@@ -9,7 +9,7 @@ function getSafeRedirectPath(candidate: string | null) {
   return candidate;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { supabase, supabaseResponse } = createClient(request);
   const pathname = request.nextUrl.pathname;
   const isDashboardRoute = pathname.startsWith("/dashboard");

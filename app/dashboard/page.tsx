@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
 type ReportRow = {
   id: string;
@@ -20,7 +20,6 @@ function formatDate(value: string) {
 }
 
 export default function DashboardLibraryPage() {
-  const supabase = createClient();
   const [audits, setAudits] = useState<ReportRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +30,15 @@ export default function DashboardLibraryPage() {
     const loadReports = async () => {
       setIsLoading(true);
       setError(null);
+
+      const supabase = createClient();
+      if (!supabase) {
+        if (!mounted) return;
+        setError(missingSupabaseClientEnvMessage);
+        setAudits([]);
+        setIsLoading(false);
+        return;
+      }
 
       const { data, error: queryError } = await supabase
         .from("reports")

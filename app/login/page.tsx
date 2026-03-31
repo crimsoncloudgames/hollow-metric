@@ -2,7 +2,7 @@
 import { FormEvent, Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
 const getSafeRedirectPath = (candidate: string | null) => {
   if (!candidate || !candidate.startsWith("/") || candidate.startsWith("//")) {
@@ -28,6 +28,12 @@ function LoginPage() {
     setError(null);
     setLoading(true);
 
+    if (!supabase) {
+      setError(missingSupabaseClientEnvMessage);
+      setLoading(false);
+      return;
+    }
+
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -47,6 +53,12 @@ function LoginPage() {
   const handleGithubSignIn = async () => {
     setError(null);
     setLoading(true);
+
+    if (!supabase) {
+      setError(missingSupabaseClientEnvMessage);
+      setLoading(false);
+      return;
+    }
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "github",
