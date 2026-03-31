@@ -11,6 +11,11 @@ function getSafeRedirectPath(candidate: string | null) {
 
 export async function proxy(request: NextRequest) {
   const { supabase, supabaseResponse } = createClient(request);
+
+  if (!supabase) {
+    return supabaseResponse;
+  }
+
   const pathname = request.nextUrl.pathname;
   const isDashboardRoute = pathname.startsWith("/dashboard");
   const isAuthRoute = pathname === "/login" || pathname === "/signup";

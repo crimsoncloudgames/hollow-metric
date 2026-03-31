@@ -13,7 +13,6 @@ const getSafeRedirectPath = (candidate: string | null) => {
 };
 
 function SignUpPageInner() {
-  const supabase = createClient();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -30,6 +29,7 @@ function SignUpPageInner() {
     setSuccess(null);
     setLoading(true);
 
+    const supabase = createClient();
     if (!supabase) {
       setError(missingSupabaseClientEnvMessage);
       setLoading(false);
@@ -62,6 +62,7 @@ function SignUpPageInner() {
     setSuccess(null);
     setLoading(true);
 
+    const supabase = createClient();
     if (!supabase) {
       setError(missingSupabaseClientEnvMessage);
       setLoading(false);

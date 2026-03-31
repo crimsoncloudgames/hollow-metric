@@ -13,7 +13,6 @@ const getSafeRedirectPath = (candidate: string | null) => {
 };
 
 function LoginPage() {
-  const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -28,6 +27,7 @@ function LoginPage() {
     setError(null);
     setLoading(true);
 
+    const supabase = createClient();
     if (!supabase) {
       setError(missingSupabaseClientEnvMessage);
       setLoading(false);
@@ -54,6 +54,7 @@ function LoginPage() {
     setError(null);
     setLoading(true);
 
+    const supabase = createClient();
     if (!supabase) {
       setError(missingSupabaseClientEnvMessage);
       setLoading(false);

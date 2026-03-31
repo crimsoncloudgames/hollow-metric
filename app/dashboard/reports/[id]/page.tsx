@@ -29,7 +29,6 @@ function formatDate(value: string) {
 }
 
 export default function ReportDetailPage() {
-  const supabase = createClient();
   const params = useParams<{ id: string }>();
   const reportId = params?.id;
 
@@ -46,6 +45,7 @@ export default function ReportDetailPage() {
       setIsLoading(true);
       setError(null);
 
+      const supabase = createClient();
       if (!supabase) {
         if (!mounted) return;
         setError(missingSupabaseClientEnvMessage);

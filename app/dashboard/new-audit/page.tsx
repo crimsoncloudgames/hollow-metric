@@ -28,7 +28,6 @@ function getVaporScore(result: any): number {
 }
 
 function NewAuditPageInner() {
-  const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefilledInput = searchParams.get("input") ?? "";
@@ -53,6 +52,7 @@ function NewAuditPageInner() {
     setIsLoading(true);
     setPhaseIndex(0);
 
+    const supabase = createClient();
     if (!supabase) {
       setError(missingSupabaseClientEnvMessage);
       setIsLoading(false);
