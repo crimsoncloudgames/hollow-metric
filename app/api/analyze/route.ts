@@ -41,6 +41,7 @@ function appendTrackingCookies(
     requestCookieMap: Record<string, string>,
     payload: CookieAnalysisPayload
 ) {
+    const useSecureCookies = process.env.NODE_ENV === 'production';
     const consent = readConsentFromCookieMap(requestCookieMap);
     const canStoreOptional = consent.functional || consent.personalization;
 
@@ -48,7 +49,7 @@ function appendTrackingCookies(
         maxAge: 60 * 60 * 24,
         path: '/',
         sameSite: 'lax',
-        secure: true,
+        secure: useSecureCookies,
     });
 
     if (payload.previewMode && payload.appId) {
@@ -58,7 +59,7 @@ function appendTrackingCookies(
             maxAge: 60 * 60 * 24,
             path: '/',
             sameSite: 'lax',
-            secure: true,
+            secure: useSecureCookies,
         });
     }
 
@@ -76,7 +77,7 @@ function appendTrackingCookies(
             maxAge: 60 * 60 * 24 * 7,
             path: '/',
             sameSite: 'lax',
-            secure: true,
+            secure: useSecureCookies,
         });
     }
 
@@ -94,7 +95,7 @@ function appendTrackingCookies(
                 maxAge: 60 * 60 * 24,
                 path: '/',
                 sameSite: 'lax',
-                secure: true,
+                secure: useSecureCookies,
             }
         );
     }
@@ -117,7 +118,7 @@ function appendTrackingCookies(
             maxAge: 60 * 60 * 24 * 7,
             path: '/',
             sameSite: 'lax',
-            secure: true,
+            secure: useSecureCookies,
         }
     );
 

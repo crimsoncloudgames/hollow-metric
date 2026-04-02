@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { COOKIE_NAMES, DEFAULT_CONSENT, encodeConsentCookie, readConsentFromCookieMap } from "@/lib/cookie-consent";
 import { getCookieValue, setCookieValue } from "@/lib/client-cookies";
 
 const CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
+const CONSENT_DISMISSED_KEY = "hm_cookie_banner_dismissed";
 
 function getConsentCookieMap(): Record<string, string> {
   const consentValue = getCookieValue(COOKIE_NAMES.consent);
@@ -14,35 +15,69 @@ function getConsentCookieMap(): Record<string, string> {
 }
 
 export default function CookieConsentBanner() {
-  const isLocalhost = typeof window !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-  const [isOpen, setIsOpen] = useState(() => !getCookieValue(COOKIE_NAMES.consent));
+  const [isOpen, setIsOpen] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [functional, setFunctional] = useState(false);
   const [analytics, setAnalytics] = useState(false);
   const [personalization, setPersonalization] = useState(false);
 
+  useEffect(() => {
+    let hasDismissedFallback = false;
+
+    if (typeof window !== "undefined") {
+      try {
+        hasDismissedFallback = window.localStorage.getItem(CONSENT_DISMISSED_KEY) === "1";
+      } catch {
+        hasDismissedFallback = false;
+      }
+    }
+
+    const hasConsentCookie = Boolean(getCookieValue(COOKIE_NAMES.consent));
+    setIsOpen(!(hasConsentCookie || hasDismissedFallback));
+    setIsReady(true);
+  }, []);
+
   const existingConsent = useMemo(() => {
     return readConsentFromCookieMap(getConsentCookieMap());
   }, []);
 
-  if (!isOpen || isLocalhost) return null;
+  if (!isReady || !isOpen) return null;
 
-  const saveConsent = (next: { functional: boolean; analytics: boolean; personalization: boolean }) => {
-    setCookieValue(
-      COOKIE_NAMES.consent,
-      encodeConsentCookie({
-        functional: next.functional,
-        analytics: next.analytics,
-        personalization: next.personalization,
-        version: existingConsent.version || DEFAULT_CONSENT.version,
-      }),
-      CONSENT_MAX_AGE_SECONDS
-    );
+  const closeBanner = () => {
+    setIsCustomizing(false);
     setIsOpen(false);
   };
 
+  const saveConsent = (next: { functional: boolean; analytics: boolean; personalization: boolean }) => {
+    try {
+      setCookieValue(
+        COOKIE_NAMES.consent,
+        encodeConsentCookie({
+          functional: next.functional,
+          analytics: next.analytics,
+          personalization: next.personalization,
+          version: existingConsent.version || DEFAULT_CONSENT.version,
+        }),
+        CONSENT_MAX_AGE_SECONDS
+      );
+    } finally {
+      if (typeof window !== "undefined") {
+        try {
+          // Fallback so banner can still be dismissed if cookie write is blocked by browser settings.
+          window.localStorage.setItem(CONSENT_DISMISSED_KEY, "1");
+        } catch {
+          // Ignore storage failures (e.g. restricted browser contexts).
+        }
+      }
+
+      // Always close the banner even if persistence is blocked.
+      closeBanner();
+    }
+  };
+
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[100] mx-auto max-w-4xl rounded-3xl border border-slate-700 bg-slate-950/95 p-4 text-slate-200 shadow-2xl backdrop-blur-xl sm:p-5">
+    <div className="pointer-events-auto fixed bottom-4 left-4 right-4 z-[1000] mx-auto max-w-4xl rounded-3xl border border-slate-700 bg-slate-950/95 p-4 text-slate-200 shadow-2xl backdrop-blur-xl sm:p-5">
       <p className="text-sm font-semibold text-white">Cookie Preferences</p>
       <p className="mt-2 text-xs leading-6 text-slate-400 sm:text-sm">
         We use essential cookies to run the tool, plus optional cookies for analytics, preferences, and personalized experience.

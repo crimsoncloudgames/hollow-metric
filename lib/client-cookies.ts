@@ -1,7 +1,14 @@
 export function getCookieValue(name: string): string | null {
   if (typeof document === "undefined") return null;
 
-  const cookiePairs = document.cookie.split(";").map((part) => part.trim());
+  let cookieRaw = "";
+  try {
+    cookieRaw = document.cookie;
+  } catch {
+    return null;
+  }
+
+  const cookiePairs = cookieRaw.split(";").map((part) => part.trim());
   for (const pair of cookiePairs) {
     if (!pair) continue;
     const splitIndex = pair.indexOf("=");
@@ -22,5 +29,8 @@ export function getCookieValue(name: string): string | null {
 
 export function setCookieValue(name: string, value: string, maxAgeSeconds: number) {
   if (typeof document === "undefined") return;
-  document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAgeSeconds}; Path=/; SameSite=Lax; Secure`;
+  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  const useSecure = window.location.protocol === "https:" && !isLocalhost;
+  const securePart = useSecure ? "; Secure" : "";
+  document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAgeSeconds}; Path=/; SameSite=Lax${securePart}`;
 }

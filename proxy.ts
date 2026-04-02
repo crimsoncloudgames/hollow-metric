@@ -12,6 +12,7 @@ function getSafeRedirectPath(candidate: string | null) {
 
 export async function proxy(request: NextRequest) {
   const { supabase, supabaseResponse } = createClient(request);
+  const secureCookies = request.nextUrl.protocol === "https:" || process.env.NODE_ENV === "production";
 
   if (!supabase) {
     return supabaseResponse;
@@ -40,7 +41,7 @@ export async function proxy(request: NextRequest) {
     maxAge: 60 * 60 * 24 * 7,
     path: "/",
     sameSite: "lax",
-    secure: true,
+    secure: secureCookies,
   });
 
   return supabaseResponse;

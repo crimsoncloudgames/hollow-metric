@@ -1,11 +1,901 @@
-export default function BudgeterPage() {
+"use client";
+
+import { useState, useMemo } from "react";
+import { AlertCircle, Zap, X, Plus } from "lucide-react";
+
+// Formatting helpers
+const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+const formatCurrencyWithDecimals = (value: number): string => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
+// Calculation helpers
+const calculateNetRevenuePerCopy = (
+  pricePerCopy: number,
+  withholding: number,
+  refundRate: number
+): number => {
+  const afterSteamFee = pricePerCopy * (1 - 0.3);
+  const afterWithholding = afterSteamFee * (1 - withholding / 100);
+  const afterRefunds = afterWithholding * (1 - refundRate / 100);
+  return afterRefunds;
+};
+
+const calculateBreakEven = (
+  totalCost: number,
+  netRevenuePerCopy: number
+): number | null => {
+  if (netRevenuePerCopy <= 0) return null;
+  return Math.ceil(totalCost / netRevenuePerCopy);
+};
+
+interface ExpenseRow {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+interface PlanningReview {
+  healthScore: number;
+  targetPressure: "Lighter" | "Moderate" | "Heavy" | "Very Heavy";
+  costSignal: "Balanced" | "Needs Review" | "Aggressive" | "Uneven";
+  insights: string[];
+}
+
+type SubscriptionTier = "starter" | "launch-planner" | "studio";
+
+const generatePlanningReview = (
+  totalCost: number,
+  expenses: ExpenseRow[],
+  pricePoints: number[],
+  breakEvenResults: (number | null)[],
+  refundRate: number,
+  netRevenuesPerCopy: number[]
+): PlanningReview => {
+  const insights: string[] = [];
+  let healthScore = 70;
+
+  // Filter valid break-even results
+  const validResults = breakEvenResults.filter((be) => be !== null) as number[];
+  const avgBreakEven =
+    validResults.length > 0
+      ? validResults.reduce((a, b) => a + b, 0) / validResults.length
+      : null;
+
+  // 1. Analyze sales target pressure
+  let targetPressure: "Lighter" | "Moderate" | "Heavy" | "Very Heavy" =
+    "Moderate";
+  if (!avgBreakEven) {
+    targetPressure = "Very Heavy";
+  } else if (avgBreakEven > 50000) {
+    targetPressure = "Very Heavy";
+    healthScore -= 20;
+  } else if (avgBreakEven > 15000) {
+    targetPressure = "Heavy";
+    healthScore -= 10;
+  } else if (avgBreakEven <= 3000) {
+    targetPressure = "Lighter";
+    healthScore += 10;
+  }
+
+  // 2. Analyze cost structure signal
+  let costSignal: "Balanced" | "Needs Review" | "Aggressive" | "Uneven" =
+    "Balanced";
+  if (expenses.length > 2) {
+    const sortedExpenses = [...expenses].sort((a, b) => b.amount - a.amount);
+    const largestCategory = sortedExpenses[0]?.amount || 0;
+    const secondLargest = sortedExpenses[1]?.amount || 0;
+
+    if (largestCategory > totalCost * 0.6) {
+      costSignal = "Aggressive";
+      healthScore -= 15;
+    } else if (largestCategory > totalCost * 0.5) {
+      costSignal = "Uneven";
+      healthScore -= 8;
+    } else if (
+      secondLargest > 0 &&
+      largestCategory + secondLargest > totalCost * 0.75
+    ) {
+      costSignal = "Needs Review";
+      healthScore -= 5;
+    }
+  }
+
+  // 3. Check net revenue efficiency
+  const avgNetRevenue =
+    netRevenuesPerCopy.length > 0
+      ? netRevenuesPerCopy
+          .filter((x) => x > 0)
+          .reduce((a, b) => a + b, 0) / netRevenuesPerCopy.filter((x) => x > 0)
+          .length
+      : 0;
+
+  if (avgNetRevenue <= 0) {
+    healthScore = 20;
+    insights.push(
+      "Net revenue per copy is zero or negative. Pricing or tax assumptions need adjustment."
+    );
+  } else if (avgNetRevenue < 3) {
+    healthScore -= 10;
+    insights.push("Net revenue per copy is low. Consider higher price points or lower costs.");
+  } else if (avgNetRevenue > 10) {
+    healthScore += 5;
+    insights.push("Solid net revenue per copy. Good margin across price points.");
+  }
+
+  // 4. Pressure test observations
+  if (avgBreakEven && avgBreakEven > 30000) {
+    insights.push("Your current sales target is very high relative to total planned spend.");
+  } else if (avgBreakEven && avgBreakEven > 10000) {
+    insights.push("Your current sales target is substantial relative to total planned spend.");
+  }
+
+  // 5. Price point analysis
+  if (pricePoints.length >= 2) {
+    const sortedByPrice = [...breakEvenResults]
+      .map((be, idx) => ({ price: pricePoints[idx], be }))
+      .filter((x) => x.be !== null)
+      .sort((a, b) => (a.price as number) - (b.price as number));
+
+    if (sortedByPrice.length >= 2) {
+      const lowPrice = sortedByPrice[0];
+      const highPrice = sortedByPrice[sortedByPrice.length - 1];
+      if (lowPrice.be !== null && highPrice.be !== null) {
+        const reduction = ((1 - highPrice.be / lowPrice.be) * 100).toFixed(0);
+        if (parseInt(reduction) > 25) {
+          insights.push(
+            `A higher price point materially reduces your break-even target (roughly ${reduction}% improvement).`
+          );
+        }
+      }
+    }
+  }
+
+  // 6. Refund/chargeback observation
+  if (refundRate > 12) {
+    insights.push(
+      "Your refund and chargeback assumption is conservative. Validate against your project type."
+    );
+  } else if (refundRate < 3) {
+    insights.push(
+      "Your refund and chargeback assumption is aggressive. Industry rates vary widely."
+    );
+  }
+
+  // Ensure score is in valid range
+  healthScore = Math.max(20, Math.min(95, healthScore));
+
+  return {
+    healthScore: Math.round(healthScore),
+    targetPressure,
+    costSignal,
+    insights: insights.slice(0, 5),
+  };
+};
+
+export default function LaunchBudgetPage() {
+  const showDevTierSelector = process.env.NODE_ENV !== "production";
+  // TODO(security): Resolve tier from trusted billing state server-side; do not trust client-selected tier in production.
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
+  const isPaidTier = subscriptionTier !== "starter";
+  const activeProjectLimit = subscriptionTier === "studio" ? "multiple" : subscriptionTier === "launch-planner" ? "1" : "0";
+
+  // Expense inputs - customizable list
+  const [expenses, setExpenses] = useState<ExpenseRow[]>([
+    { id: "1", name: "Development", amount: 18000 },
+    { id: "2", name: "Marketing", amount: 4500 },
+    { id: "3", name: "Capsule Art / Key Art", amount: 800 },
+    { id: "4", name: "Trailer", amount: 1500 },
+    { id: "5", name: "QA / Testing", amount: 1200 },
+    { id: "6", name: "Localization", amount: 1000 },
+    { id: "7", name: "Music / Audio", amount: 600 },
+    { id: "8", name: "Contractors / Freelancers", amount: 2500 },
+    { id: "9", name: "Other", amount: 700 },
+  ]);
+
+  const [refundRate, setRefundRate] = useState("8");
+  const [withholding, setWithholding] = useState("30");
+
+  // Price points
+  const [price1, setPrice1] = useState("12.99");
+  const [price2, setPrice2] = useState("16.99");
+  const [price3, setPrice3] = useState("19.99");
+
+  // Post-launch actuals
+  const [actualLaunchPrice, setActualLaunchPrice] = useState("1");
+  const [actualCopiesSold, setActualCopiesSold] = useState("");
+  const [actualRefundRate, setActualRefundRate] = useState("");
+  const [actualGrossRevenue, setActualGrossRevenue] = useState("");
+  const [actualNetRevenue, setActualNetRevenue] = useState("");
+
+  // Add new expense
+  const addExpense = () => {
+    const newId = Math.max(...expenses.map((e) => parseInt(e.id)), 0) + 1;
+    setExpenses([
+      ...expenses,
+      { id: newId.toString(), name: "", amount: 0 },
+    ]);
+  };
+
+  // Update expense
+  const updateExpense = (id: string, field: "name" | "amount", value: string) => {
+    setExpenses(
+      expenses.map((exp) =>
+        exp.id === id
+          ? {
+              ...exp,
+              [field]:
+                field === "amount"
+                  ? parseFloat(value) || 0
+                  : value,
+            }
+          : exp
+      )
+    );
+  };
+
+  // Remove expense
+  const removeExpense = (id: string) => {
+    setExpenses(expenses.filter((exp) => exp.id !== id));
+  };
+
+  // Calculate results
+  const calculations = useMemo(() => {
+    const parseNum = (val: string) => parseFloat(val) || 0;
+
+    const totalCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+    const pricePoints = [parseNum(price1), parseNum(price2), parseNum(price3)];
+    const witholdingRate = parseNum(withholding);
+    const refundRateNum = parseNum(refundRate);
+
+    const netRevenuesPerCopy = pricePoints.map((price) =>
+      calculateNetRevenuePerCopy(price, witholdingRate, refundRateNum)
+    );
+
+    const breakEvenResults = pricePoints.map((price, idx) =>
+      calculateBreakEven(totalCost, netRevenuesPerCopy[idx])
+    );
+
+    const planningReview = generatePlanningReview(
+      totalCost,
+      expenses,
+      pricePoints,
+      breakEvenResults,
+      refundRateNum,
+      netRevenuesPerCopy
+    );
+
+    return {
+      totalCost,
+      pricePoints,
+      netRevenuesPerCopy,
+      breakEvenResults,
+      witholdingRate,
+      refundRateNum,
+      planningReview,
+    };
+  }, [expenses, refundRate, withholding, price1, price2, price3]);
+
+  const activePriceCount = isPaidTier ? 3 : 1;
+  const visiblePricePoints = calculations.pricePoints.slice(0, activePriceCount);
+
+  const postLaunchSummary = useMemo(() => {
+    const launchPriceIdx = Number(actualLaunchPrice) - 1;
+    if (launchPriceIdx < 0 || launchPriceIdx > 2) return null;
+
+    const plannedBreakEven = calculations.breakEvenResults[launchPriceIdx];
+    const plannedNetRevenuePerCopy = calculations.netRevenuesPerCopy[launchPriceIdx];
+    const plannedRefundRate = calculations.refundRateNum;
+
+    const actualCopies = parseFloat(actualCopiesSold);
+    const actualRefunds = parseFloat(actualRefundRate);
+    const grossInput = parseFloat(actualGrossRevenue);
+    const netInput = parseFloat(actualNetRevenue);
+    const launchPrice = calculations.pricePoints[launchPriceIdx];
+
+    const actualGross = Number.isFinite(grossInput) ? grossInput : (Number.isFinite(actualCopies) ? actualCopies * launchPrice : 0);
+    const estimatedActualNet = actualGross * (1 - 0.3) * (1 - (calculations.witholdingRate || 0) / 100) * (1 - (Number.isFinite(actualRefunds) ? actualRefunds : 0) / 100);
+    const resolvedActualNet = Number.isFinite(netInput) ? netInput : estimatedActualNet;
+
+    if (!Number.isFinite(actualCopies) || actualCopies <= 0) {
+      return null;
+    }
+
+    const differenceVsPlan = plannedBreakEven ? actualCopies - plannedBreakEven : null;
+
+    let summary = "Close to plan";
+    if (plannedBreakEven) {
+      if (actualCopies >= plannedBreakEven * 1.15) summary = "Ahead of plan";
+      else if (actualCopies <= plannedBreakEven * 0.85) summary = "Behind plan";
+    }
+
+    const bullets: string[] = [];
+    if (plannedBreakEven) {
+      if (actualCopies < plannedBreakEven) {
+        bullets.push("Actual copies sold came in below the original rough break-even target.");
+      } else {
+        bullets.push("Actual copies sold exceeded the original rough break-even target.");
+      }
+    }
+    if (Number.isFinite(actualRefunds)) {
+      if (actualRefunds > plannedRefundRate) {
+        bullets.push("Actual refunds and chargebacks were higher than planned.");
+      } else if (actualRefunds < plannedRefundRate) {
+        bullets.push("Actual refunds and chargebacks were lower than planned.");
+      }
+    }
+    if (resolvedActualNet < plannedNetRevenuePerCopy * actualCopies) {
+      bullets.push("Actual net revenue landed below the original planning estimate.");
+    } else {
+      bullets.push("Actual net revenue was close to or above the original planning estimate.");
+    }
+    if (summary === "Ahead of plan") {
+      bullets.push("The original plan appears conservative for this launch window.");
+    } else if (summary === "Behind plan") {
+      bullets.push("The original plan appears optimistic versus early actuals.");
+    }
+
+    return {
+      plannedBreakEven,
+      actualCopies,
+      differenceVsPlan,
+      plannedRefundRate,
+      actualRefunds: Number.isFinite(actualRefunds) ? actualRefunds : null,
+      plannedNetRevenuePerCopy,
+      actualNetRevenue: resolvedActualNet,
+      summary,
+      bullets: bullets.slice(0, 4),
+    };
+  }, [
+    actualLaunchPrice,
+    actualCopiesSold,
+    actualRefundRate,
+    actualGrossRevenue,
+    actualNetRevenue,
+    calculations.breakEvenResults,
+    calculations.netRevenuesPerCopy,
+    calculations.pricePoints,
+    calculations.refundRateNum,
+    calculations.witholdingRate,
+  ]);
+
   return (
-    <section className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
-      <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-3">Budgeter</p>
-      <h2 className="text-2xl font-black text-white mb-3">Financial Strategy Module</h2>
-      <p className="text-slate-400 max-w-2xl">
-        This workspace will forecast budget split recommendations for capsule art, trailers, and ad spend.
-      </p>
+    <section className="space-y-8">
+      {/* SECTION 1: SUBSCRIPTION TIER INFO - LIGHTWEIGHT */}
+      <div className="rounded-2xl bg-slate-900/20 border border-slate-900 p-3">
+        <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.08em] mb-2">
+          Project Limits by Plan
+        </p>
+        <div className="mb-4 grid grid-cols-1 gap-2 md:max-w-xs">
+          {showDevTierSelector ? (
+            <>
+              <label htmlFor="tier-placeholder" className="text-[11px] font-semibold text-slate-500">
+                Current plan (dev placeholder)
+              </label>
+              <select
+                id="tier-placeholder"
+                value={subscriptionTier}
+                onChange={(e) => setSubscriptionTier(e.target.value as SubscriptionTier)}
+                className="rounded-xl border border-slate-900 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-600/50 focus:outline-none"
+              >
+                <option value="starter">Starter</option>
+                <option value="launch-planner">Launch Planner</option>
+                <option value="studio">Studio</option>
+              </select>
+            </>
+          ) : (
+            <p className="text-[11px] text-slate-500">Subscription tier will be loaded from billing once connected.</p>
+          )}
+          <p className="text-[11px] text-slate-600">
+            Placeholder enforcement hook: active project limit for this view is {activeProjectLimit}.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+          <div>
+            <p className="font-semibold text-slate-400">Starter</p>
+            <p className="text-slate-600">Explore the calculator</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-400">Launch Planner</p>
+            <p className="text-slate-600">1 active project budget</p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-400">Studio</p>
+            <p className="text-slate-600">Multiple active project budgets</p>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 2: EXPENSE INPUTS - FLEXIBLE */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+        <h2 className="text-2xl font-black text-white mb-6">Launch Cost Inputs</h2>
+
+        <div className="space-y-4 mb-6">
+          {expenses.map((expense) => (
+            <div key={expense.id} className="flex items-end gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-slate-300 mb-2">
+                  Expense Category
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Development"
+                  value={expense.name}
+                  onChange={(e) => updateExpense(expense.id, "name", e.target.value)}
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-slate-300 mb-2">
+                  Cost
+                </label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={expense.amount}
+                  onChange={(e) => updateExpense(expense.id, "amount", e.target.value)}
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+                />
+              </div>
+              <button
+                onClick={() => removeExpense(expense.id)}
+                className="rounded-2xl border border-slate-800 bg-slate-950 hover:bg-red-950/30 hover:border-red-600/30 px-3 py-3 text-slate-400 hover:text-red-400 transition-all"
+                title="Remove expense"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={addExpense}
+          className="flex items-center gap-2 rounded-2xl border border-blue-600/30 bg-blue-600/10 hover:bg-blue-600/15 px-4 py-3 text-sm font-semibold text-blue-300 transition-all mb-6"
+        >
+          <Plus size={16} /> Add Expense
+        </button>
+
+        <div className="rounded-2xl bg-blue-600/10 border border-blue-600/20 p-4">
+          <p className="text-lg font-black text-white">Total Planned Spend</p>
+          <p className="text-4xl font-black text-blue-400 mt-2">
+            {formatCurrency(calculations.totalCost)}
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="refund-rate" className="block text-sm font-semibold text-slate-300 mb-2">
+            Estimated Refunds & Chargebacks (%)
+          </label>
+          <input
+            id="refund-rate"
+            type="number"
+            placeholder="e.g. 8"
+            value={refundRate}
+            onChange={(e) => setRefundRate(e.target.value)}
+            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+          />
+          <p className="text-xs text-slate-500 mt-2">
+            Use your own estimate. Many developers include a refund and chargeback buffer in planning, but real rates vary by game, pricing, region, quality, and launch conditions.
+          </p>
+        </div>
+      </div>
+
+      {/* SECTION 3: PLATFORM + TAX ASSUMPTIONS */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+        <h2 className="text-2xl font-black text-white mb-6">Platform and Tax Assumptions</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="rounded-2xl bg-slate-800/30 p-4 border border-slate-800">
+            <p className="text-sm font-semibold text-slate-400 mb-1">Steam Platform Fee</p>
+            <p className="text-3xl font-black text-white">30%</p>
+          </div>
+
+          <div className="rounded-2xl bg-slate-800/30 p-4 border border-slate-800">
+            <p className="text-sm font-semibold text-slate-400 mb-1">U.S. Withholding Tax (Typical)</p>
+            <p className="text-3xl font-black text-white">30%</p>
+            <p className="text-xs text-slate-500 mt-2">May vary by treaty</p>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <label htmlFor="withholding-rate" className="block text-sm font-semibold text-slate-300 mb-2">
+            Estimated U.S. Withholding Tax Rate (%)
+          </label>
+          <input
+            id="withholding-rate"
+            type="number"
+            placeholder="e.g. 30"
+            value={withholding}
+            onChange={(e) => setWithholding(e.target.value)}
+            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+          />
+        </div>
+
+        <div className="rounded-2xl bg-amber-600/10 border border-amber-600/20 p-4">
+          <p className="text-xs font-black text-amber-200 uppercase tracking-[0.1em] mb-2 flex items-center gap-2">
+            <AlertCircle size={14} /> Planning Estimate Only
+          </p>
+          <p className="text-xs leading-6 text-amber-100/80">
+            This tool is a planning estimate. Final tax treatment varies by treaty status, country, documentation, and income type. Users should verify final calculations with a qualified tax professional.
+          </p>
+        </div>
+      </div>
+
+      {/* SECTION 4: PRICE POINT INPUTS */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+        <h2 className="text-2xl font-black text-white mb-6">Price Point Comparison</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-4">
+          {[
+            {
+              label: "Price Point 1",
+              placeholder: "e.g. 12.99",
+              value: price1,
+              onChange: setPrice1,
+            },
+            {
+              label: "Price Point 2",
+              placeholder: "e.g. 16.99",
+              value: price2,
+              onChange: setPrice2,
+            },
+            {
+              label: "Price Point 3",
+              placeholder: "e.g. 19.99",
+              value: price3,
+              onChange: setPrice3,
+            },
+          ].slice(0, activePriceCount).map((field, idx) => (
+            <div key={idx}>
+              <label htmlFor={`price-${idx}`} className="block text-sm font-semibold text-slate-300 mb-2">
+                {field.label}
+              </label>
+              <input
+                id={`price-${idx}`}
+                type="number"
+                placeholder={field.placeholder}
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+                step="0.01"
+                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+              />
+            </div>
+          ))}
+        </div>
+
+        {!isPaidTier && (
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/40 p-4 mb-4">
+            <p className="text-sm font-semibold text-slate-200">Price Point 2 and 3 are paid features</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Upgrade to compare multiple launch prices side by side.
+            </p>
+          </div>
+        )}
+
+        <p className="text-sm text-slate-400">
+          {isPaidTier
+            ? "Compare up to three launch prices and see how each one changes your rough break-even target."
+            : "Starter includes one launch price with a rough break-even estimate."}
+        </p>
+      </div>
+
+      {/* SECTION 5 & 6: RESULTS AREA */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+        <h2 className="text-2xl font-black text-white mb-6">Break-Even Results</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+          {visiblePricePoints.map((price, idx) => {
+            const netRevenue = calculations.netRevenuesPerCopy[idx];
+            const breakEven = calculations.breakEvenResults[idx];
+
+            return (
+              <div
+                key={idx}
+                className="rounded-2xl border border-blue-600/30 bg-blue-600/10 p-6"
+              >
+                <p className="text-xs uppercase tracking-[0.2em] text-blue-300 font-black mb-3">
+                  Price Point {idx + 1}
+                </p>
+
+                <div className="mb-4">
+                  <p className="text-sm text-slate-400 mb-1">Launch Price</p>
+                  <p className="text-3xl font-black text-white">${price.toFixed(2)}</p>
+                </div>
+
+                <div className="mb-4 pb-4 border-b border-blue-600/20">
+                  <p className="text-sm text-slate-400 mb-1">Estimated Net Revenue Per Copy</p>
+                  {netRevenue > 0 ? (
+                    <p className="text-2xl font-black text-blue-400">
+                      {formatCurrencyWithDecimals(netRevenue)}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-black text-red-400">Invalid (net ≤ $0)</p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-sm text-slate-400 mb-2">Rough Break-Even Copies Needed</p>
+                  {breakEven ? (
+                    <>
+                      <p className="text-4xl font-black text-blue-500">
+                        {breakEven.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">copies</p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-black text-red-400">Unable to calculate</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="rounded-2xl bg-slate-800/30 border border-slate-700 p-4">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-[0.1em] mb-2 flex items-center gap-2">
+            <AlertCircle size={14} /> Planning Estimates
+          </p>
+          <p className="text-xs leading-6 text-slate-400">
+            These figures are planning estimates. Real outcomes vary based on regional pricing, tax treatment, refunds, discounts, and platform factors.
+          </p>
+        </div>
+      </div>
+
+      {/* SECTION 7: PLANNING REVIEW */}
+      {isPaidTier ? (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+          <h2 className="text-2xl font-black text-white mb-6">Planning Review</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+          <div className="rounded-2xl bg-gradient-to-br from-emerald-600/20 to-emerald-600/5 border border-emerald-600/30 p-6">
+            <p className="text-xs uppercase tracking-[0.2em] text-emerald-300 font-black mb-2">
+              Budget Health Score
+            </p>
+            <p className="text-5xl font-black text-emerald-400">
+              {calculations.planningReview.healthScore}
+            </p>
+            <p className="text-xs text-emerald-200/60 mt-2">out of 100</p>
+            <p className="text-xs text-emerald-200/40 mt-3">
+              Internal consistency of budget and price targets
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-gradient-to-br from-amber-600/20 to-amber-600/5 border border-amber-600/30 p-6">
+            <p className="text-xs uppercase tracking-[0.2em] text-amber-300 font-black mb-2">
+              Sales Target Pressure
+            </p>
+            <p className="text-3xl font-black text-amber-400">
+              {calculations.planningReview.targetPressure}
+            </p>
+            <p className="text-xs text-amber-200/60 mt-3">
+              How demanding the break-even target looks on paper
+            </p>
+          </div>
+
+          <div className="rounded-2xl bg-gradient-to-br from-blue-600/20 to-blue-600/5 border border-blue-600/30 p-6">
+            <p className="text-xs uppercase tracking-[0.2em] text-blue-300 font-black mb-2">
+              Cost Structure Signal
+            </p>
+            <p className="text-2xl font-black text-blue-400">
+              {calculations.planningReview.costSignal}
+            </p>
+            <p className="text-xs text-blue-200/60 mt-3">
+              Budget distribution across categories
+            </p>
+          </div>
+        </div>
+
+          <div className="rounded-2xl bg-slate-800/30 border border-slate-700 p-6">
+            <p className="text-sm font-black text-white mb-4 flex items-center gap-2">
+              <Zap size={16} className="text-yellow-400" /> Planning Observations
+            </p>
+            <ul className="space-y-3">
+              {calculations.planningReview.insights.length > 0 ? (
+                calculations.planningReview.insights.map((insight, idx) => (
+                  <li key={idx} className="flex items-start gap-3">
+                    <span className="text-yellow-400 font-black mt-1">•</span>
+                    <span className="text-sm text-slate-300">{insight}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="text-sm text-slate-400">
+                  Add cost estimates and price points to see planning observations.
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
+          <h2 className="text-2xl font-black text-white mb-3">Planning Review</h2>
+          <p className="text-slate-400 mb-4">
+            Upgrade to see whether your budget looks balanced, how demanding your sales target is, and where your cost structure may need work.
+          </p>
+          <p className="text-xs text-slate-500 mb-4">
+            Launch Planner unlocks full budget review and 3 price point comparison.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-slate-500 text-sm">Budget Health Score</div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-slate-500 text-sm">Sales Target Pressure</div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-slate-500 text-sm">Cost Structure Signal</div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 8: POST-LAUNCH ACTUALS */}
+      {isPaidTier ? (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+          <h2 className="text-2xl font-black text-white mb-2">Post-Launch Actuals</h2>
+          <p className="text-slate-400 mb-6">
+            Compare your original launch plan against real sales results.
+          </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <label htmlFor="actual-launch-price" className="block text-sm font-semibold text-slate-300 mb-2">
+              Actual Launch Price Used
+            </label>
+            <select
+              id="actual-launch-price"
+              value={actualLaunchPrice}
+              onChange={(e) => setActualLaunchPrice(e.target.value)}
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+            >
+              <option value="">-- None yet --</option>
+              <option value="1">Price Point 1 (${calculations.pricePoints[0].toFixed(2)})</option>
+              <option value="2">Price Point 2 (${calculations.pricePoints[1].toFixed(2)})</option>
+              <option value="3">Price Point 3 (${calculations.pricePoints[2].toFixed(2)})</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="actual-copies" className="block text-sm font-semibold text-slate-300 mb-2">
+              Actual Copies Sold
+            </label>
+            <input
+              id="actual-copies"
+              type="number"
+              placeholder="e.g. 5000"
+              value={actualCopiesSold}
+              onChange={(e) => setActualCopiesSold(e.target.value)}
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="actual-refund-rate" className="block text-sm font-semibold text-slate-300 mb-2">
+              Actual Refunds & Chargebacks (%)
+            </label>
+            <input
+              id="actual-refund-rate"
+              type="number"
+              placeholder="e.g. 6"
+              value={actualRefundRate}
+              onChange={(e) => setActualRefundRate(e.target.value)}
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="actual-gross-revenue" className="block text-sm font-semibold text-slate-300 mb-2">
+              Actual Gross Revenue
+            </label>
+            <input
+              id="actual-gross-revenue"
+              type="number"
+              placeholder="e.g. 64950"
+              value={actualGrossRevenue}
+              onChange={(e) => setActualGrossRevenue(e.target.value)}
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="actual-net-revenue" className="block text-sm font-semibold text-slate-300 mb-2">
+              Actual Net Revenue
+            </label>
+            <input
+              id="actual-net-revenue"
+              type="number"
+              placeholder="e.g. 35000"
+              value={actualNetRevenue}
+              onChange={(e) => setActualNetRevenue(e.target.value)}
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+            />
+          </div>
+        </div>
+
+          <p className="text-xs text-slate-500 mb-6">
+            Use this section to track actual launch results. Fill in the fields that apply to your launch.
+          </p>
+
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/40 p-6">
+            <h3 className="text-xl font-black text-white mb-4">Plan vs Actual Summary</h3>
+            {postLaunchSummary ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+                    <p className="text-xs text-slate-400 mb-1">Planned rough break-even copies</p>
+                    <p className="text-xl font-black text-white">{postLaunchSummary.plannedBreakEven ? postLaunchSummary.plannedBreakEven.toLocaleString() : "—"}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+                    <p className="text-xs text-slate-400 mb-1">Actual copies sold</p>
+                    <p className="text-xl font-black text-white">{postLaunchSummary.actualCopies.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+                    <p className="text-xs text-slate-400 mb-1">Difference vs plan</p>
+                    <p className="text-xl font-black text-blue-400">
+                      {postLaunchSummary.differenceVsPlan === null
+                        ? "—"
+                        : `${postLaunchSummary.differenceVsPlan > 0 ? "+" : ""}${postLaunchSummary.differenceVsPlan.toLocaleString()}`}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+                    <p className="text-xs text-slate-400 mb-1">Planned refunds/chargebacks</p>
+                    <p className="text-xl font-black text-white">{postLaunchSummary.plannedRefundRate.toFixed(1)}%</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+                    <p className="text-xs text-slate-400 mb-1">Actual refunds/chargebacks</p>
+                    <p className="text-xl font-black text-white">
+                      {postLaunchSummary.actualRefunds === null ? "—" : `${postLaunchSummary.actualRefunds.toFixed(1)}%`}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+                    <p className="text-xs text-slate-400 mb-1">Planned net revenue per copy</p>
+                    <p className="text-xl font-black text-white">{formatCurrencyWithDecimals(postLaunchSummary.plannedNetRevenuePerCopy)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4 md:col-span-2">
+                    <p className="text-xs text-slate-400 mb-1">Actual net revenue</p>
+                    <p className="text-2xl font-black text-emerald-400">{formatCurrency(postLaunchSummary.actualNetRevenue)}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-700 bg-slate-800/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-slate-400 font-black mb-2">Comparison Read</p>
+                  <p className="text-sm font-semibold text-blue-300 mb-3">{postLaunchSummary.summary}</p>
+                  <ul className="space-y-2">
+                    {postLaunchSummary.bullets.map((bullet) => (
+                      <li key={bullet} className="text-sm text-slate-300 flex items-start gap-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">
+                Enter actual copies sold and choose the launch price used to generate a planning comparison.
+              </p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
+          <h2 className="text-2xl font-black text-white mb-3">Post-Launch Actuals</h2>
+          <p className="text-slate-400">
+            Upgrade to compare your actual launch sales, refunds, and net revenue against your original budget plan.
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Launch Planner unlocks plan vs actual tracking after release.
+          </p>
+        </div>
+      )}
+
     </section>
   );
 }
