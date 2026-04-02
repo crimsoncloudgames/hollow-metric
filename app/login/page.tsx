@@ -1,25 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const nextPath = useMemo(() => {
-    const requested = searchParams.get("next");
+  const getNextPath = () => {
+    if (typeof window === "undefined") {
+      return "/dashboard";
+    }
+
+    const requested = new URLSearchParams(window.location.search).get("next");
     if (!requested || !requested.startsWith("/") || requested.startsWith("//")) {
       return "/dashboard";
     }
+
     return requested;
-  }, [searchParams]);
+  };
 
   useEffect(() => {
     const supabase = createClient();
@@ -31,12 +35,12 @@ export default function LoginPage() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        router.replace(nextPath);
+        router.replace(getNextPath());
       }
     };
 
     void checkSession();
-  }, [router, nextPath]);
+  }, [router]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -60,7 +64,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace(nextPath);
+    router.replace(getNextPath());
     router.refresh();
   };
 
