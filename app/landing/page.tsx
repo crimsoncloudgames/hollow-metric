@@ -168,17 +168,17 @@ export default function LandingPage() {
             <Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link>
             <Link href="/resources" className="transition hover:text-blue-400">Resources</Link>
             <Link href="/contact" className="transition hover:text-blue-400">Contact</Link>
-            {/* <Link href="/login" className="transition hover:text-blue-400">Login</Link> */}
-            {/* <Link href="/signup" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
+            <Link href="/login" className="transition hover:text-blue-400">Login</Link>
+            <Link href="/signup" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
               Sign Up
-            </Link> */}
+            </Link>
           </nav>
           <div className="flex items-center gap-2 md:hidden">
             <Link href="/contact" className="text-sm font-semibold text-blue-300">Contact</Link>
-            {/* <Link href="/login" className="text-sm font-semibold text-slate-200">Login</Link> */}
-            {/* <Link href="/signup" className="rounded-full border border-blue-500 px-4 py-2 text-sm font-semibold text-blue-300">
+            <Link href="/login" className="text-sm font-semibold text-slate-200">Login</Link>
+            <Link href="/signup" className="rounded-full border border-blue-500 px-4 py-2 text-sm font-semibold text-blue-300">
               Sign Up
-            </Link> */}
+            </Link>
           </div>
         </header>
 
@@ -194,12 +194,12 @@ export default function LandingPage() {
           </p>
 
           <div className="mx-auto mt-10 flex max-w-2xl flex-col items-center justify-center gap-3 sm:flex-row">
-            {/* <Link
+            <Link
               href="/signup"
               className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-7 py-4 text-sm font-bold text-white transition hover:bg-blue-500 sm:w-auto"
             >
               Build Your Launch Budget
-            </Link> */}
+            </Link>
             <Link
               href="#product-preview"
               className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-700 px-7 py-4 text-sm font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-300 sm:w-auto"
@@ -487,12 +487,12 @@ export default function LandingPage() {
               Build the budget, stress-test assumptions, test pricing, and find weak math before bad decisions turn into real losses.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              {/* <Link
+              <Link
                 href="/signup"
                 className="rounded-full bg-blue-600 px-8 py-3 font-bold text-white transition hover:bg-blue-500"
               >
                 Build Your Launch Budget
-              </Link> */}
+              </Link>
               <Link
                 href="/pricing"
                 className="rounded-full border border-slate-700 px-8 py-3 font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-300"
@@ -524,8 +524,8 @@ export default function LandingPage() {
                 <p><Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link></p>
                 <p><Link href="/resources" className="transition hover:text-blue-400">Resources</Link></p>
                 <p><Link href="/contact" className="transition hover:text-blue-400">Contact</Link></p>
-                {/* <p><Link href="/login" className="transition hover:text-blue-400">Login</Link></p> */}
-                {/* <p><Link href="/signup" className="transition hover:text-blue-400">Sign Up</Link></p> */}
+                <p><Link href="/login" className="transition hover:text-blue-400">Login</Link></p>
+                <p><Link href="/signup" className="transition hover:text-blue-400">Sign Up</Link></p>
               </div>
             </div>
             <div>

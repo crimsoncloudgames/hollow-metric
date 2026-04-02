@@ -190,7 +190,7 @@ export default function LaunchBudgetPage() {
   // TODO(security): Resolve tier from trusted billing state server-side; do not trust client-selected tier in production.
   const [subscriptionTier] = useState<SubscriptionTier>("starter");
   const isPaidTier = subscriptionTier !== "starter";
-  const activeProjectLimit = subscriptionTier === "launch-planner" ? "1" : "0";
+  const currentPlanLabel = subscriptionTier === "launch-planner" ? "Launch Planner" : "Starter";
 
   // Expense inputs - customizable list
   const [expenses, setExpenses] = useState<ExpenseRow[]>([
@@ -380,23 +380,23 @@ export default function LaunchBudgetPage() {
           Project Limits by Plan
         </p>
         <div className="mb-4 grid grid-cols-1 gap-2 md:max-w-xs">
-          <p className="text-[11px] text-slate-500">Current plan: Starter (billing integration in progress).</p>
-          <p className="text-[11px] text-slate-600">
-            Placeholder enforcement hook: active project limit for this view is {activeProjectLimit}.
+          <p className="text-base font-bold text-slate-200">
+            <span className="text-slate-400">Current plan:</span>{" "}
+            <span className="text-white">{currentPlanLabel}</span>
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
           <div>
             <p className="font-semibold text-slate-400">Starter</p>
-            <p className="text-slate-600">Explore the calculator</p>
+            <p className="text-slate-600">Starter includes calculator access only</p>
           </div>
           <div>
             <p className="font-semibold text-slate-400">Launch Planner</p>
-            <p className="text-slate-600">1 active project budget</p>
+            <p className="text-slate-600">Launch Planner includes 1 active project budget</p>
           </div>
           <div>
             <p className="font-semibold text-slate-400">More Plans</p>
-            <p className="text-slate-600">Coming soon</p>
+            <p className="text-slate-600">More plans coming soon</p>
           </div>
         </div>
       </div>

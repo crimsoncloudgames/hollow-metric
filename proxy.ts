@@ -20,11 +20,6 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isDashboardRoute = pathname.startsWith("/dashboard");
-  const isAuthCallbackRoute = pathname.startsWith("/auth/");
-
-  if (isAuthCallbackRoute) {
-    return NextResponse.redirect(new URL("/landing", request.url));
-  }
 
   const {
     data: { user },
