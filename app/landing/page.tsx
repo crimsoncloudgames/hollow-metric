@@ -9,34 +9,38 @@ const pricingPlans = [
     name: "Starter",
     price: "$0",
     featured: false,
+    comingSoon: false,
     items: [
-      "Check whether your current launch math holds up",
-      "Estimate major service costs before approving quotes",
-      "Get a first real break-even target instead of a guess",
-      "See the financial blind spots before you spend more",
+      "Calculator access only",
+      "Basic financial inputs",
+      "Basic break-even calculation",
+      "No saved projects",
+      "No premium dashboard features",
     ],
   },
   {
     name: "Launch Planner",
-    price: "$19/mo",
+    price: "$12/mo",
     featured: true,
+    comingSoon: false,
     items: [
-      "Keep launch math real as quotes and scope change",
-      "Stress-test multiple price points before you commit",
-      "Track new costs before they quietly wreck margin",
-      "AI flags expensive quotes, weak spend, and budget waste",
-      "Re-check break-even every time the plan moves",
+      "Save financial projects",
+      "Financial library",
+      "Dashboard tracking",
+      "Deeper financial analysis",
+      "Better history and organization features",
     ],
   },
   {
-    name: "Studio",
-    price: "$49/mo",
+    name: "MORE PLANS",
+    price: "Coming Soon",
     featured: false,
+    comingSoon: true,
     items: [
-      "Everything in Launch Planner",
-      "Multiple launch plans for small teams with real spend",
-      "Scenario comparisons across projects or release windows",
-      "More room to pressure test risky decisions",
+      "Additional options for studios and teams",
+      "Expanded project capacity",
+      "More advanced planning workflows",
+      "Future premium features",
     ],
   },
 ];
@@ -399,6 +403,9 @@ export default function LandingPage() {
                   key={plan.name}
                   className={[
                     "rounded-[2rem] border p-6",
+                    plan.comingSoon
+                      ? "border-blue-500/35 bg-blue-950/20"
+                      : "",
                     plan.featured
                       ? "border-blue-500/50 bg-blue-600/10 shadow-[0_0_32px_rgba(37,99,235,0.12)]"
                       : "border-slate-800 bg-slate-900/60",
@@ -408,12 +415,19 @@ export default function LandingPage() {
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">{plan.name}</p>
                     {plan.featured && (
                       <span className="rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">
-                        Best protection
+                        Recommended
+                      </span>
+                    )}
+                    {plan.comingSoon && (
+                      <span className="rounded-full border border-slate-600 bg-slate-800/60 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
+                        Not available yet
                       </span>
                     )}
                   </div>
                   <div className="mt-4">
-                    <span className="text-4xl font-black text-white">{plan.price}</span>
+                    <span className={plan.comingSoon ? "text-3xl font-black uppercase tracking-[0.08em] text-slate-200" : "text-4xl font-black text-white"}>
+                      {plan.price}
+                    </span>
                   </div>
                   <ul className="mt-5 space-y-3 text-sm text-slate-400">
                     {plan.items.map((item) => (
@@ -447,9 +461,7 @@ export default function LandingPage() {
               </article>
             </div>
 
-            <p className="mt-8 text-center text-xs text-slate-500">
-              Additional launch tools like tag generation and store page analysis can be accessed separately inside the product when needed.
-            </p>
+            <p className="mt-8 text-center text-xs text-slate-500">Additional plan options will be released over time.</p>
           </div>
         </section>
 
