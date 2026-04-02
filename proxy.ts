@@ -20,7 +20,11 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isDashboardRoute = pathname.startsWith("/dashboard");
-  const isAuthRoute = pathname === "/login" || pathname === "/signup";
+  const isAuthCallbackRoute = pathname.startsWith("/auth/");
+
+  if (isAuthCallbackRoute) {
+    return NextResponse.redirect(new URL("/landing", request.url));
+  }
 
   const {
     data: { user },
@@ -30,11 +34,6 @@ export async function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (user && isAuthRoute) {
-    const redirectPath = getSafeRedirectPath(request.nextUrl.searchParams.get("next"));
-    return NextResponse.redirect(new URL(redirectPath, request.url));
   }
 
   supabaseResponse.cookies.set(COOKIE_NAMES.authState, user ? "signed-in" : "guest", {

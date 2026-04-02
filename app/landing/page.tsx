@@ -163,14 +163,14 @@ export default function LandingPage() {
           <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
             <Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link>
             <Link href="/resources" className="transition hover:text-blue-400">Resources</Link>
-            <Link href="/login?next=%2Fdashboard" className="transition hover:text-blue-400">Login</Link>
-            <Link href="/signup?next=%2Fdashboard" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
+            <Link href="/login" className="transition hover:text-blue-400">Login</Link>
+            <Link href="/signup" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
               Sign Up
             </Link>
           </nav>
           <div className="flex items-center gap-2 md:hidden">
-            <Link href="/login?next=%2Fdashboard" className="text-sm font-semibold text-slate-200">Login</Link>
-            <Link href="/signup?next=%2Fdashboard" className="rounded-full border border-blue-500 px-4 py-2 text-sm font-semibold text-blue-300">
+            <Link href="/login" className="text-sm font-semibold text-slate-200">Login</Link>
+            <Link href="/signup" className="rounded-full border border-blue-500 px-4 py-2 text-sm font-semibold text-blue-300">
               Sign Up
             </Link>
           </div>
@@ -189,7 +189,7 @@ export default function LandingPage() {
 
           <div className="mx-auto mt-10 flex max-w-2xl flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href="/signup?next=%2Fdashboard%2Fbudgeter"
+              href="/signup"
               className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-7 py-4 text-sm font-bold text-white transition hover:bg-blue-500 sm:w-auto"
             >
               Build Your Launch Budget
@@ -373,7 +373,7 @@ export default function LandingPage() {
                   Check your launch plan before the expensive decisions are already made.
                 </p>
                 <Link
-                  href="/signup?next=%2Fdashboard%2Fbudgeter"
+                  href="/signup"
                   className="inline-block rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
                 >
                   Stress-Test Your Launch Math
@@ -473,7 +473,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
-                href="/signup?next=%2Fdashboard%2Fbudgeter"
+                href="/signup"
                 className="rounded-full bg-blue-600 px-8 py-3 font-bold text-white transition hover:bg-blue-500"
               >
                 Build Your Launch Budget
@@ -508,8 +508,8 @@ export default function LandingPage() {
               <div className="space-y-2">
                 <p><Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link></p>
                 <p><Link href="/resources" className="transition hover:text-blue-400">Resources</Link></p>
-                <p><Link href="/login?next=%2Fdashboard" className="transition hover:text-blue-400">Login</Link></p>
-                <p><Link href="/signup?next=%2Fdashboard" className="transition hover:text-blue-400">Sign Up</Link></p>
+                <p><Link href="/login" className="transition hover:text-blue-400">Login</Link></p>
+                <p><Link href="/signup" className="transition hover:text-blue-400">Sign Up</Link></p>
               </div>
             </div>
             <div>
@@ -547,3 +547,4 @@ export default function LandingPage() {
     </main>
   );
 }
+
