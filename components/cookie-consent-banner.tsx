@@ -7,6 +7,38 @@ import { getCookieValue, setCookieValue } from "@/lib/client-cookies";
 
 const CONSENT_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
 const CONSENT_DISMISSED_KEY = "hm_cookie_banner_dismissed";
+const DISMISS_FALLBACK_TTL_MS = 1000 * 60 * 60 * 24;
+
+function hasRecentDismissedFallback(): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const raw = window.localStorage.getItem(CONSENT_DISMISSED_KEY);
+    if (!raw) return false;
+
+    // Legacy value from earlier implementation; treat as stale so banner can recover.
+    if (raw === "1") {
+      window.localStorage.removeItem(CONSENT_DISMISSED_KEY);
+      return false;
+    }
+
+    const parsed = JSON.parse(raw) as { dismissedAt?: number };
+    if (!Number.isFinite(parsed.dismissedAt)) {
+      window.localStorage.removeItem(CONSENT_DISMISSED_KEY);
+      return false;
+    }
+
+    const ageMs = Date.now() - Number(parsed.dismissedAt);
+    if (ageMs > DISMISS_FALLBACK_TTL_MS) {
+      window.localStorage.removeItem(CONSENT_DISMISSED_KEY);
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function getConsentCookieMap(): Record<string, string> {
   const consentValue = getCookieValue(COOKIE_NAMES.consent);
@@ -23,16 +55,7 @@ export default function CookieConsentBanner() {
   const [personalization, setPersonalization] = useState(false);
 
   useEffect(() => {
-    let hasDismissedFallback = false;
-
-    if (typeof window !== "undefined") {
-      try {
-        hasDismissedFallback = window.localStorage.getItem(CONSENT_DISMISSED_KEY) === "1";
-      } catch {
-        hasDismissedFallback = false;
-      }
-    }
-
+    const hasDismissedFallback = hasRecentDismissedFallback();
     const hasConsentCookie = Boolean(getCookieValue(COOKIE_NAMES.consent));
     setIsOpen(!(hasConsentCookie || hasDismissedFallback));
     setIsReady(true);
@@ -64,8 +87,17 @@ export default function CookieConsentBanner() {
     } finally {
       if (typeof window !== "undefined") {
         try {
-          // Fallback so banner can still be dismissed if cookie write is blocked by browser settings.
-          window.localStorage.setItem(CONSENT_DISMISSED_KEY, "1");
+          const consentCookieWasWritten = Boolean(getCookieValue(COOKIE_NAMES.consent));
+
+          if (consentCookieWasWritten) {
+            window.localStorage.removeItem(CONSENT_DISMISSED_KEY);
+          } else {
+            // Fallback so banner can still be dismissed briefly if cookie write is blocked by browser settings.
+            window.localStorage.setItem(
+              CONSENT_DISMISSED_KEY,
+              JSON.stringify({ dismissedAt: Date.now() })
+            );
+          }
         } catch {
           // Ignore storage failures (e.g. restricted browser contexts).
         }
