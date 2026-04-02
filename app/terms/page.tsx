@@ -1,7 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const sections = [
+type TermsSection = {
+  title: string;
+  paragraphs?: string[];
+  items?: string[];
+  trailingParagraphs?: string[];
+  trailingItems?: string[];
+  closing?: string;
+  contactLines?: string[];
+};
+
+const sections: TermsSection[] = [
   {
     title: "1. The Service",
     paragraphs: [
@@ -146,7 +156,7 @@ const sections = [
     paragraphs: ["Questions about these Terms can be sent to:"],
     contactLines: ["Hollow Metric", "support@hollowmetric.com"],
   },
-] as const;
+];
 
 export default function TermsPage() {
   return (

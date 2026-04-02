@@ -1,7 +1,22 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const sections = [
+type PrivacySectionGroup = {
+  heading: string;
+  intro: string;
+  items?: string[];
+};
+
+type PrivacySection = {
+  title: string;
+  paragraphs?: string[];
+  groups?: PrivacySectionGroup[];
+  items?: string[];
+  closing?: string;
+  contactLines?: string[];
+};
+
+const sections: PrivacySection[] = [
   {
     title: "1. Information We Collect",
     paragraphs: [
@@ -138,7 +153,7 @@ const sections = [
     paragraphs: ["If you have questions about this Privacy Policy, contact:"],
     contactLines: ["Hollow Metric", "support@hollowmetric.com"],
   },
-] as const;
+];
 
 export default function PrivacyPage() {
   return (

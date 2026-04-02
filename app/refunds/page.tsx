@@ -1,7 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const sections = [
+type RefundSection = {
+  title: string;
+  paragraphs?: string[];
+  items?: string[];
+  trailingParagraphs?: string[];
+  trailingItems?: string[];
+  contactLines?: string[];
+};
+
+const sections: RefundSection[] = [
   {
     title: "1. General",
     paragraphs: [
@@ -61,7 +70,7 @@ const sections = [
     paragraphs: ["For refund questions, contact:"],
     contactLines: ["Hollow Metric", "support@hollowmetric.com"],
   },
-] as const;
+];
 
 export default function RefundsPage() {
   return (
