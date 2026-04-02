@@ -34,3 +34,7 @@ export function setCookieValue(name: string, value: string, maxAgeSeconds: numbe
   const securePart = useSecure ? "; Secure" : "";
   document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAgeSeconds}; Path=/; SameSite=Lax${securePart}`;
 }
+
+export function deleteCookieValue(name: string) {
+  setCookieValue(name, "", 0);
+}
