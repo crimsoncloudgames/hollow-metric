@@ -163,12 +163,14 @@ export default function LandingPage() {
           <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
             <Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link>
             <Link href="/resources" className="transition hover:text-blue-400">Resources</Link>
+            <Link href="/contact" className="transition hover:text-blue-400">Contact</Link>
             <Link href="/login" className="transition hover:text-blue-400">Login</Link>
             <Link href="/signup" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
               Sign Up
             </Link>
           </nav>
           <div className="flex items-center gap-2 md:hidden">
+            <Link href="/contact" className="text-sm font-semibold text-blue-300">Contact</Link>
             <Link href="/login" className="text-sm font-semibold text-slate-200">Login</Link>
             <Link href="/signup" className="rounded-full border border-blue-500 px-4 py-2 text-sm font-semibold text-blue-300">
               Sign Up
@@ -508,6 +510,7 @@ export default function LandingPage() {
               <div className="space-y-2">
                 <p><Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link></p>
                 <p><Link href="/resources" className="transition hover:text-blue-400">Resources</Link></p>
+                <p><Link href="/contact" className="transition hover:text-blue-400">Contact</Link></p>
                 <p><Link href="/login" className="transition hover:text-blue-400">Login</Link></p>
                 <p><Link href="/signup" className="transition hover:text-blue-400">Sign Up</Link></p>
               </div>
@@ -516,7 +519,8 @@ export default function LandingPage() {
               <p className="mb-3 font-semibold text-white">Company</p>
               <div className="space-y-2">
                 <p><Link href="/privacy" className="transition hover:text-blue-400">Privacy Policy</Link></p>
-                <p><Link href="/terms" className="transition hover:text-blue-400">Terms</Link></p>
+                <p><Link href="/terms" className="transition hover:text-blue-400">Terms of Service</Link></p>
+                <p><Link href="/refunds" className="transition hover:text-blue-400">Refund Policy</Link></p>
                 <p><a href="mailto:support@hollowmetric.com" className="transition hover:text-blue-400">support@hollowmetric.com</a></p>
               </div>
             </div>

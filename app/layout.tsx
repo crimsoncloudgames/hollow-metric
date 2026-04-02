@@ -17,6 +17,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Hollow Metric",
   description: "Steam store page audit tool for indie developers. Improve positioning, copy, and discoverability before launch.",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
   icons: {
     icon: [{ url: "/HM%20Logo%20Icon.ico?v=3", type: "image/x-icon" }],
     shortcut: [{ url: "/HM%20Logo%20Icon.ico?v=3", type: "image/x-icon" }],
