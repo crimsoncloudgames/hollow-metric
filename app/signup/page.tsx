@@ -8,6 +8,8 @@ import { missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,6 +31,12 @@ export default function SignUpPage() {
     const { error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
+      options: {
+        data: {
+          full_name: fullName.trim(),
+          username: username.trim() || null,
+        },
+      },
     });
     setIsSubmitting(false);
 
@@ -57,6 +65,37 @@ export default function SignUpPage() {
         <p className="mt-2 text-sm text-slate-400">Create your Hollow Metric account.</p>
 
         <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+          <div>
+            <label htmlFor="signup-name" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+              Name
+            </label>
+            <input
+              id="signup-name"
+              type="text"
+              autoComplete="name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              required
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30"
+              placeholder="Your name"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="signup-username" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+              Username
+            </label>
+            <input
+              id="signup-username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30"
+              placeholder="Choose a username (optional)"
+            />
+          </div>
+
           <div>
             <label htmlFor="signup-email" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
               Email
