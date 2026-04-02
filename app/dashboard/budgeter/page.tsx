@@ -694,7 +694,7 @@ export default function LaunchBudgetPage() {
                 ))
               ) : (
                 <li className="text-sm text-slate-400">
-                  Add cost estimates and price points to see planning observations.
+                    Add your cost assumptions and price points to see planning observations.
                 </li>
               )}
             </ul>

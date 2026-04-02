@@ -49,7 +49,7 @@ function getHeaderText(pathname: string) {
   if (pathname === "/dashboard/new-audit") {
     return {
       title: "Steam Page Analysis",
-      subtitle: "Analyze competitor positioning and market signals.",
+      subtitle: "This feature is not part of the current launch product.",
     };
   }
 
@@ -174,7 +174,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               "text-xl font-black italic tracking-tight sm:text-2xl",
               theme === "dark" ? "text-white" : "text-slate-900",
             ].join(" ")}>
-              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">0.4.0</span>
+              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">0.4.3</span>
             </div>
           </Link>
           <p className={[

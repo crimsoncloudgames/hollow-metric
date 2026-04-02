@@ -3,15 +3,15 @@ import Link from "next/link";
 const resources = [
   {
     title: "Launch Budget Fundamentals",
-    body: "Understand how to structure your launch budget, estimate service costs, and calculate break-even targets for different price points.",
+    body: "Understand how to structure your launch budget, define your own cost assumptions, and calculate break-even targets for different price points.",
   },
   {
     title: "Break-Even Analysis Guide",
-    body: "Learn how to read break-even numbers, compare multiple pricing scenarios, and spot when quotes or scope changes reset your launch math.",
+    body: "Learn how to read break-even numbers, compare multiple pricing scenarios, and spot when scope or spend changes reset your launch math.",
   },
   {
     title: "Cost Estimation Checklist",
-    body: "Use a practical checklist to pressure-test service quotes, identify underfunded priorities, and catch wasteful spending before launch.",
+    body: "Use a practical checklist to pressure-test budget assumptions, identify underfunded priorities, and catch wasteful spending before launch.",
   },
 ];
 
@@ -22,7 +22,7 @@ const guides = [
   },
   {
     title: "Scope Creep and Budget Drift",
-    body: "How to spot when new vendor quotes, feature delays, and late expenses quietly push your break-even target higher without obvious warning signs.",
+    body: "How to spot when scope changes, feature delays, and late expenses quietly push your break-even target higher without obvious warning signs.",
   },
   {
     title: "Decision-Making with Uncertainty",

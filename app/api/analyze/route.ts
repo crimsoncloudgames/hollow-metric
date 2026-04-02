@@ -375,25 +375,25 @@ export async function POST(req: Request) {
             messages: [
                 {
                     role: 'system',
-                    content: `You are a Steam Store Page Consultant and Market Analyst.
-                                        Analyze the provided content to help an indie dev optimize their conversion.
+                    content: `You are a Steam store page writing assistant for indie developers.
+                                        Analyze the provided page content and suggest clearer positioning and messaging.
 
-                                        1. FIND COMPETITORS: Identify 5 mechanically similar Steam games.
+                                        1. FIND REFERENCE GAMES: Identify 5 mechanically similar Steam games.
 
-                                        2. STORE PAGE AUDIT:
-                                             - SHORT DESCRIPTION: Check if it leads with gameplay "verbs" (Action). Flag if it's too much "Lore-dumping."
-                                             - ABOUT THIS GAME: Check for scannability (headers/bullets). Flag if it's a "wall of text."
+                                        2. STORE PAGE REVIEW:
+                                             - SHORT DESCRIPTION: Check whether it leads with clear gameplay actions and player fantasy.
+                                             - ABOUT THIS GAME: Check readability and structure (headers, bullets, clear sections).
 
                                         3. ANALYSIS STRUCTURE:
                                              Use Markdown headers:
-                                             ### 🎯 Tag Gaps (Specific Steam tags to add)
-                                             ### 📊 Formal Market Feedback (Professional analysis)
-                                             ### 🛠️ What This Means For You (Plain English/Blunt dev-to-dev advice)
+                                             ### 🎯 Tag Opportunities
+                                             ### 📝 Store Page Feedback
+                                             ### 🛠️ What To Improve Next
 
                                         Return ONLY JSON in this structure:
                                         {
                                             "competitors": [
-                                                { "name": "Title", "appId": "123", "primaryTag": "Genre", "estRevenue": "$500k", "estDevCost": "$100k" }
+                                                { "name": "Title", "appId": "123", "primaryTag": "Genre" }
                                             ],
                                             "suggestedTags": ["Precision Platformer", "Difficult", "Physics"],
                                             "storeAudit": {
