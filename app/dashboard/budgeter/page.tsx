@@ -55,7 +55,7 @@ interface PlanningReview {
   insights: string[];
 }
 
-type SubscriptionTier = "starter" | "launch-planner" | "studio";
+type SubscriptionTier = "starter" | "launch-planner";
 
 const generatePlanningReview = (
   totalCost: number,
@@ -187,11 +187,10 @@ const generatePlanningReview = (
 };
 
 export default function LaunchBudgetPage() {
-  const showDevTierSelector = process.env.NODE_ENV !== "production";
   // TODO(security): Resolve tier from trusted billing state server-side; do not trust client-selected tier in production.
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
+  const [subscriptionTier] = useState<SubscriptionTier>("starter");
   const isPaidTier = subscriptionTier !== "starter";
-  const activeProjectLimit = subscriptionTier === "studio" ? "multiple" : subscriptionTier === "launch-planner" ? "1" : "0";
+  const activeProjectLimit = subscriptionTier === "launch-planner" ? "1" : "0";
 
   // Expense inputs - customizable list
   const [expenses, setExpenses] = useState<ExpenseRow[]>([
@@ -381,25 +380,7 @@ export default function LaunchBudgetPage() {
           Project Limits by Plan
         </p>
         <div className="mb-4 grid grid-cols-1 gap-2 md:max-w-xs">
-          {showDevTierSelector ? (
-            <>
-              <label htmlFor="tier-placeholder" className="text-[11px] font-semibold text-slate-500">
-                Current plan (dev placeholder)
-              </label>
-              <select
-                id="tier-placeholder"
-                value={subscriptionTier}
-                onChange={(e) => setSubscriptionTier(e.target.value as SubscriptionTier)}
-                className="rounded-xl border border-slate-900 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-600/50 focus:outline-none"
-              >
-                <option value="starter">Starter</option>
-                <option value="launch-planner">Launch Planner</option>
-                <option value="studio">Studio</option>
-              </select>
-            </>
-          ) : (
-            <p className="text-[11px] text-slate-500">Subscription tier will be loaded from billing once connected.</p>
-          )}
+          <p className="text-[11px] text-slate-500">Current plan: Starter (billing integration in progress).</p>
           <p className="text-[11px] text-slate-600">
             Placeholder enforcement hook: active project limit for this view is {activeProjectLimit}.
           </p>
@@ -414,8 +395,8 @@ export default function LaunchBudgetPage() {
             <p className="text-slate-600">1 active project budget</p>
           </div>
           <div>
-            <p className="font-semibold text-slate-400">Studio</p>
-            <p className="text-slate-600">Multiple active project budgets</p>
+            <p className="font-semibold text-slate-400">More Plans</p>
+            <p className="text-slate-600">Coming soon</p>
           </div>
         </div>
       </div>

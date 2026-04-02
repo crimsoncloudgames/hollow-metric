@@ -49,7 +49,7 @@ const faqs = [
   {
     question: "What does Hollow Metric actually help me decide?",
     answer:
-      "It helps you decide whether your launch budget makes sense, whether a quote looks normal or dangerous, what price does to break-even, and whether your current plan is strong enough to support a commercial launch.",
+      "It helps you decide whether your launch budget and pricing assumptions make sense, how many copies you need to sell to break even, and whether your current plan is strong enough to support a commercial launch.",
   },
   {
     question: "How does break-even planning work?",
@@ -59,24 +59,24 @@ const faqs = [
   {
     question: "Why not just use a spreadsheet?",
     answer:
-      "Because most spreadsheets start useful and end outdated. Hollow Metric is built for launch decisions: price point comparison, automatic break-even updates, game-specific service cost estimates, and decision support without building your own formulas, templates, and quote-checking system from scratch.",
+      "Because most spreadsheets start useful and end outdated. Hollow Metric is built for launch decisions: price point comparison, automatic break-even updates, profitability planning, and clearer decision support without building and maintaining your own system from scratch.",
   },
   {
     question: "Why would I stay subscribed every month?",
     answer:
-      "Because the risky part is not making the first plan. It is keeping the plan true as launch gets closer. Quotes change, scope grows, pricing gets revisited, and late expenses show up. The subscription keeps your launch math current so you do not make decisions off stale numbers.",
+      "Because the risky part is not making the first plan. It is keeping the plan true as launch gets closer. Costs change, scope grows, pricing gets revisited, and late expenses show up. The subscription keeps your launch math current so you do not make decisions off stale numbers.",
   },
   {
-    question: "Are the cost estimates exact?",
+    question: "Are the planning results guarantees?",
     answer:
-      "No. They are planning ranges, not promises. Their job is to help you spot quotes that look too high, budgets that look too thin, and categories that are about to get ignored until they become expensive problems.",
+      "No. Hollow Metric is a planning tool, not a guarantee engine. It helps you model assumptions and see how cost and pricing changes affect your break-even target before launch.",
   },
 ];
 
 const heroCards = [
   {
-    title: "Know if a quote looks normal, high, or dangerous",
-    body: "Check trailer, QA, localization, art, and contractor costs before you approve them and quietly raise your sales target.",
+    title: "Know whether your launch budget is realistic",
+    body: "Keep planned costs in one place so budget changes are visible before they quietly raise your sales target.",
   },
   {
     title: "See what one price change does to break-even",
@@ -90,7 +90,7 @@ const heroCards = [
 
 const problemPoints = [
   "Budgets get built from memory, old messages, and half-finished spreadsheets.",
-  "Service quotes get approved without a clear sense of what is high, normal, or dangerous.",
+  "Budget assumptions drift over time and no one notices until late.",
   "Price gets chosen before anyone knows how many copies the game needs to sell.",
   "Late changes push break-even higher while the plan still looks fine on paper.",
 ];
@@ -107,19 +107,19 @@ const featureCards = [
     accent: "border-blue-600/40 bg-blue-600/5",
   },
   {
-    title: "Know when a quote looks dangerous",
-    body: "Use game-specific cost ranges to pressure test trailer, capsule art, QA, localization, music, and other launch services.",
+    title: "Plan around changing launch costs",
+    body: "Update cost assumptions as scope changes so your break-even targets stay grounded in your own launch plan.",
     accent: "border-blue-600/40 bg-blue-600/5",
   },
   {
     title: "Find weak spend before it gets expensive",
-    body: "AI highlights overpriced categories, questionable quotes, underfunded priorities, and parts of the budget that are wasting money.",
+    body: "Highlights underfunded priorities, weak assumptions, and budget areas that need a second look before launch.",
     accent: "border-blue-600/40 bg-blue-600/5",
   },
 ];
 
 const subscriptionReasons = [
-  "Update the plan the moment a vendor quote changes or new scope appears.",
+  "Update the plan the moment your budget or scope changes.",
   "Re-check break-even whenever pricing, timing, or costs shift.",
   "Compare multiple launch scenarios before you lock in the wrong one.",
   "Keep the numbers current so expensive decisions are not based on stale math.",
@@ -208,7 +208,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-4 text-center text-xs text-slate-500">
-            Know your sales target before launch costs and bad quotes quietly reset it.
+            Know your sales target before launch costs and bad assumptions quietly reset it.
           </p>
 
           <div className="mx-auto mt-10 grid max-w-4xl gap-4 text-left md:grid-cols-3">
@@ -227,8 +227,8 @@ export default function LandingPage() {
                 Most expensive launch mistakes look harmless when you first approve them.
               </h2>
               <p className="mt-4 max-w-2xl leading-7 text-slate-300">
-                The danger is rarely one dramatic failure. It is a stack of normal-looking decisions: a soft price, a high trailer quote,
-                underfunded QA, last-minute contractor work, and a budget that never got updated when reality changed.
+                The danger is rarely one dramatic failure. It is a stack of small decisions: a soft price, underestimated costs,
+                late scope growth, and a budget that never got updated when reality changed.
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5">
@@ -241,7 +241,7 @@ export default function LandingPage() {
                 </div>
                 <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5">
                   <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Late fixes</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">You find the weak spending after quotes are signed and the cheap fixes are gone.</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">You find weak assumptions after major decisions are made and the cheap fixes are gone.</p>
                 </div>
               </div>
             </article>
@@ -256,7 +256,7 @@ export default function LandingPage() {
                 <p>$19.99 price point: about 1,760 units to break even</p>
               </div>
               <p className="mt-6 border-t border-blue-500/20 pt-5 text-sm leading-7 text-slate-200">
-                That gap is the danger. Pick the wrong price, accept one bloated quote, and the original launch math stops meaning anything.
+                That gap is the danger. Pick the wrong price or keep stale assumptions, and the original launch math stops meaning anything.
               </p>
             </article>
           </div>
@@ -268,7 +268,7 @@ export default function LandingPage() {
               The real risk is not one bad decision. It is making five of them with stale numbers.
             </h2>
             <p className="mt-4 text-lg font-semibold leading-7 text-blue-300">
-              Quotes change. Scope changes. Pricing changes. If the math does not update with them, you are guessing with more confidence, not more clarity.
+              Costs change. Scope changes. Pricing changes. If the math does not update with them, you are guessing with more confidence, not more clarity.
             </p>
             <ul className="mt-8 space-y-4">
               {problemPoints.map((point) => (
@@ -305,7 +305,7 @@ export default function LandingPage() {
           <div className="mb-8">
             <h2 className="text-3xl font-black text-white md:text-4xl">How this works in practice</h2>
             <p className="mt-4 text-sm text-slate-400">
-              Enter current spend • Compare 3 prices • Pressure test quotes • Fix weak math
+              Enter current spend • Compare 3 prices • Pressure test assumptions • Fix weak math
             </p>
           </div>
 
@@ -327,7 +327,7 @@ export default function LandingPage() {
                     <span className="block">Dev budget: $18,000</span>
                     <span className="block">Marketing: $4,500</span>
                     <span className="block">Launch services: $3,000</span>
-                    <span className="block">Total planned spend: $25,500 before any bad quote or late scope increase.</span>
+                    <span className="block">Total planned spend: $25,500 before late scope increase.</span>
                   </p>
                 </div>
                 <div className="rounded-3xl border border-blue-600/25 bg-blue-600/10 p-5">
@@ -349,15 +349,15 @@ export default function LandingPage() {
                       </p>
                     </div>
                     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                      <p className="text-sm font-semibold text-white">Cost estimate check</p>
+                      <p className="text-sm font-semibold text-white">Cost planning check</p>
                       <p className="mt-2 text-sm leading-6 text-slate-400">
-                        Shows expected ranges for trailer, localization, QA, capsule art, and other launch services so one overpriced quote does not quietly reset the budget.
+                        Shows how changing your own cost assumptions affects break-even targets and total launch risk.
                       </p>
                     </div>
                     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                      <p className="text-sm font-semibold text-white">AI review</p>
+                      <p className="text-sm font-semibold text-white">Plan review</p>
                       <p className="mt-2 text-sm leading-6 text-slate-400">
-                        Flags an expensive trailer quote, highlights underfunded marketing, and shows where the plan is weak before those problems are locked in.
+                        Highlights underfunded categories, optimistic assumptions, and parts of the plan that need a second pass before launch.
                       </p>
                     </div>
                   </div>
@@ -371,7 +371,7 @@ export default function LandingPage() {
                 <div className="space-y-3 text-sm leading-7 text-slate-300">
                   <p>See where the money is really going instead of relying on scattered notes.</p>
                   <p>Keep break-even current when price, scope, or spend changes.</p>
-                  <p>Catch weak quotes and weak allocation before they get expensive.</p>
+                  <p>Catch weak assumptions and weak allocation before they get expensive.</p>
                 </div>
               </div>
               <div className="rounded-[2rem] border border-blue-600/30 bg-blue-600/10 p-6">
@@ -454,9 +454,9 @@ export default function LandingPage() {
                 </ul>
               </article>
               <article className="rounded-[2rem] border border-blue-600/30 bg-blue-600/10 p-6">
-                <p className="text-lg font-black text-white">One bad quote or one soft price can cost more than months of subscription.</p>
+                <p className="text-lg font-black text-white">One bad assumption or one soft price can cost more than months of subscription.</p>
                 <p className="mt-3 text-sm leading-7 text-slate-200">
-                  If Hollow Metric helps you challenge one bloated quote, fix one weak budget assumption, or avoid a price that pushes break-even too high, it has already paid for itself.
+                  If Hollow Metric helps you fix one weak budget assumption or avoid a price that pushes break-even too high, it has already paid for itself.
                 </p>
               </article>
             </div>
@@ -483,7 +483,7 @@ export default function LandingPage() {
               Stop pricing and budgeting your launch on guesswork.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-slate-200">
-              Build the budget, check the quotes, test the pricing, and find the weak math before bad assumptions turn into real losses.
+              Build the budget, stress-test assumptions, test pricing, and find weak math before bad decisions turn into real losses.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link

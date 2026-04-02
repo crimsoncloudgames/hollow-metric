@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { DollarSign, Tag, ArrowRight } from "lucide-react";
+import { DollarSign, FolderOpen, ArrowRight } from "lucide-react";
 import {
   type FinancialProject,
   getSavedFinancialProjects,
@@ -117,27 +117,26 @@ export default function DashboardPage() {
           </div>
         </Link>
 
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8">
+        <Link
+          href="/dashboard/financial-library"
+          className="group rounded-3xl border border-slate-800 bg-slate-900/60 p-8 transition-all hover:border-blue-600/40 hover:shadow-xl hover:shadow-blue-600/10"
+        >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Secondary Tool</p>
-              <h2 className="text-2xl font-black text-white mb-2">Tag Generator</h2>
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Saved Projects</p>
+              <h2 className="text-2xl font-black text-white mb-2">Financial Library</h2>
               <p className="text-slate-400 max-w-xs text-sm mb-4">
-                Coming soon. Generate Steam tags and keyword ideas once this feature is live.
+                Keep your launch plans organized and revisit previous budget scenarios.
               </p>
             </div>
-            <div className="rounded-2xl bg-slate-800/50 p-3">
-              <Tag size={24} className="text-slate-400" />
+            <div className="rounded-2xl bg-slate-800/50 p-3 group-hover:bg-blue-600/20 transition-all">
+              <FolderOpen size={24} className="text-slate-400 group-hover:text-blue-300 transition-all" />
             </div>
           </div>
-          <button
-            type="button"
-            disabled
-            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-400 opacity-80"
-          >
-            Available Soon
-          </button>
-        </div>
+          <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-400 group-hover:gap-3 transition-all">
+            Open Financial Library <ArrowRight size={16} />
+          </div>
+        </Link>
       </div>
 
       {recentCount > 0 && (

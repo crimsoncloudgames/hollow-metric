@@ -9,7 +9,7 @@ import {
   saveFinancialProjects,
 } from "@/lib/financial-projects";
 
-type SubscriptionTier = "starter" | "launch-planner" | "studio";
+type SubscriptionTier = "starter" | "launch-planner";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -21,10 +21,9 @@ function formatCurrency(value: number): string {
 }
 
 export default function FinancialLibraryPage() {
-  const showDevTierSelector = process.env.NODE_ENV !== "production";
   // TODO(security): In production, tier must come from trusted billing state server-side.
   // TODO(security): Financial Library data must be loaded from server with per-user isolation (RLS), not localStorage.
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
+  const [subscriptionTier] = useState<SubscriptionTier>("starter");
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
@@ -38,11 +37,10 @@ export default function FinancialLibraryPage() {
   }, [projects]);
 
   const canAccessLibrary = subscriptionTier !== "starter";
-  const maxProjects = subscriptionTier === "launch-planner" ? 1 : subscriptionTier === "studio" ? Infinity : 0;
+  const maxProjects = subscriptionTier === "launch-planner" ? 1 : 0;
   const launchPlannerLimitReached = subscriptionTier === "launch-planner" && projects.length >= 1;
 
   const visibleProjects = useMemo(() => {
-    if (subscriptionTier === "studio") return projects;
     if (subscriptionTier === "launch-planner") return projects.slice(0, 1);
     return [];
   }, [projects, subscriptionTier]);
@@ -56,7 +54,7 @@ export default function FinancialLibraryPage() {
     }
 
     if (projects.length >= maxProjects) {
-      setLimitMessage("Launch Planner includes 1 saved financial project. Upgrade to Studio for multiple saved projects.");
+      setLimitMessage("Launch Planner includes 1 saved financial project. More plans with expanded capacity are coming soon.");
       return;
     }
 
@@ -72,30 +70,7 @@ export default function FinancialLibraryPage() {
       <div className="rounded-2xl border border-slate-900 bg-slate-900/25 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="w-full md:w-64">
-            {showDevTierSelector ? (
-              <>
-                <label htmlFor="library-tier" className="mb-2 block text-xs font-semibold text-slate-500">
-                  Current plan (dev placeholder)
-                </label>
-                <select
-                  id="library-tier"
-                  value={subscriptionTier}
-                  onChange={(e) => {
-                    const tier = e.target.value as SubscriptionTier;
-                    setSubscriptionTier(tier);
-                    setExpandedProjectId(null);
-                    setLimitMessage(null);
-                  }}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-600/50 focus:outline-none"
-                >
-                  <option value="starter">Starter</option>
-                  <option value="launch-planner">Launch Planner</option>
-                  <option value="studio">Studio</option>
-                </select>
-              </>
-            ) : (
-              <p className="text-xs text-slate-500">Subscription tier will be provided from billing at runtime.</p>
-            )}
+            <p className="text-xs text-slate-500">Current plan: Starter (billing integration in progress).</p>
           </div>
           <p className="text-xs text-slate-500">
             Future integration: saved budgets from Launch Budget will appear here automatically.
@@ -113,7 +88,7 @@ export default function FinancialLibraryPage() {
             Upgrade to save and revisit launch budget projects.
           </p>
           <p className="mt-3 text-xs text-slate-500">
-            Launch Planner unlocks 1 saved financial project. Studio unlocks multiple saved projects.
+            Launch Planner unlocks 1 saved financial project. More plans with expanded capacity are coming soon.
           </p>
         </div>
       ) : (
@@ -134,13 +109,13 @@ export default function FinancialLibraryPage() {
             <p className="text-xs text-slate-500">
               {subscriptionTier === "launch-planner"
                 ? "Launch Planner: up to 1 saved project"
-                : "Studio: multiple saved projects"}
+                : "Starter: project saving locked"}
             </p>
           </div>
 
           {launchPlannerLimitReached && (
             <div className="rounded-2xl border border-amber-600/30 bg-amber-600/10 px-4 py-3 text-sm text-amber-200">
-              Launch Planner includes 1 saved financial project. Upgrade to Studio for multiple saved projects.
+              Launch Planner includes 1 saved financial project. More plans with expanded capacity are coming soon.
             </div>
           )}
 

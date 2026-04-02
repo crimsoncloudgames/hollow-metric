@@ -7,7 +7,7 @@ import {
   getSavedFinancialProjects,
 } from "@/lib/financial-projects";
 
-type SubscriptionTier = "starter" | "launch-planner" | "studio";
+type SubscriptionTier = "starter" | "launch-planner";
 
 type PlanningDefaults = {
   withholdingTax: number;
@@ -19,13 +19,11 @@ const DEFAULTS_STORAGE_KEY = "hm_planning_defaults";
 const PLAN_LABELS: Record<SubscriptionTier, string> = {
   starter: "Starter",
   "launch-planner": "Launch Planner",
-  studio: "Studio",
 };
 
 const PLAN_LIMIT_SUMMARY: Record<SubscriptionTier, string> = {
   starter: "Launch Planner: not unlocked on Starter",
   "launch-planner": "Launch Planner: 1 active project",
-  studio: "Studio: multiple active projects",
 };
 
 const DEFAULT_PLANNING_DEFAULTS: PlanningDefaults = {
@@ -34,9 +32,8 @@ const DEFAULT_PLANNING_DEFAULTS: PlanningDefaults = {
 };
 
 export default function SettingsPage() {
-  const showDevTierSelector = process.env.NODE_ENV !== "production";
   const [signedInEmail, setSignedInEmail] = useState("Loading...");
-  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
+  const [subscriptionTier] = useState<SubscriptionTier>("starter");
   const [billingStatus, setBillingStatus] = useState("Pending integration");
   const [renewalDate, setRenewalDate] = useState<string | null>(null);
   const [projects, setProjects] = useState<FinancialProject[]>([]);
@@ -119,8 +116,7 @@ export default function SettingsPage() {
 
   const maxProjects = useMemo(() => {
     if (subscriptionTier === "starter") return 0;
-    if (subscriptionTier === "launch-planner") return 1;
-    return Infinity;
+    return 1;
   }, [subscriptionTier]);
 
   const activeProjectsCount = maxProjects === Infinity ? projects.length : Math.min(projects.length, maxProjects);
@@ -197,23 +193,6 @@ export default function SettingsPage() {
           </div>
 
           <div className="w-full max-w-sm space-y-2">
-            {showDevTierSelector && (
-              <div>
-                <label htmlFor="settings-tier" className="mb-2 block text-xs font-semibold text-slate-500">
-                  Current plan (dev placeholder)
-                </label>
-                <select
-                  id="settings-tier"
-                  value={subscriptionTier}
-                  onChange={(event) => setSubscriptionTier(event.target.value as SubscriptionTier)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-600/50 focus:outline-none"
-                >
-                  <option value="starter">Starter</option>
-                  <option value="launch-planner">Launch Planner</option>
-                  <option value="studio">Studio</option>
-                </select>
-              </div>
-            )}
             <button
               type="button"
               disabled
