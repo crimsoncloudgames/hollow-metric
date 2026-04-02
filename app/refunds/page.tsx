@@ -12,63 +12,35 @@ type RefundSection = {
 
 const sections: RefundSection[] = [
   {
-    title: "1. General",
+    title: "1. Refund Window",
     paragraphs: [
-      "Hollow Metric is a digital software service. Because access to digital services may begin immediately after purchase, refund eligibility may be limited, subject to applicable law.",
+      "Refund requests may be submitted within 7 days of purchase.",
     ],
   },
   {
-    title: "2. How to Request a Refund",
-    paragraphs: ["To request a refund, contact:"],
-    items: [
-      "support@hollowmetric.com",
-      "and, where applicable, Paddle buyer support with your order details",
-    ],
-    trailingParagraphs: ["Include:"],
-    trailingItems: [
-      "the email used for purchase",
-      "your Paddle receipt or transaction details if available",
-      "the reason for the request",
-    ],
-  },
-  {
-    title: "3. When Refunds May Be Considered",
-    paragraphs: ["Refunds may be considered in situations such as:"],
-    items: [
-      "duplicate charges",
-      "unauthorized transactions",
-      "billing errors",
-      "clear technical failure preventing access to the purchased service",
-      "other cases where a refund is required by law",
-    ],
-  },
-  {
-    title: "4. When Refunds Are Usually Not Available",
-    paragraphs: ["Unless required by law, refunds are usually not available for:"],
-    items: [
-      "change of mind after meaningful use of the service",
-      "partial subscription periods",
-      "dissatisfaction with commercial outcomes, forecasts, or planning estimates",
-      "failure to cancel before renewal",
-      "issues outside our reasonable control",
-    ],
-  },
-  {
-    title: "5. Consumer Rights",
+    title: "2. Merchant of Record",
     paragraphs: [
-      "Nothing in this Refund Policy limits any rights you may have under applicable consumer protection law.",
+      "Paddle is the merchant of record for purchases made through Hollow Metric.",
     ],
   },
   {
-    title: "6. Processing",
+    title: "3. How to Request a Refund",
+    paragraphs: ["To request a refund, use:"],
+    items: [
+      "the Paddle receipt or support link in your purchase confirmation email",
+      "or Paddle buyer support",
+    ],
+  },
+  {
+    title: "4. Processing",
     paragraphs: [
-      "If a refund is approved, it will generally be returned to the original payment method. Processing times may vary depending on the payment provider and financial institution.",
+      "Approved refunds are handled by Paddle in accordance with Paddle's refund process and applicable law.",
     ],
   },
   {
-    title: "7. Contact",
+    title: "5. Contact",
     paragraphs: ["For refund questions, contact:"],
-    contactLines: ["Hollow Metric", "support@hollowmetric.com"],
+    contactLines: ["Use the Paddle receipt or support link in your purchase confirmation email.", "You can also contact Paddle buyer support."],
   },
 ];
 
@@ -114,7 +86,7 @@ export default function RefundsPage() {
             <p className="mt-4 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Effective Date: April 2, 2026</p>
 
             <div className="mt-10 space-y-6 text-base leading-8 text-slate-300">
-              <p>This Refund Policy explains how refund requests for Hollow Metric are handled.</p>
+              <p>This Refund Policy explains how refund requests for Hollow Metric purchases are handled through Paddle.</p>
             </div>
 
             <div className="mt-12 space-y-12">

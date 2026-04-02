@@ -200,7 +200,7 @@ export default function TermsPage() {
             <p className="mt-4 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Effective Date: April 2, 2026</p>
 
             <div className="mt-10 space-y-6 text-base leading-8 text-slate-300">
-              <p>These Terms of Service govern your access to and use of Hollow Metric, operated by Hollow Metric.</p>
+              <p>These Terms of Service govern your access to and use of Hollow Metric. Hollow Metric is operated by 大连赤云游戏软件有限公司.</p>
               <p>By accessing or using Hollow Metric, you agree to these Terms.</p>
             </div>
 
