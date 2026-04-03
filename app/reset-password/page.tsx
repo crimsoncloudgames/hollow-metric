@@ -56,7 +56,6 @@ export default function ResetPasswordPage() {
       const searchParams = url.searchParams;
       const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
       const recoveryType = searchParams.get("type") ?? hashParams.get("type");
-      const exchangeCode = searchParams.get("code");
       const tokenHash = searchParams.get("token_hash");
       const accessToken = hashParams.get("access_token") ?? searchParams.get("access_token");
       const refreshToken = hashParams.get("refresh_token") ?? searchParams.get("refresh_token");
@@ -103,23 +102,6 @@ export default function ResetPasswordPage() {
         });
         if (verifyError) {
           recoveryError = verifyError.message;
-        }
-      } else if (exchangeCode) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(exchangeCode);
-        if (exchangeError) {
-          const fallbackToOtp = await supabase.auth.verifyOtp({
-            type: "recovery",
-            token_hash: exchangeCode,
-          });
-
-          if (fallbackToOtp.error) {
-            const isPkceVerifierIssue = exchangeError.message.toLowerCase().includes("code verifier");
-            if (isPkceVerifierIssue) {
-              recoveryError = "This reset link used an outdated verification method. Please request a new reset link and try again.";
-            } else {
-              recoveryError = exchangeError.message;
-            }
-          }
         }
       } else {
         recoveryError = "This password reset link is invalid or has expired. Please request a new one.";
