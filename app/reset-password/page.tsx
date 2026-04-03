@@ -31,16 +31,19 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-      const hashError = hashParams.get("error_description") || hashParams.get("error");
-      const hasRecoveryParams =
-        hashParams.get("type") === "recovery" ||
-        Boolean(hashParams.get("access_token")) ||
-        Boolean(hashParams.get("refresh_token"));
-
-      if (hashError && mounted) {
-        setError(decodeURIComponent(hashError));
-      }
+      const url = new URL(window.location.href);
+      const searchParams = url.searchParams;
+      const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+      const recoveryType = searchParams.get("type") ?? hashParams.get("type");
+      const exchangeCode = searchParams.get("code");
+      const tokenHash = searchParams.get("token_hash");
+      const accessToken = hashParams.get("access_token") ?? searchParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token") ?? searchParams.get("refresh_token");
+      const incomingError =
+        searchParams.get("error_description") ??
+        searchParams.get("error") ??
+        hashParams.get("error_description") ??
+        hashParams.get("error");
 
       const {
         data: { session },
@@ -56,60 +59,62 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      if (!hasRecoveryParams) {
-        setError("This password reset link is invalid or has expired. Please request a new one.");
+      if (incomingError) {
+        setError(decodeURIComponent(incomingError));
         setIsCheckingRecovery(false);
         return;
       }
 
-      const timeoutId = window.setTimeout(async () => {
-        const {
-          data: { session: delayedSession },
-        } = await supabase.auth.getSession();
+      let recoveryError: string | null = null;
 
-        if (!mounted) {
-          return;
+      if (exchangeCode) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(exchangeCode);
+        if (exchangeError) {
+          recoveryError = exchangeError.message;
         }
-
-        if (delayedSession?.user) {
-          setIsRecoveryReady(true);
-          setIsCheckingRecovery(false);
-          return;
+      } else if (tokenHash && recoveryType === "recovery") {
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: tokenHash,
+        });
+        if (verifyError) {
+          recoveryError = verifyError.message;
         }
-
-        setError("This password reset link is invalid or has expired. Please request a new one.");
-        setIsCheckingRecovery(false);
-      }, 800);
+      } else if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionError) {
+          recoveryError = sessionError.message;
+        }
+      } else {
+        recoveryError = "This password reset link is invalid or has expired. Please request a new one.";
+      }
 
       const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, currentSession) => {
-        if (!mounted) {
-          return;
-        }
+        data: { session: resolvedSession },
+      } = await supabase.auth.getSession();
 
-        if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && currentSession?.user)) {
-          window.clearTimeout(timeoutId);
-          setIsRecoveryReady(true);
-          setIsCheckingRecovery(false);
-          setError(null);
-        }
-      });
+      if (!mounted) {
+        return;
+      }
 
-      return () => {
-        window.clearTimeout(timeoutId);
-        subscription.unsubscribe();
-      };
+      if (recoveryError || !resolvedSession?.user) {
+        setError(recoveryError ?? "This password reset link is invalid or has expired. Please request a new one.");
+        setIsCheckingRecovery(false);
+        return;
+      }
+
+      window.history.replaceState({}, document.title, url.pathname);
+      setIsRecoveryReady(true);
+      setIsCheckingRecovery(false);
     };
 
-    let cleanup: (() => void) | undefined;
-    void initializeRecovery().then((dispose) => {
-      cleanup = dispose;
-    });
+    void initializeRecovery();
 
     return () => {
       mounted = false;
-      cleanup?.();
     };
   }, []);
 
