@@ -2,21 +2,41 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { createBrowserClient } from "@supabase/ssr";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
+
+const createRecoveryClient = () => {
+  if (!supabaseUrl || !supabaseKey) {
+    return null;
+  }
+
+  return createBrowserClient(supabaseUrl, supabaseKey, {
+    auth: {
+      flowType: "implicit",
+      detectSessionInUrl: true,
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  });
+};
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [debugRedirectTo, setDebugRedirectTo] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setInfo(null);
 
-    const supabase = createClient();
+    const supabase = createRecoveryClient() ?? createClient();
     if (!supabase) {
       setError(missingSupabaseClientEnvMessage);
       return;
@@ -24,8 +44,6 @@ export default function ForgotPasswordPage() {
 
     setIsSubmitting(true);
     const redirectTo = new URL("/reset-password", window.location.origin).toString();
-    setDebugRedirectTo(redirectTo);
-    console.log("[forgot-password] redirectTo", redirectTo);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
     setIsSubmitting(false);
 
@@ -71,11 +89,6 @@ export default function ForgotPasswordPage() {
 
           {error && <p className="text-sm text-rose-300">{error}</p>}
           {info && <p className="text-sm text-emerald-300">{info}</p>}
-          {debugRedirectTo && (
-            <p className="text-xs text-slate-400">
-              Debug redirectTo: {debugRedirectTo}
-            </p>
-          )}
 
           <button
             type="submit"

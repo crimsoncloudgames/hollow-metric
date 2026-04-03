@@ -3,7 +3,28 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
+
+const createRecoveryClient = () => {
+  if (!supabaseUrl || !supabaseKey) {
+    return null;
+  }
+
+  return createBrowserClient(supabaseUrl, supabaseKey, {
+    auth: {
+      flowType: "implicit",
+      detectSessionInUrl: true,
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  });
+};
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -22,7 +43,7 @@ export default function ResetPasswordPage() {
       setError(null);
       setInfo(null);
 
-      const supabase = createClient();
+      const supabase = createRecoveryClient() ?? createClient();
       if (!supabase) {
         if (mounted) {
           setError(missingSupabaseClientEnvMessage);
@@ -67,10 +88,13 @@ export default function ResetPasswordPage() {
 
       let recoveryError: string | null = null;
 
-      if (exchangeCode) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(exchangeCode);
-        if (exchangeError) {
-          recoveryError = exchangeError.message;
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (sessionError) {
+          recoveryError = sessionError.message;
         }
       } else if (tokenHash && recoveryType === "recovery") {
         const { error: verifyError } = await supabase.auth.verifyOtp({
@@ -80,13 +104,22 @@ export default function ResetPasswordPage() {
         if (verifyError) {
           recoveryError = verifyError.message;
         }
-      } else if (accessToken && refreshToken) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (sessionError) {
-          recoveryError = sessionError.message;
+      } else if (exchangeCode) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(exchangeCode);
+        if (exchangeError) {
+          const fallbackToOtp = await supabase.auth.verifyOtp({
+            type: "recovery",
+            token_hash: exchangeCode,
+          });
+
+          if (fallbackToOtp.error) {
+            const isPkceVerifierIssue = exchangeError.message.toLowerCase().includes("code verifier");
+            if (isPkceVerifierIssue) {
+              recoveryError = "This reset link used an outdated verification method. Please request a new reset link and try again.";
+            } else {
+              recoveryError = exchangeError.message;
+            }
+          }
         }
       } else {
         recoveryError = "This password reset link is invalid or has expired. Please request a new one.";
@@ -131,7 +164,7 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const supabase = createClient();
+    const supabase = createRecoveryClient() ?? createClient();
     if (!supabase) {
       setError(missingSupabaseClientEnvMessage);
       return;
