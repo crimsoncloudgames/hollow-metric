@@ -15,21 +15,45 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hollow Metric",
-  description: "Steam store page audit tool for indie developers. Improve positioning, copy, and discoverability before launch.",
+  metadataBase: new URL("https://hollowmetric.com"),
+  title: {
+    default: "Hollow Metric",
+    template: "%s | Hollow Metric",
+  },
+  description:
+    "Launch budget and break-even planning for indie game developers and small teams.",
+  applicationName: "Hollow Metric",
+  openGraph: {
+    type: "website",
+    siteName: "Hollow Metric",
+    title: "Hollow Metric",
+    description:
+      "Launch budget and break-even planning for indie game developers and small teams.",
+    images: [
+      {
+        url: "/HM logo icon with text webP.webp",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hollow Metric",
+    description:
+      "Launch budget and break-even planning for indie game developers and small teams.",
+    images: ["/HM logo icon with text webP.webp"],
+  },
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
     googleBot: {
-      index: false,
-      follow: false,
-      noimageindex: true,
+      index: true,
+      follow: true,
     },
   },
   icons: {
-    icon: [{ url: "/HM%20Logo%20Icon.ico?v=3", type: "image/x-icon" }],
-    shortcut: [{ url: "/HM%20Logo%20Icon.ico?v=3", type: "image/x-icon" }],
-    apple: [{ url: "/HM%20Logo%20Icon.ico?v=3" }],
+    icon: [{ url: "/favicon.ico", type: "image/x-icon" }],
+    shortcut: [{ url: "/favicon.ico", type: "image/x-icon" }],
+    apple: [{ url: "/favicon.ico" }],
   },
 };
 
