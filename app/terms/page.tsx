@@ -54,10 +54,10 @@ const sections: TermsSection[] = [
     title: "6. Refund Policy",
     paragraphs: [
       "We want to be fair, but we also provide access to digital software and services.",
-      "Refund requests should be sent to:",
+      "Refund requests should be made through Paddle channels where Paddle is the merchant of record:",
     ],
     items: [
-      "support@hollowmetric.com, and/or",
+      "the Paddle receipt or support link in your purchase confirmation email",
       "Paddle buyer support where applicable",
     ],
     trailingParagraphs: [
@@ -70,7 +70,7 @@ const sections: TermsSection[] = [
       "dissatisfaction based on expected commercial outcomes",
       "losses arising from business decisions, pricing decisions, or launch performance",
     ],
-    closing: "Nothing in this section limits any non-waivable legal rights you may have under applicable consumer law.",
+    closing: "For product-related refund questions, you can also contact support@hollowmetric.com. Nothing in this section limits any non-waivable legal rights you may have under applicable consumer law.",
   },
   {
     title: "7. No Professional, Legal, Tax, or Financial Advice",
@@ -257,6 +257,16 @@ export default function TermsPage() {
                 </section>
               ))}
             </div>
+
+            <section className="mt-12 border-t border-slate-800/70 pt-10">
+              <h2 className="text-2xl font-black text-white sm:text-3xl">Legal and Support Links</h2>
+              <div className="mt-5 flex flex-wrap gap-3 text-sm">
+                <Link href="/privacy" className="rounded-full border border-slate-700 px-4 py-2 text-slate-300 transition hover:border-blue-500 hover:text-blue-300">Privacy Policy</Link>
+                <Link href="/refunds" className="rounded-full border border-slate-700 px-4 py-2 text-slate-300 transition hover:border-blue-500 hover:text-blue-300">Refund Policy</Link>
+                <Link href="/cookies" className="rounded-full border border-slate-700 px-4 py-2 text-slate-300 transition hover:border-blue-500 hover:text-blue-300">Cookie Policy</Link>
+                <Link href="/contact" className="rounded-full border border-slate-700 px-4 py-2 text-slate-300 transition hover:border-blue-500 hover:text-blue-300">Contact Support</Link>
+              </div>
+            </section>
           </div>
         </section>
       </div>

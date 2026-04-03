@@ -254,6 +254,16 @@ export default function PrivacyPage() {
                 </section>
               ))}
             </div>
+
+            <section className="mt-12 border-t border-slate-800/70 pt-10">
+              <h2 className="text-2xl font-black text-white sm:text-3xl">Legal and Support Links</h2>
+              <div className="mt-5 flex flex-wrap gap-3 text-sm">
+                <Link href="/terms" className="rounded-full border border-slate-700 px-4 py-2 text-slate-300 transition hover:border-blue-500 hover:text-blue-300">Terms of Service</Link>
+                <Link href="/refunds" className="rounded-full border border-slate-700 px-4 py-2 text-slate-300 transition hover:border-blue-500 hover:text-blue-300">Refund Policy</Link>
+                <Link href="/cookies" className="rounded-full border border-slate-700 px-4 py-2 text-slate-300 transition hover:border-blue-500 hover:text-blue-300">Cookie Policy</Link>
+                <Link href="/contact" className="rounded-full border border-slate-700 px-4 py-2 text-slate-300 transition hover:border-blue-500 hover:text-blue-300">Contact Support</Link>
+              </div>
+            </section>
           </div>
         </section>
       </div>

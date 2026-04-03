@@ -126,7 +126,7 @@ export default function DashboardPage() {
               <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Saved Projects</p>
               <h2 className="text-2xl font-black text-white mb-2">Financial Library</h2>
               <p className="text-slate-400 max-w-xs text-sm mb-4">
-                Keep your launch plans organized and revisit previous budget scenarios.
+                Library access is locked on Starter and will open when billing is live.
               </p>
             </div>
             <div className="rounded-2xl bg-slate-800/50 p-3 group-hover:bg-blue-600/20 transition-all">
@@ -177,7 +177,7 @@ export default function DashboardPage() {
       {!isLoading && recentCount === 0 && (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-12 text-center">
           <p className="text-slate-200 font-semibold mb-2">No saved launch budgets yet.</p>
-          <p className="text-slate-500 text-sm mb-6">Build your first budget to see it here.</p>
+          <p className="text-slate-500 text-sm mb-6">Starter currently includes calculator access only. Saved projects are unavailable until billing is live.</p>
           <Link
             href="/dashboard/budgeter"
             className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 transition-all"

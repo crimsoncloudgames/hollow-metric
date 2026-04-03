@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import {
   type FinancialProject,
@@ -34,15 +35,17 @@ const DEFAULT_PLANNING_DEFAULTS: PlanningDefaults = {
 export default function SettingsPage() {
   const [signedInEmail, setSignedInEmail] = useState("Loading...");
   const [subscriptionTier] = useState<SubscriptionTier>("starter");
-  const [billingStatus, setBillingStatus] = useState("Pending integration");
-  const [renewalDate, setRenewalDate] = useState<string | null>(null);
+  const [billingStatus] = useState("Not live yet");
+  const [renewalDate] = useState<string | null>(null);
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [creditBalance, setCreditBalance] = useState<number>(0);
   const [defaults, setDefaults] = useState<PlanningDefaults>(DEFAULT_PLANNING_DEFAULTS);
   const [defaultsSavedState, setDefaultsSavedState] = useState<string>("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [accountActionState, setAccountActionState] = useState<string>("");
+  const [exportActionState, setExportActionState] = useState<string>("");
   const [privacyActionState, setPrivacyActionState] = useState<string>("");
-
-  const isBillingConnected = Boolean(process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN?.trim());
 
   useEffect(() => {
     const loadUserContext = async () => {
@@ -103,17 +106,6 @@ export default function SettingsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!isBillingConnected) {
-      setBillingStatus("Pending integration");
-      setRenewalDate(null);
-      return;
-    }
-
-    setBillingStatus("Active");
-    setRenewalDate("Available after Paddle integration is finalized");
-  }, [isBillingConnected]);
-
   const maxProjects = useMemo(() => {
     if (subscriptionTier === "starter") return 0;
     return 1;
@@ -126,7 +118,111 @@ export default function SettingsPage() {
     if (typeof window === "undefined") return;
 
     window.localStorage.setItem(DEFAULTS_STORAGE_KEY, JSON.stringify(defaults));
-    setDefaultsSavedState("Planning defaults saved.");
+    setDefaultsSavedState("Planning defaults saved on this device.");
+  };
+
+  const onChangeEmail = async () => {
+    const trimmedEmail = newEmail.trim();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setAccountActionState("Enter a valid email address.");
+      return;
+    }
+
+    const supabase = createClient();
+    if (!supabase) {
+      setAccountActionState("Could not connect to auth client.");
+      return;
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setAccountActionState("You must be signed in to change email.");
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({ email: trimmedEmail });
+      if (error) {
+        setAccountActionState(error.message || "Could not update email right now.");
+        return;
+      }
+
+      setAccountActionState("Email update submitted. Check your inbox to confirm if required.");
+      setNewEmail("");
+    } catch {
+      setAccountActionState("Could not update email right now.");
+    }
+  };
+
+  const onChangePassword = async () => {
+    const trimmedPassword = newPassword.trim();
+    if (trimmedPassword.length < 8) {
+      setAccountActionState("Password must be at least 8 characters.");
+      return;
+    }
+
+    const supabase = createClient();
+    if (!supabase) {
+      setAccountActionState("Could not connect to auth client.");
+      return;
+    }
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setAccountActionState("You must be signed in to change password.");
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: trimmedPassword });
+      if (error) {
+        setAccountActionState(error.message || "Could not update password right now.");
+        return;
+      }
+
+      setAccountActionState("Password updated.");
+      setNewPassword("");
+    } catch {
+      setAccountActionState("Could not update password right now.");
+    }
+  };
+
+  const onExportMyData = () => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        account: {
+          email: signedInEmail,
+          plan: PLAN_LABELS[subscriptionTier],
+        },
+        planningDefaults: defaults,
+        financialProjects: getSavedFinancialProjects(),
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `hollowmetric-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+
+      setExportActionState("Exported local planning data as JSON.");
+    } catch {
+      setExportActionState("Could not export data right now.");
+    }
   };
 
   const onSignOutAllSessions = async () => {
@@ -153,28 +249,48 @@ export default function SettingsPage() {
             <p className="mt-4 text-sm text-slate-400">Signed in email</p>
             <p className="text-lg font-semibold text-white">{signedInEmail}</p>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto">
+          <div className="w-full max-w-sm space-y-3">
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold text-slate-400">New email</span>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(event) => setNewEmail(event.target.value)}
+                placeholder="name@example.com"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none"
+              />
+            </label>
             <button
               type="button"
-              disabled
-              aria-disabled="true"
-              className="cursor-not-allowed rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-500 opacity-70"
+              onClick={() => void onChangeEmail()}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300"
             >
               Change Email
             </button>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold text-slate-400">New password</span>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="At least 8 characters"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none"
+              />
+            </label>
             <button
               type="button"
-              disabled
-              aria-disabled="true"
-              className="cursor-not-allowed rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-500 opacity-70"
+              onClick={() => void onChangePassword()}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300"
             >
               Change Password
             </button>
           </div>
         </div>
         <p className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-500">
-          Account actions will be enabled in a later update.
+          Email and password updates are available now for signed-in users.
         </p>
+        {accountActionState && <p className="mt-3 text-xs text-slate-500">{accountActionState}</p>}
       </article>
 
       <article className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
@@ -187,9 +303,9 @@ export default function SettingsPage() {
               <p className="text-slate-400">Renewal date: <span className="font-semibold text-white">{renewalDate ?? "Not available yet"}</span></p>
             </div>
             <p className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-500">
-              Current plan display uses placeholder subscription logic until Paddle integration is fully live.
+              Subscription syncing and billing controls are unavailable until billing integration is approved and live.
             </p>
-            <p className="mt-2 text-xs text-slate-500">Billing controls will appear once Paddle integration is live.</p>
+            <p className="mt-2 text-xs text-slate-500">Starter lock state is active. Upgrade actions are not available yet.</p>
           </div>
 
           <div className="w-full max-w-sm space-y-2">
@@ -301,20 +417,20 @@ export default function SettingsPage() {
             <p className="mt-2 text-sm font-semibold text-slate-300">{PLAN_LIMIT_SUMMARY[subscriptionTier]}</p>
           </div>
         </div>
+        <p className="mt-4 text-xs text-slate-500">Usage cards reflect currently available local financial-tool data and current plan lock state.</p>
       </article>
 
       <article className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
         <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">Data & Privacy</p>
         <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Your launch planning data is scoped to your account. Export tools and full privacy controls will be expanded as backend support is completed.
+          Current planning data in this release is stored on this device. Export tools and full account-level privacy controls will expand as backend support is completed.
         </p>
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            className="cursor-not-allowed rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-500 opacity-70"
+            onClick={onExportMyData}
+            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300"
           >
             Export My Data
           </button>
@@ -327,7 +443,15 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        <p className="mt-4 text-xs text-slate-500">Export controls will be enabled in a later update.</p>
+        <p className="mt-4 text-xs text-slate-500">Export includes local planning defaults and local financial project data.</p>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs">
+          <Link href="/privacy" className="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300">Privacy Policy</Link>
+          <Link href="/terms" className="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300">Terms of Service</Link>
+          <Link href="/refunds" className="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300">Refund Policy</Link>
+          <Link href="/cookies" className="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300">Cookie Policy</Link>
+          <Link href="/contact" className="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300">Contact Support</Link>
+        </div>
+        {exportActionState && <p className="mt-4 text-xs text-slate-500">{exportActionState}</p>}
         {privacyActionState && <p className="mt-4 text-xs text-slate-500">{privacyActionState}</p>}
       </article>
 

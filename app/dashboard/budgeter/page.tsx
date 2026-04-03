@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AlertCircle, Zap, X, Plus } from "lucide-react";
 
 const MAX_MONEY_VALUE = 1_000_000_000;
 const MAX_COPIES_VALUE = 1_000_000_000;
+const PLANNING_DEFAULTS_STORAGE_KEY = "hm_planning_defaults";
 
 const toFiniteNumber = (value: unknown, fallback = 0): number => {
   const numeric = typeof value === "number" ? value : Number(value);
@@ -98,6 +99,11 @@ interface PlanningReview {
 }
 
 type SubscriptionTier = "starter" | "launch-planner";
+
+type PlanningDefaults = {
+  withholdingTax: number;
+  refundsAssumption: number;
+};
 
 const generatePlanningReview = (
   totalCost: number,
@@ -260,6 +266,32 @@ export default function LaunchBudgetPage() {
 
   const [refundRate, setRefundRate] = useState("8");
   const [withholding, setWithholding] = useState("30");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const raw = window.localStorage.getItem(PLANNING_DEFAULTS_STORAGE_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as Partial<PlanningDefaults>;
+      const nextWithholding = parseNumericInput(String(parsed.withholdingTax ?? ""), {
+        min: 0,
+        max: 100,
+        fallback: 30,
+      });
+      const nextRefunds = parseNumericInput(String(parsed.refundsAssumption ?? ""), {
+        min: 0,
+        max: 100,
+        fallback: 8,
+      });
+
+      setWithholding(nextWithholding.toString());
+      setRefundRate(nextRefunds.toString());
+    } catch {
+      // Keep in-page defaults if stored defaults are invalid.
+    }
+  }, []);
 
   // Price points
   const [price1, setPrice1] = useState("12.99");
@@ -456,7 +488,7 @@ export default function LaunchBudgetPage() {
           </div>
           <div>
             <p className="font-semibold text-slate-400">Launch Planner</p>
-            <p className="text-slate-600">Launch Planner includes 1 active project budget</p>
+            <p className="text-slate-600">Launch Planner includes 1 active project budget when billing is live</p>
           </div>
           <div>
             <p className="font-semibold text-slate-400">More Plans</p>
@@ -624,9 +656,9 @@ export default function LaunchBudgetPage() {
 
         {!isPaidTier && (
           <div className="rounded-2xl border border-slate-700 bg-slate-900/40 p-4 mb-4">
-            <p className="text-sm font-semibold text-slate-200">Price Point 2 and 3 are paid features</p>
+            <p className="text-sm font-semibold text-slate-200">Price Point 2 and 3 are locked on Starter</p>
             <p className="text-xs text-slate-400 mt-1">
-              Upgrade to compare multiple launch prices side by side.
+              Paid price comparison is not available yet while billing rollout is pending.
             </p>
           </div>
         )}
@@ -768,10 +800,10 @@ export default function LaunchBudgetPage() {
         <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
           <h2 className="text-2xl font-black text-white mb-3">Planning Review</h2>
           <p className="text-slate-400 mb-4">
-            Upgrade to see whether your budget looks balanced, how demanding your sales target is, and where your cost structure may need work.
+            Planning Review is locked on Starter and currently unavailable until billing is live.
           </p>
           <p className="text-xs text-slate-500 mb-4">
-            Launch Planner unlocks full budget review and 3 price point comparison.
+            This section will open after paid access is available.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-slate-500 text-sm">Budget Health Score</div>
@@ -933,10 +965,10 @@ export default function LaunchBudgetPage() {
         <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
           <h2 className="text-2xl font-black text-white mb-3">Post-Launch Actuals</h2>
           <p className="text-slate-400">
-            Upgrade to compare your actual launch sales, refunds, and net revenue against your original budget plan.
+            Post-Launch Actuals is locked on Starter and currently unavailable until billing is live.
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Launch Planner unlocks plan vs actual tracking after release.
+            This section will open after paid access is available.
           </p>
         </div>
       )}

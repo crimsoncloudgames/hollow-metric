@@ -534,6 +534,9 @@ export default function LandingPage() {
                 <p><Link href="/privacy" className="transition hover:text-blue-400">Privacy Policy</Link></p>
                 <p><Link href="/terms" className="transition hover:text-blue-400">Terms of Service</Link></p>
                 <p><Link href="/refunds" className="transition hover:text-blue-400">Refund Policy</Link></p>
+                <p><Link href="/cookies" className="transition hover:text-blue-400">Cookie Policy</Link></p>
+                <p><a href="https://www.facebook.com/hollowmetric" target="_blank" rel="noopener noreferrer" className="transition hover:text-blue-400">Facebook</a></p>
+                <p><a href="https://discord.gg/tQMqtQAsz9" target="_blank" rel="noopener noreferrer" className="transition hover:text-blue-400">Discord</a></p>
                 <p><a href="mailto:support@hollowmetric.com" className="transition hover:text-blue-400">support@hollowmetric.com</a></p>
               </div>
             </div>

@@ -49,7 +49,7 @@ export default function FinancialLibraryPage() {
     setLimitMessage(null);
 
     if (subscriptionTier === "starter") {
-      setLimitMessage("Upgrade to save and revisit launch budget projects.");
+      setLimitMessage("Saving projects is locked on Starter and not available until billing goes live.");
       return;
     }
 
@@ -70,10 +70,10 @@ export default function FinancialLibraryPage() {
       <div className="rounded-2xl border border-slate-900 bg-slate-900/25 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="w-full md:w-64">
-            <p className="text-xs text-slate-500">Current plan: Starter (billing integration in progress).</p>
+            <p className="text-xs text-slate-500">Current plan: Starter. Billing is not live yet.</p>
           </div>
           <p className="text-xs text-slate-500">
-            Future integration: saved budgets from Launch Budget will appear here automatically.
+            Project saving and paid access will open after billing rollout is complete.
           </p>
         </div>
       </div>
@@ -85,10 +85,10 @@ export default function FinancialLibraryPage() {
           </div>
           <h3 className="text-2xl font-black text-white">Financial Library</h3>
           <p className="mt-2 max-w-2xl text-slate-400">
-            Upgrade to save and revisit launch budget projects.
+            Saving and revisiting financial projects is locked on Starter.
           </p>
           <p className="mt-3 text-xs text-slate-500">
-            Launch Planner unlocks 1 saved financial project. More plans with expanded capacity are coming soon.
+            Paid access is not available yet while billing is pending.
           </p>
         </div>
       ) : (

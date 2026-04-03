@@ -226,7 +226,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               "text-xl font-black italic tracking-tight sm:text-2xl",
               theme === "dark" ? "text-white" : "text-slate-900",
             ].join(" ")}>
-              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">0.5.2</span>
+              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">0.5.3</span>
             </div>
           </Link>
           <p className={[
@@ -356,6 +356,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <LogOut size={15} />
             Sign Out
           </button>
+          <a
+            href="https://discord.gg/tQMqtQAsz9"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={[
+              "mt-3 block w-full rounded-2xl border transition-all px-3 py-2 text-sm font-semibold text-center",
+              theme === "dark"
+                ? "border-slate-800 bg-slate-900 text-slate-200 hover:border-blue-600/40 hover:text-blue-400"
+                : "border-slate-300 bg-slate-200 text-slate-800 hover:border-blue-500/40 hover:text-blue-700",
+            ].join(" ")}
+          >
+            Discord
+          </a>
         </div>
       </aside>
 
