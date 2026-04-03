@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
     token: turnstileToken,
     ip: ipKey === "unknown" ? undefined : ipKey,
     expectedAction: "contact_form",
+    requestHostname: request.nextUrl.hostname,
   });
 
   if (!captchaResult.ok) {

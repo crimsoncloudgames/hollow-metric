@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
 import { createClient } from "@/utils/supabase/client";
 import { missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
@@ -16,7 +17,13 @@ export default function LoginPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
-  const isTurnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
+  const isTurnstileEnabled =
+    Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()) &&
+    !shouldBypassTurnstile({
+      nodeEnv: process.env.NODE_ENV,
+      hostname: typeof window === "undefined" ? null : window.location.hostname,
+    });
+  const isLocalCaptchaBypass = !isTurnstileEnabled;
 
   const nextPath = useMemo(() => {
     if (typeof window === "undefined") {
@@ -52,18 +59,35 @@ export default function LoginPage() {
     }
 
     setIsSubmitting(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-      options: {
-        captchaToken: turnstileToken ?? undefined,
-      },
-    });
+    const signInPayload = isTurnstileEnabled
+      ? {
+          email: email.trim(),
+          password,
+          options: {
+            captchaToken: turnstileToken ?? undefined,
+          },
+        }
+      : {
+          email: email.trim(),
+          password,
+        };
+
+    const { error: signInError } = await supabase.auth.signInWithPassword(signInPayload);
     setIsSubmitting(false);
     setTurnstileToken(null);
     setTurnstileResetNonce((value) => value + 1);
 
     if (signInError) {
+      const errorMessage = signInError.message?.toLowerCase() ?? "";
+      const isCaptchaPolicyError = errorMessage.includes("captcha");
+
+      if (isLocalCaptchaBypass && isCaptchaPolicyError) {
+        setError(
+          "Local login is blocked by Supabase project captcha policy. For localhost development, disable Auth captcha in Supabase Authentication settings (or use a separate dev Supabase project with captcha off)."
+        );
+        return;
+      }
+
       setError(signInError.message);
       return;
     }

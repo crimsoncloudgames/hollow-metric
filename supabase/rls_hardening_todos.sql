@@ -8,10 +8,9 @@
 -- create policy "reports_update_own" on public.reports for update using (auth.uid() = user_id);
 -- create policy "reports_delete_own" on public.reports for delete using (auth.uid() = user_id);
 
--- 2) User credits: never allow cross-user balance reads/writes.
--- alter table public.user_credits enable row level security;
--- create policy "credits_select_own" on public.user_credits for select using (auth.uid() = user_id);
--- create policy "credits_update_own" on public.user_credits for update using (auth.uid() = user_id);
+-- 2) Billing entitlements/subscriptions (planned): keep server-owned and user-scoped.
+-- Keep subscription tier/entitlement rows synced from trusted billing webhooks.
+-- Enable RLS once the final table exists and allow users to read only their own row.
 
 -- 3) Financial library projects (planned): must be per-user isolated.
 -- alter table public.financial_projects enable row level security;

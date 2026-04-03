@@ -7,6 +7,7 @@ import {
   type FinancialProject,
   getSavedFinancialProjects,
 } from "@/lib/financial-projects";
+import { openPaddleCheckout } from "@/lib/paddle";
 
 type SubscriptionTier = "starter" | "launch-planner";
 
@@ -38,7 +39,6 @@ export default function SettingsPage() {
   const [billingStatus] = useState("Not live yet");
   const [renewalDate] = useState<string | null>(null);
   const [projects, setProjects] = useState<FinancialProject[]>([]);
-  const [creditBalance, setCreditBalance] = useState<number>(0);
   const [defaults, setDefaults] = useState<PlanningDefaults>(DEFAULT_PLANNING_DEFAULTS);
   const [defaultsSavedState, setDefaultsSavedState] = useState<string>("");
   const [newEmail, setNewEmail] = useState("");
@@ -46,6 +46,8 @@ export default function SettingsPage() {
   const [accountActionState, setAccountActionState] = useState<string>("");
   const [exportActionState, setExportActionState] = useState<string>("");
   const [privacyActionState, setPrivacyActionState] = useState<string>("");
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadUserContext = async () => {
@@ -61,28 +63,10 @@ export default function SettingsPage() {
 
       if (!user) {
         setSignedInEmail("Not signed in");
-        setCreditBalance(0);
         return;
       }
 
       setSignedInEmail(user.email ?? "Email unavailable");
-
-      try {
-        const response = await fetch("/api/credits/balance", {
-          method: "GET",
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          setCreditBalance(0);
-          return;
-        }
-
-        const payload = (await response.json()) as { balance?: number };
-        setCreditBalance(Number.isFinite(payload.balance) ? Number(payload.balance) : 0);
-      } catch {
-        setCreditBalance(0);
-      }
     };
 
     void loadUserContext();
@@ -240,6 +224,34 @@ export default function SettingsPage() {
     }
   };
 
+  const onUpgradeClick = async () => {
+    setCheckoutLoading(true);
+    setCheckoutError(null);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planKey: "pro" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error ?? `Checkout failed (${res.status})`);
+      }
+      const { priceId, userId, email } = (await res.json()) as {
+        priceId: string;
+        userId: string;
+        email: string;
+      };
+      await openPaddleCheckout(priceId, { userId, email });
+    } catch (err) {
+      setCheckoutError(
+        err instanceof Error ? err.message : "Something went wrong. Please try again.",
+      );
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   return (
     <section className="space-y-6">
       <article className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
@@ -300,23 +312,31 @@ export default function SettingsPage() {
             <div className="mt-4 space-y-2 text-sm">
               <p className="text-slate-400">Current plan: <span className="font-semibold text-white">{PLAN_LABELS[subscriptionTier]}</span></p>
               <p className="text-slate-400">Billing status: <span className="font-semibold text-white">{billingStatus}</span></p>
-              <p className="text-slate-400">Renewal date: <span className="font-semibold text-white">{renewalDate ?? "Not available yet"}</span></p>
+              <p className="text-slate-400">Renewal date: <span className="font-semibold text-white">{renewalDate ?? "—"}</span></p>
             </div>
-            <p className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-500">
-              Subscription syncing and billing controls are unavailable until billing integration is approved and live.
-            </p>
-            <p className="mt-2 text-xs text-slate-500">Starter lock state is active. Upgrade actions are not available yet.</p>
           </div>
 
           <div className="w-full max-w-sm space-y-2">
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              className="w-full cursor-not-allowed rounded-xl border border-blue-900/30 bg-blue-950/20 px-4 py-2 text-sm font-semibold text-blue-400/70"
-            >
-              Manage Subscription
-            </button>
+            {subscriptionTier === "starter" ? (
+              <button
+                type="button"
+                onClick={() => void onUpgradeClick()}
+                disabled={checkoutLoading}
+                aria-disabled={checkoutLoading}
+                className="w-full rounded-xl border border-blue-700/50 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:border-blue-500 hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {checkoutLoading ? "Opening checkout…" : "Upgrade to Pro"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="w-full cursor-not-allowed rounded-xl border border-blue-900/30 bg-blue-950/20 px-4 py-2 text-sm font-semibold text-blue-400/70"
+              >
+                Manage Subscription
+              </button>
+            )}
             <button
               type="button"
               disabled
@@ -333,7 +353,9 @@ export default function SettingsPage() {
             >
               Cancel Subscription
             </button>
-            <p className="text-xs text-slate-500">Available after billing is live.</p>
+            {checkoutError && (
+              <p className="text-xs text-red-400">{checkoutError}</p>
+            )}
           </div>
         </div>
       </article>
@@ -409,8 +431,8 @@ export default function SettingsPage() {
             <p className="mt-2 text-2xl font-black text-white">{savedProjectsCount}</p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
-            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Credit Balance</p>
-            <p className="mt-2 text-2xl font-black text-white">{creditBalance}</p>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Billing Entitlements</p>
+            <p className="mt-2 text-sm font-semibold text-slate-300">Not connected yet</p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
             <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Plan Limits</p>

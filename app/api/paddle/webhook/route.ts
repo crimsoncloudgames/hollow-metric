@@ -1,217 +1,470 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
-import { getCreditsForPriceId } from "@/lib/credits";
+import { createClient as createAdminClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-type PaddleWebhookPayload = {
-  event_id?: string;
-  event_type?: string;
-  data?: Record<string, unknown>;
+type PaddleWebhookEvent = {
+  event_id?: unknown;
+  event_type?: unknown;
+  occurred_at?: unknown;
+  data?: unknown;
+  [key: string]: unknown;
 };
 
-type PaddleLineItem = {
-  price_id?: string;
-  price?: {
-    id?: string;
+type BillingWebhookEventInsert = {
+  paddle_event_id: string;
+  event_type: string;
+  event_created_at: string | null;
+  received_at: string;
+  processing_status: "verified";
+};
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: JsonValue }
+  | JsonValue[];
+
+type BillingSubscriptionUpsert = {
+  paddle_subscription_id: string;
+  paddle_customer_id: string | null;
+  paddle_status: string;
+  status_normalized: string;
+  plan_key: string | null;
+  started_at: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean | null;
+  canceled_at: string | null;
+  paused_at: string | null;
+  trial_end_at: string | null;
+  ended_at: string | null;
+  raw_snapshot: JsonValue;
+};
+
+const SUBSCRIPTION_EVENT_TYPES = new Set([
+  "subscription.created",
+  "subscription.updated",
+  "subscription.paused",
+  "subscription.resumed",
+  "subscription.canceled",
+]);
+
+type Database = {
+  public: {
+    Tables: {
+      billing_webhook_events: {
+        Row: {
+          id: number;
+          paddle_event_id: string;
+          event_type: string;
+          event_created_at: string | null;
+          received_at: string;
+          processed_at: string | null;
+          processing_status: string;
+          error_message: string | null;
+        };
+        Insert: {
+          paddle_event_id: string;
+          event_type: string;
+          event_created_at: string | null;
+          received_at: string;
+          processing_status: "verified";
+        };
+        Update: {
+          paddle_event_id?: string;
+          event_type?: string;
+          event_created_at?: string | null;
+          received_at?: string;
+          processed_at?: string | null;
+          processing_status?: string;
+          error_message?: string | null;
+        };
+        Relationships: [];
+      };
+      billing_subscriptions: {
+        Row: {
+          paddle_subscription_id: string;
+          paddle_customer_id: string | null;
+          paddle_status: string;
+          status_normalized: string;
+          plan_key: string | null;
+          started_at: string | null;
+          current_period_start: string | null;
+          current_period_end: string | null;
+          cancel_at_period_end: boolean | null;
+          canceled_at: string | null;
+          paused_at: string | null;
+          trial_end_at: string | null;
+          ended_at: string | null;
+          raw_snapshot: JsonValue;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: BillingSubscriptionUpsert;
+        Update: Partial<BillingSubscriptionUpsert>;
+        Relationships: [];
+      };
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 };
 
-function getSupabaseAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+function getSupabaseAdminClient(): SupabaseClient<Database> | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!url || !serviceKey) {
     return null;
   }
 
-  return createSupabaseAdminClient(supabaseUrl, serviceRoleKey);
+  return createAdminClient<Database>(url, serviceKey);
 }
 
-function parsePaddleSignature(headerValue: string): { ts: string; h1: string } | null {
-  const pairs = headerValue
-    .split(";")
+function parsePaddleSignatureHeader(headerValue: string) {
+  const parts = headerValue
+    .split(/[;,]/)
     .map((part) => part.trim())
     .filter(Boolean);
 
-  const dictionary = new Map<string, string>();
-  for (const pair of pairs) {
-    const [key, value] = pair.split("=");
-    if (!key || !value) continue;
-    dictionary.set(key, value);
+  let timestamp = "";
+  const hashes: string[] = [];
+
+  for (const part of parts) {
+    const separatorIndex = part.indexOf("=");
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = part.slice(0, separatorIndex).trim();
+    const value = part.slice(separatorIndex + 1).trim();
+
+    if (!value) {
+      continue;
+    }
+
+    if (key === "ts") {
+      timestamp = value;
+      continue;
+    }
+
+    if (key === "h1") {
+      hashes.push(value.toLowerCase());
+    }
   }
 
-  const ts = dictionary.get("ts");
-  const h1 = dictionary.get("h1");
-  if (!ts || !h1) {
+  return { timestamp, hashes };
+}
+
+function verifyPaddleSignature(rawBody: string, signatureHeader: string, secret: string) {
+  const { timestamp, hashes } = parsePaddleSignatureHeader(signatureHeader);
+
+  if (!timestamp || hashes.length === 0) {
+    return false;
+  }
+
+  const signedPayload = timestamp + ":" + rawBody;
+  const expectedDigest = createHmac("sha256", secret)
+    .update(signedPayload, "utf8")
+    .digest("hex")
+    .toLowerCase();
+
+  const expectedBuffer = Buffer.from(expectedDigest, "hex");
+
+  for (const candidate of hashes) {
+    if (!/^[0-9a-f]{64}$/.test(candidate)) {
+      continue;
+    }
+
+    const candidateBuffer = Buffer.from(candidate, "hex");
+
+    if (candidateBuffer.length !== expectedBuffer.length) {
+      continue;
+    }
+
+    if (timingSafeEqual(candidateBuffer, expectedBuffer)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function extractEventDetails(event: PaddleWebhookEvent) {
+  const eventId = typeof event.event_id === "string" ? event.event_id.trim() : "";
+  const eventType = typeof event.event_type === "string" ? event.event_type.trim() : "unknown";
+
+  return { eventId, eventType };
+}
+
+function extractEventCreatedAt(event: PaddleWebhookEvent) {
+  return readTimestamp(event.occurred_at);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function readString(value: unknown): string | null {
+  if (typeof value !== "string") {
     return null;
   }
 
-  return { ts, h1 };
+  const normalized = value.trim();
+  return normalized ? normalized : null;
 }
 
-function verifyWebhookSignature(rawBody: string, signatureHeader: string, webhookSecret: string): boolean {
-  const parsed = parsePaddleSignature(signatureHeader);
-  if (!parsed) {
-    return false;
-  }
-
-  const signedPayload = `${parsed.ts}:${rawBody}`;
-  const expected = createHmac("sha256", webhookSecret).update(signedPayload).digest("hex");
-
-  const expectedBuffer = Buffer.from(expected, "utf8");
-  const receivedBuffer = Buffer.from(parsed.h1, "utf8");
-
-  if (expectedBuffer.length !== receivedBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(expectedBuffer, receivedBuffer);
+function readBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
 }
 
-function extractUserId(data: Record<string, unknown> | undefined): string | null {
-  if (!data) return null;
-
-  const customData = data.custom_data as Record<string, unknown> | undefined;
-  const userId = customData?.supabase_user_id;
-
-  if (typeof userId === "string" && userId.trim()) {
-    return userId.trim();
+function readTimestamp(value: unknown): string | null {
+  const text = readString(value);
+  if (!text) {
+    return null;
   }
 
-  return null;
+  return Number.isNaN(Date.parse(text)) ? null : text;
 }
 
-function extractPriceIds(data: Record<string, unknown> | undefined): string[] {
-  if (!data) return [];
+function normalizeSubscriptionStatus(rawStatus: string, eventType: string): string {
+  const status = rawStatus.toLowerCase();
 
-  const itemsValue = data.items as unknown;
-  const detailsValue = data.details as { line_items?: unknown } | undefined;
-  const detailItems = detailsValue?.line_items;
+  if (status === "trialing") return "trialing";
+  if (status === "active") return "active";
+  if (status === "past_due") return "past_due";
+  if (status === "paused") return "paused";
+  if (status === "canceled" || status === "cancelled") return "canceled";
+  if (status === "ended") return "ended";
 
-  const lineItems = Array.isArray(itemsValue)
-    ? itemsValue
-    : Array.isArray(detailItems)
-      ? detailItems
-      : [];
-
-  if (!Array.isArray(lineItems)) {
-    return [];
+  if (eventType === "subscription.canceled") {
+    return "canceled";
   }
 
-  const items = lineItems as PaddleLineItem[];
-  return items
-    .map((item) => item.price_id ?? item.price?.id)
-    .filter((priceId): priceId is string => typeof priceId === "string" && priceId.trim().length > 0)
-    .map((priceId) => priceId.trim());
+  return "unknown";
 }
 
-export async function POST(req: Request) {
+function extractSubscriptionUpsert(
+  event: PaddleWebhookEvent,
+  eventType: string,
+): { ok: true; row: BillingSubscriptionUpsert } | { ok: false; reason: string } {
+  const data = asRecord(event.data);
+  if (!data) {
+    return { ok: false, reason: "missing subscription data object" };
+  }
+
+  const subscriptionId = readString(data.id);
+  if (!subscriptionId) {
+    return { ok: false, reason: "missing subscription id" };
+  }
+
+  const paddleStatus = readString(data.status);
+  if (!paddleStatus) {
+    return { ok: false, reason: "missing subscription status" };
+  }
+
+  const customer = asRecord(data.customer);
+  const paddleCustomerId = readString(data.customer_id) ?? readString(customer?.id);
+
+  const customData = asRecord(data.custom_data);
+  const planKey = readString(data.plan_key) ?? readString(customData?.plan_key);
+
+  const currentPeriod = asRecord(data.current_billing_period);
+  const currentPeriodStart =
+    readTimestamp(data.current_period_start) ?? readTimestamp(currentPeriod?.starts_at);
+  const currentPeriodEnd =
+    readTimestamp(data.current_period_end) ?? readTimestamp(currentPeriod?.ends_at);
+
+  const cancelAtPeriodEnd =
+    readBoolean(data.cancel_at_period_end) ??
+    (asRecord(data.scheduled_change)?.action === "cancel" ? true : null);
+
+  const row: BillingSubscriptionUpsert = {
+    paddle_subscription_id: subscriptionId,
+    paddle_customer_id: paddleCustomerId,
+    paddle_status: paddleStatus,
+    status_normalized: normalizeSubscriptionStatus(paddleStatus, eventType),
+    plan_key: planKey,
+    started_at: readTimestamp(data.started_at),
+    current_period_start: currentPeriodStart,
+    current_period_end: currentPeriodEnd,
+    cancel_at_period_end: cancelAtPeriodEnd,
+    canceled_at: readTimestamp(data.canceled_at),
+    paused_at: readTimestamp(data.paused_at),
+    trial_end_at: readTimestamp(data.trial_end_at),
+    ended_at: readTimestamp(data.ended_at),
+    raw_snapshot: data as JsonValue,
+  };
+
+  return { ok: true, row };
+}
+
+async function insertVerifiedWebhookEvent(
+  supabase: SupabaseClient<Database>,
+  row: BillingWebhookEventInsert,
+) {
+  const { error } = await supabase
+    .from("billing_webhook_events")
+    .insert(row);
+
+  if (!error) {
+    return { ok: true as const, duplicate: false as const };
+  }
+
+  // Postgres unique_violation means this webhook event is a duplicate delivery.
+  // Treat duplicates as idempotent success and preserve the original ledger row.
+  if (error.code === "23505") {
+    return { ok: true as const, duplicate: true as const };
+  }
+
+  return { ok: false as const, error };
+}
+
+async function upsertSubscription(
+  supabase: SupabaseClient<Database>,
+  row: BillingSubscriptionUpsert,
+) {
+  const { error } = await supabase
+    .from("billing_subscriptions")
+    .upsert(row, { onConflict: "paddle_subscription_id" });
+
+  if (!error) {
+    return { ok: true as const };
+  }
+
+  return { ok: false as const, error };
+}
+
+export async function POST(request: Request) {
+  const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET?.trim();
+
+  if (!webhookSecret) {
+    return NextResponse.json({ error: "Missing PADDLE_WEBHOOK_SECRET." }, { status: 500 });
+  }
+
+  const supabase = getSupabaseAdminClient();
+  if (!supabase) {
+    return NextResponse.json({ error: "Missing Supabase admin configuration." }, { status: 500 });
+  }
+
+  const signatureHeader = request.headers.get("Paddle-Signature")?.trim();
+  if (!signatureHeader) {
+    return NextResponse.json({ error: "Missing Paddle-Signature header." }, { status: 400 });
+  }
+
+  const rawBody = await request.text();
+
+  const isValidSignature = verifyPaddleSignature(rawBody, signatureHeader, webhookSecret);
+  if (!isValidSignature) {
+    return NextResponse.json({ error: "Invalid Paddle signature." }, { status: 400 });
+  }
+
+  let parsedEvent: PaddleWebhookEvent;
   try {
-    const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET?.trim();
-    if (!webhookSecret) {
-      return NextResponse.json({ error: "Missing PADDLE_WEBHOOK_SECRET" }, { status: 500 });
-    }
+    parsedEvent = JSON.parse(rawBody) as PaddleWebhookEvent;
+  } catch {
+    return NextResponse.json({ error: "Invalid webhook JSON payload." }, { status: 400 });
+  }
 
-    const signatureHeader = req.headers.get("Paddle-Signature");
-    if (!signatureHeader) {
-      return NextResponse.json({ error: "Missing Paddle-Signature header" }, { status: 400 });
-    }
+  const { eventId, eventType } = extractEventDetails(parsedEvent);
 
-    const rawBody = await req.text();
-    if (!verifyWebhookSignature(rawBody, signatureHeader, webhookSecret)) {
-      return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
-    }
+  if (!eventId) {
+    return NextResponse.json({ error: "Missing event_id in Paddle payload." }, { status: 400 });
+  }
 
-    const payload = JSON.parse(rawBody) as PaddleWebhookPayload;
-    if (payload.event_type !== "transaction.completed") {
-      return NextResponse.json({ ok: true, ignored: true });
-    }
+  const persistResult = await insertVerifiedWebhookEvent(supabase, {
+    paddle_event_id: eventId,
+    event_type: eventType,
+    event_created_at: extractEventCreatedAt(parsedEvent),
+    received_at: new Date().toISOString(),
+    processing_status: "verified",
+  });
 
-    const eventId = payload.event_id?.trim() || null;
-    const data = payload.data;
-    if (!data || typeof data !== "object") {
-      return NextResponse.json({ error: "Missing webhook data payload" }, { status: 400 });
-    }
-
-    const transactionId = typeof data.id === "string" ? data.id.trim() : "";
-    if (!transactionId) {
-      return NextResponse.json({ error: "Missing transaction id" }, { status: 400 });
-    }
-
-    const userId = extractUserId(data);
-    if (!userId) {
-      return NextResponse.json({ error: "Missing supabase_user_id in custom_data" }, { status: 400 });
-    }
-
-    const priceIds = extractPriceIds(data);
-    if (priceIds.length === 0) {
-      return NextResponse.json({ error: "No line-item price ids found" }, { status: 400 });
-    }
-
-    const creditsToGrant = priceIds.reduce((sum, priceId) => sum + getCreditsForPriceId(priceId), 0);
-    if (creditsToGrant <= 0) {
-      return NextResponse.json({ error: "No matching configured price ids found" }, { status: 400 });
-    }
-
-    const admin = getSupabaseAdminClient();
-    if (!admin) {
-      return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 500 });
-    }
-
-    const { error: transactionInsertError } = await admin.from("credit_transactions").insert({
-      user_id: userId,
-      paddle_event_id: eventId,
-      paddle_transaction_id: transactionId,
-      price_ids: priceIds,
-      credits_added: creditsToGrant,
+  if (!persistResult.ok) {
+    console.error("Failed to persist Paddle webhook event", {
+      paddleEventId: eventId,
+      eventType,
+      error: persistResult.error,
     });
+    return NextResponse.json({ error: "Failed to persist webhook event." }, { status: 500 });
+  }
 
-    if (transactionInsertError) {
-      if (transactionInsertError.code === "23505") {
-        return NextResponse.json({ ok: true, duplicate: true });
-      }
+  if (persistResult.duplicate) {
+    return NextResponse.json(
+      {
+        ok: true,
+        paddleEventId: eventId,
+        duplicate: true,
+        subscriptionSynced: false,
+        skipped: "duplicate_event_delivery",
+      },
+      { status: 200 },
+    );
+  }
 
-      return NextResponse.json({ error: transactionInsertError.message }, { status: 500 });
-    }
+  if (SUBSCRIPTION_EVENT_TYPES.has(eventType)) {
+    const extracted = extractSubscriptionUpsert(parsedEvent, eventType);
 
-    const { data: creditRow, error: fetchBalanceError } = await admin
-      .from("user_credits")
-      .select("balance")
-      .eq("user_id", userId)
-      .maybeSingle<{ balance: number }>();
-
-    if (fetchBalanceError) {
-      return NextResponse.json({ error: fetchBalanceError.message }, { status: 500 });
-    }
-
-    if (!creditRow) {
-      const { error: insertBalanceError } = await admin.from("user_credits").insert({
-        user_id: userId,
-        balance: creditsToGrant,
+    if (!extracted.ok) {
+      console.error("Malformed Paddle subscription event payload", {
+        paddleEventId: eventId,
+        eventType,
+        reason: extracted.reason,
       });
 
-      if (insertBalanceError) {
-        return NextResponse.json({ error: insertBalanceError.message }, { status: 500 });
-      }
-
-      return NextResponse.json({ ok: true, creditsAdded: creditsToGrant, newBalance: creditsToGrant });
+      return NextResponse.json(
+        {
+          ok: true,
+          paddleEventId: eventId,
+          duplicate: persistResult.duplicate,
+          subscriptionSynced: false,
+          skipped: "malformed_subscription_payload",
+        },
+        { status: 200 },
+      );
     }
 
-    const updatedBalance = creditRow.balance + creditsToGrant;
-    const { error: updateBalanceError } = await admin
-      .from("user_credits")
-      .update({ balance: updatedBalance, updated_at: new Date().toISOString() })
-      .eq("user_id", userId);
+    const subscriptionResult = await upsertSubscription(supabase, extracted.row);
 
-    if (updateBalanceError) {
-      return NextResponse.json({ error: updateBalanceError.message }, { status: 500 });
+    if (!subscriptionResult.ok) {
+      console.error("Failed to upsert billing_subscriptions from Paddle webhook", {
+        paddleEventId: eventId,
+        eventType,
+        paddleSubscriptionId: extracted.row.paddle_subscription_id,
+        error: subscriptionResult.error,
+      });
+
+      return NextResponse.json(
+        { error: "Failed to persist subscription state." },
+        { status: 500 },
+      );
     }
 
-    return NextResponse.json({ ok: true, creditsAdded: creditsToGrant, newBalance: updatedBalance });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Webhook processing failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        ok: true,
+        paddleEventId: eventId,
+        duplicate: persistResult.duplicate,
+        subscriptionSynced: true,
+      },
+      { status: 200 },
+    );
   }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      paddleEventId: eventId,
+      duplicate: persistResult.duplicate,
+      subscriptionSynced: false,
+      skipped: "unrelated_event_type",
+    },
+    { status: 200 },
+  );
 }

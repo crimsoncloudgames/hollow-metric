@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import Script from "next/script";
+import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
 
 type TurnstileRenderOptions = {
   sitekey: string;
@@ -38,11 +39,15 @@ export function TurnstileWidget({
   className,
 }: TurnstileWidgetProps) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? "";
+  const bypassTurnstile = shouldBypassTurnstile({
+    nodeEnv: process.env.NODE_ENV,
+    hostname: typeof window === "undefined" ? null : window.location.hostname,
+  });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
 
   const renderWidget = useCallback(() => {
-    if (!siteKey || !window.turnstile || !containerRef.current || widgetIdRef.current) {
+    if (bypassTurnstile || !siteKey || !window.turnstile || !containerRef.current || widgetIdRef.current) {
       return;
     }
 
@@ -54,7 +59,7 @@ export function TurnstileWidget({
       "error-callback": () => onTokenChange(null),
       "expired-callback": () => onTokenChange(null),
     });
-  }, [action, onTokenChange, siteKey]);
+  }, [action, bypassTurnstile, onTokenChange, siteKey]);
 
   useEffect(() => {
     renderWidget();
@@ -78,7 +83,7 @@ export function TurnstileWidget({
     };
   }, []);
 
-  if (!siteKey) {
+  if (bypassTurnstile || !siteKey) {
     return null;
   }
 

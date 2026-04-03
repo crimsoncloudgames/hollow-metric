@@ -1,3 +1,5 @@
+import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
+
 type TurnstileVerifyResponse = {
   success: boolean;
   action?: string;
@@ -10,6 +12,7 @@ type VerifyTurnstileOptions = {
   token: string;
   ip?: string;
   expectedAction?: string;
+  requestHostname?: string | null;
 };
 
 type VerifyTurnstileResult = {
@@ -20,6 +23,15 @@ type VerifyTurnstileResult = {
 export async function verifyTurnstileToken(
   options: VerifyTurnstileOptions
 ): Promise<VerifyTurnstileResult> {
+  if (
+    shouldBypassTurnstile({
+      nodeEnv: process.env.NODE_ENV,
+      hostname: options.requestHostname,
+    })
+  ) {
+    return { ok: true };
+  }
+
   const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
 
   if (!secret) {

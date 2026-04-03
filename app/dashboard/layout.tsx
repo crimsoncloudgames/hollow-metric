@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Rocket,
   Tag,
-  CreditCard,
   FolderOpen,
   DollarSign,
   Settings,
@@ -28,7 +27,6 @@ const navItems = [
 const comingSoonItems = [
   { label: "Tag Generator", icon: Tag },
   { label: "Steam Page Analysis", icon: Rocket },
-  { label: "Buy Credits", icon: CreditCard },
 ];
 
 function getHeaderText(pathname: string) {
@@ -78,13 +76,6 @@ function getHeaderText(pathname: string) {
     return {
       title: "Settings",
       subtitle: "Manage your account, subscription, defaults, and data controls.",
-    };
-  }
-
-  if (pathname === "/dashboard/credits") {
-    return {
-      title: "Buy Credits",
-      subtitle: "Top up your account for tag generation and additional analyses.",
     };
   }
 

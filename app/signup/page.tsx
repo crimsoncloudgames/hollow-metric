@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
 import { createClient } from "@/utils/supabase/client";
 import { missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
@@ -18,7 +19,13 @@ export default function SignUpPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
-  const isTurnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
+  const isTurnstileEnabled =
+    Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()) &&
+    !shouldBypassTurnstile({
+      nodeEnv: process.env.NODE_ENV,
+      hostname: typeof window === "undefined" ? null : window.location.hostname,
+    });
+  const isLocalCaptchaBypass = !isTurnstileEnabled;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -37,22 +44,41 @@ export default function SignUpPage() {
     }
 
     setIsSubmitting(true);
+    const signUpOptions = isTurnstileEnabled
+      ? {
+          data: {
+            full_name: fullName.trim(),
+            username: username.trim() || null,
+          },
+          captchaToken: turnstileToken ?? undefined,
+        }
+      : {
+          data: {
+            full_name: fullName.trim(),
+            username: username.trim() || null,
+          },
+        };
+
     const { error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
-          username: username.trim() || null,
-        },
-        captchaToken: turnstileToken ?? undefined,
-      },
+      options: signUpOptions,
     });
     setIsSubmitting(false);
     setTurnstileToken(null);
     setTurnstileResetNonce((value) => value + 1);
 
     if (signUpError) {
+      const errorMessage = signUpError.message?.toLowerCase() ?? "";
+      const isCaptchaPolicyError = errorMessage.includes("captcha");
+
+      if (isLocalCaptchaBypass && isCaptchaPolicyError) {
+        setError(
+          "Local signup is blocked by Supabase project captcha policy. For localhost development, disable Auth captcha in Supabase Authentication settings (or use a separate dev Supabase project with captcha off)."
+        );
+        return;
+      }
+
       setError(signUpError.message);
       return;
     }

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
 
 type ContactFormState = {
   name: string;
@@ -19,7 +20,12 @@ export default function ContactPage() {
   const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
-  const isTurnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
+  const isTurnstileEnabled =
+    Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()) &&
+    !shouldBypassTurnstile({
+      nodeEnv: process.env.NODE_ENV,
+      hostname: typeof window === "undefined" ? null : window.location.hostname,
+    });
   const [formState, setFormState] = useState<ContactFormState>({
     name: "",
     email: "",

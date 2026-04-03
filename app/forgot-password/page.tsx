@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { TurnstileWidget } from "@/components/turnstile-widget";
+import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -33,7 +34,13 @@ export default function ForgotPasswordPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
-  const isTurnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
+  const isTurnstileEnabled =
+    Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()) &&
+    !shouldBypassTurnstile({
+      nodeEnv: process.env.NODE_ENV,
+      hostname: typeof window === "undefined" ? null : window.location.hostname,
+    });
+  const isLocalCaptchaBypass = !isTurnstileEnabled;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -53,15 +60,33 @@ export default function ForgotPasswordPage() {
 
     setIsSubmitting(true);
     const redirectTo = new URL("/reset-password", window.location.origin).toString();
+    const resetOptions = isTurnstileEnabled
+      ? {
+          redirectTo,
+          captchaToken: turnstileToken ?? undefined,
+        }
+      : {
+          redirectTo,
+        };
+
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo,
-      captchaToken: turnstileToken ?? undefined,
+      ...resetOptions,
     });
     setIsSubmitting(false);
     setTurnstileToken(null);
     setTurnstileResetNonce((value) => value + 1);
 
     if (resetError) {
+      const errorMessage = resetError.message?.toLowerCase() ?? "";
+      const isCaptchaPolicyError = errorMessage.includes("captcha");
+
+      if (isLocalCaptchaBypass && isCaptchaPolicyError) {
+        setError(
+          "Local password reset is blocked by Supabase project captcha policy. For localhost development, disable Auth captcha in Supabase Authentication settings (or use a separate dev Supabase project with captcha off)."
+        );
+        return;
+      }
+
       setError(resetError.message);
       return;
     }
