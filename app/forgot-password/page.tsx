@@ -9,6 +9,7 @@ export default function ForgotPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [debugRedirectTo, setDebugRedirectTo] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -23,6 +24,8 @@ export default function ForgotPasswordPage() {
 
     setIsSubmitting(true);
     const redirectTo = new URL("/reset-password", window.location.origin).toString();
+    setDebugRedirectTo(redirectTo);
+    console.log("[forgot-password] redirectTo", redirectTo);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
     setIsSubmitting(false);
 
@@ -68,6 +71,11 @@ export default function ForgotPasswordPage() {
 
           {error && <p className="text-sm text-rose-300">{error}</p>}
           {info && <p className="text-sm text-emerald-300">{info}</p>}
+          {debugRedirectTo && (
+            <p className="text-xs text-slate-400">
+              Debug redirectTo: {debugRedirectTo}
+            </p>
+          )}
 
           <button
             type="submit"
