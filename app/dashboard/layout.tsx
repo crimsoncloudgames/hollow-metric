@@ -161,7 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           : "border-b border-slate-300 bg-white lg:border-b-0 lg:border-r",
       ].join(" ")}>
         <div className="mb-6 lg:mb-10">
-          <Link href="/landing" className="inline-flex items-center gap-3">
+          <Link href="/dashboard" className="inline-flex items-center gap-3">
             <Image
               src="/HM Logo Icon.webp"
               alt="Hollow Metric logo"
