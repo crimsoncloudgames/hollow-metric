@@ -31,7 +31,7 @@ export const metadata: Metadata = {
       "Launch budget and break-even planning for indie game developers and small teams.",
     images: [
       {
-        url: "/HM logo icon with text webP.webp",
+        url: "/social-preview.png",
       },
     ],
   },
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     title: "Hollow Metric",
     description:
       "Launch budget and break-even planning for indie game developers and small teams.",
-    images: ["/HM logo icon with text webP.webp"],
+    images: ["/social-preview.png"],
   },
   robots: {
     index: true,

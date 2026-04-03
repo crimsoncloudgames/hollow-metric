@@ -15,7 +15,7 @@ export const metadata: Metadata = {
       "Estimate launch costs, compare price points, and plan break-even targets before you ship.",
     images: [
       {
-        url: "/HM logo icon with text webP.webp",
+        url: "/social-preview.png",
       },
     ],
   },
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     title: "Hollow Metric",
     description:
       "Estimate launch costs, compare price points, and plan break-even targets before you ship.",
-    images: ["/HM logo icon with text webP.webp"],
+    images: ["/social-preview.png"],
   },
 };
 
