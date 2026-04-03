@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseAdminClient } from '@supabase/supabase-js';
-import { openai } from '@/lib/openai';
+import { getOpenAIClient } from '@/lib/openai';
 import { COOKIE_NAMES, parseCookieHeader, readConsentFromCookieMap, sanitizeAppIdList } from '@/lib/cookie-consent';
 import { createClient as createSupabaseServerClient, hasSupabaseServerEnv } from '@/utils/supabase/server';
 
@@ -137,8 +137,7 @@ function getRequestIp(req: Request): string | null {
     return ip.replace('::ffff:', '');
 }
 
-function hashIp(ip: string): string {
-    const salt = process.env.PREVIEW_IP_HASH_SALT || 'hollowmetric-preview';
+function hashIp(ip: string, salt: string): string {
     return createHash('sha256').update(`${salt}:${ip}`).digest('hex');
 }
 
@@ -177,7 +176,7 @@ export async function POST(req: Request) {
         const requestCookieMap = parseCookieHeader(req.headers.get('cookie'));
         const userGame = (payload.userGame || '').trim();
         const isUrl = Boolean(payload.isUrl);
-        const previewMode = Boolean(payload.preview);
+        const requestedPreviewMode = payload.preview !== false;
         const appId = (payload.appId || '').trim();
 
         if (!userGame) {
@@ -185,7 +184,7 @@ export async function POST(req: Request) {
         }
 
         let isSignedIn = false;
-        if (previewMode && hasSupabaseServerEnv) {
+        if (hasSupabaseServerEnv) {
             try {
                 const cookieStore = await cookies();
                 const supabaseServer = createSupabaseServerClient(cookieStore);
@@ -199,6 +198,24 @@ export async function POST(req: Request) {
                 console.error('Preview auth check failed:', authError);
             }
         }
+
+        // Temporary strict server rule for v0.5.0 hardening:
+        // until a trusted entitlement/billing source exists server-side,
+        // full analysis is not granted from auth state alone.
+        const hasTrustedEntitlementSource = false;
+
+        if (!requestedPreviewMode && !hasTrustedEntitlementSource) {
+            return NextResponse.json(
+                {
+                    error:
+                        'Full analysis is temporarily unavailable until server-side entitlement checks are enabled. Please use preview mode for now.',
+                    errorCode: 'FULL_ANALYSIS_REQUIRES_SERVER_ENTITLEMENT',
+                },
+                { status: 403 }
+            );
+        }
+
+        const previewMode = true;
 
         let supabaseAdmin: ReturnType<typeof getSupabaseAdminClient> = null;
         let previewIpHash: string | null = null;
@@ -306,7 +323,17 @@ export async function POST(req: Request) {
                 );
             }
 
-            previewIpHash = hashIp(requestIp);
+            const previewHashSalt = process.env.PREVIEW_IP_HASH_SALT?.trim();
+            if (!previewHashSalt) {
+                return NextResponse.json(
+                    {
+                        error: 'Free preview limits are not configured. Add PREVIEW_IP_HASH_SALT to enable secure preview checks.',
+                    },
+                    { status: 500 }
+                );
+            }
+
+            previewIpHash = hashIp(requestIp, previewHashSalt);
 
             const [ipLookup, appLookup] = await Promise.all([
                 supabaseAdmin
@@ -370,6 +397,7 @@ export async function POST(req: Request) {
             }
         }
 
+        const openai = getOpenAIClient();
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [

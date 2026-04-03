@@ -3,23 +3,56 @@
 import { useState, useMemo } from "react";
 import { AlertCircle, Zap, X, Plus } from "lucide-react";
 
+const MAX_MONEY_VALUE = 1_000_000_000;
+const MAX_COPIES_VALUE = 1_000_000_000;
+
+const toFiniteNumber = (value: unknown, fallback = 0): number => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+};
+
+const clampNumber = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
+
+const parseNumericInput = (
+  value: string,
+  options?: { min?: number; max?: number; fallback?: number }
+): number => {
+  const parsed = Number.parseFloat((value ?? "").trim());
+  const finite = Number.isFinite(parsed) ? parsed : options?.fallback ?? 0;
+  const min = options?.min ?? Number.NEGATIVE_INFINITY;
+  const max = options?.max ?? Number.POSITIVE_INFINITY;
+  return clampNumber(finite, min, max);
+};
+
+const sanitizePercent = (value: number): number =>
+  clampNumber(toFiniteNumber(value, 0), 0, 100);
+
+const sanitizeMoney = (value: number): number =>
+  clampNumber(toFiniteNumber(value, 0), 0, MAX_MONEY_VALUE);
+
+const sanitizeCount = (value: number): number =>
+  clampNumber(toFiniteNumber(value, 0), 0, MAX_COPIES_VALUE);
+
 // Formatting helpers
 const formatCurrency = (value: number): string => {
+  const safeValue = toFiniteNumber(value, 0);
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(value);
+  }).format(safeValue);
 };
 
 const formatCurrencyWithDecimals = (value: number): string => {
+  const safeValue = toFiniteNumber(value, 0);
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value);
+  }).format(safeValue);
 };
 
 // Calculation helpers
@@ -28,9 +61,13 @@ const calculateNetRevenuePerCopy = (
   withholding: number,
   refundRate: number
 ): number => {
-  const afterSteamFee = pricePerCopy * (1 - 0.3);
-  const afterWithholding = afterSteamFee * (1 - withholding / 100);
-  const afterRefunds = afterWithholding * (1 - refundRate / 100);
+  const safePrice = sanitizeMoney(pricePerCopy);
+  const safeWithholding = sanitizePercent(withholding);
+  const safeRefundRate = sanitizePercent(refundRate);
+
+  const afterSteamFee = safePrice * (1 - 0.3);
+  const afterWithholding = afterSteamFee * (1 - safeWithholding / 100);
+  const afterRefunds = afterWithholding * (1 - safeRefundRate / 100);
   return afterRefunds;
 };
 
@@ -38,8 +75,13 @@ const calculateBreakEven = (
   totalCost: number,
   netRevenuePerCopy: number
 ): number | null => {
-  if (netRevenuePerCopy <= 0) return null;
-  return Math.ceil(totalCost / netRevenuePerCopy);
+  const safeTotalCost = sanitizeMoney(totalCost);
+  const safeNetRevenuePerCopy = toFiniteNumber(netRevenuePerCopy, 0);
+  if (safeNetRevenuePerCopy <= 0) return null;
+
+  const result = Math.ceil(safeTotalCost / safeNetRevenuePerCopy);
+  if (!Number.isFinite(result) || result <= 0) return null;
+  return sanitizeCount(result);
 };
 
 interface ExpenseRow {
@@ -67,9 +109,22 @@ const generatePlanningReview = (
 ): PlanningReview => {
   const insights: string[] = [];
   let healthScore = 70;
+  const safeTotalCost = sanitizeMoney(totalCost);
+  const safeExpenses = expenses.map((expense) => ({
+    ...expense,
+    amount: sanitizeMoney(expense.amount),
+  }));
+  const safePricePoints = pricePoints.map((point) => sanitizeMoney(point));
+  const safeBreakEvenResults = breakEvenResults.map((be) => {
+    if (be === null) return null;
+    const value = toFiniteNumber(be, 0);
+    return value > 0 ? sanitizeCount(value) : null;
+  });
+  const safeRefundRate = sanitizePercent(refundRate);
+  const safeNetRevenuesPerCopy = netRevenuesPerCopy.map((x) => toFiniteNumber(x, 0));
 
   // Filter valid break-even results
-  const validResults = breakEvenResults.filter((be) => be !== null) as number[];
+  const validResults = safeBreakEvenResults.filter((be) => be !== null) as number[];
   const avgBreakEven =
     validResults.length > 0
       ? validResults.reduce((a, b) => a + b, 0) / validResults.length
@@ -94,20 +149,20 @@ const generatePlanningReview = (
   // 2. Analyze cost structure signal
   let costSignal: "Balanced" | "Needs Review" | "Aggressive" | "Uneven" =
     "Balanced";
-  if (expenses.length > 2) {
-    const sortedExpenses = [...expenses].sort((a, b) => b.amount - a.amount);
+  if (safeExpenses.length > 2) {
+    const sortedExpenses = [...safeExpenses].sort((a, b) => b.amount - a.amount);
     const largestCategory = sortedExpenses[0]?.amount || 0;
     const secondLargest = sortedExpenses[1]?.amount || 0;
 
-    if (largestCategory > totalCost * 0.6) {
+    if (largestCategory > safeTotalCost * 0.6) {
       costSignal = "Aggressive";
       healthScore -= 15;
-    } else if (largestCategory > totalCost * 0.5) {
+    } else if (largestCategory > safeTotalCost * 0.5) {
       costSignal = "Uneven";
       healthScore -= 8;
     } else if (
       secondLargest > 0 &&
-      largestCategory + secondLargest > totalCost * 0.75
+      largestCategory + secondLargest > safeTotalCost * 0.75
     ) {
       costSignal = "Needs Review";
       healthScore -= 5;
@@ -115,12 +170,10 @@ const generatePlanningReview = (
   }
 
   // 3. Check net revenue efficiency
+  const positiveNetRevenues = safeNetRevenuesPerCopy.filter((x) => x > 0);
   const avgNetRevenue =
-    netRevenuesPerCopy.length > 0
-      ? netRevenuesPerCopy
-          .filter((x) => x > 0)
-          .reduce((a, b) => a + b, 0) / netRevenuesPerCopy.filter((x) => x > 0)
-          .length
+    positiveNetRevenues.length > 0
+      ? positiveNetRevenues.reduce((a, b) => a + b, 0) / positiveNetRevenues.length
       : 0;
 
   if (avgNetRevenue <= 0) {
@@ -144,9 +197,9 @@ const generatePlanningReview = (
   }
 
   // 5. Price point analysis
-  if (pricePoints.length >= 2) {
-    const sortedByPrice = [...breakEvenResults]
-      .map((be, idx) => ({ price: pricePoints[idx], be }))
+  if (safePricePoints.length >= 2) {
+    const sortedByPrice = [...safeBreakEvenResults]
+      .map((be, idx) => ({ price: safePricePoints[idx], be }))
       .filter((x) => x.be !== null)
       .sort((a, b) => (a.price as number) - (b.price as number));
 
@@ -165,11 +218,11 @@ const generatePlanningReview = (
   }
 
   // 6. Refund/chargeback observation
-  if (refundRate > 12) {
+  if (safeRefundRate > 12) {
     insights.push(
       "Your refund and chargeback assumption is conservative. Validate against your project type."
     );
-  } else if (refundRate < 3) {
+  } else if (safeRefundRate < 3) {
     insights.push(
       "Your refund and chargeback assumption is aggressive. Industry rates vary widely."
     );
@@ -238,7 +291,7 @@ export default function LaunchBudgetPage() {
               ...exp,
               [field]:
                 field === "amount"
-                  ? parseFloat(value) || 0
+                  ? parseNumericInput(value, { min: 0, max: MAX_MONEY_VALUE, fallback: 0 })
                   : value,
             }
           : exp
@@ -253,13 +306,16 @@ export default function LaunchBudgetPage() {
 
   // Calculate results
   const calculations = useMemo(() => {
-    const parseNum = (val: string) => parseFloat(val) || 0;
+    const parseMoneyInput = (val: string) =>
+      parseNumericInput(val, { min: 0, max: MAX_MONEY_VALUE, fallback: 0 });
+    const parsePercentInput = (val: string) =>
+      parseNumericInput(val, { min: 0, max: 100, fallback: 0 });
 
-    const totalCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalCost = expenses.reduce((sum, exp) => sum + sanitizeMoney(exp.amount), 0);
 
-    const pricePoints = [parseNum(price1), parseNum(price2), parseNum(price3)];
-    const witholdingRate = parseNum(withholding);
-    const refundRateNum = parseNum(refundRate);
+    const pricePoints = [parseMoneyInput(price1), parseMoneyInput(price2), parseMoneyInput(price3)];
+    const witholdingRate = parsePercentInput(withholding);
+    const refundRateNum = parsePercentInput(refundRate);
 
     const netRevenuesPerCopy = pricePoints.map((price) =>
       calculateNetRevenuePerCopy(price, witholdingRate, refundRateNum)
@@ -297,20 +353,28 @@ export default function LaunchBudgetPage() {
     if (launchPriceIdx < 0 || launchPriceIdx > 2) return null;
 
     const plannedBreakEven = calculations.breakEvenResults[launchPriceIdx];
-    const plannedNetRevenuePerCopy = calculations.netRevenuesPerCopy[launchPriceIdx];
-    const plannedRefundRate = calculations.refundRateNum;
+    const plannedNetRevenuePerCopy = toFiniteNumber(calculations.netRevenuesPerCopy[launchPriceIdx], 0);
+    const plannedRefundRate = sanitizePercent(calculations.refundRateNum);
 
-    const actualCopies = parseFloat(actualCopiesSold);
-    const actualRefunds = parseFloat(actualRefundRate);
-    const grossInput = parseFloat(actualGrossRevenue);
-    const netInput = parseFloat(actualNetRevenue);
-    const launchPrice = calculations.pricePoints[launchPriceIdx];
+    const hasActualRefundInput = actualRefundRate.trim() !== "";
+    const hasActualGrossInput = actualGrossRevenue.trim() !== "";
+    const hasActualNetInput = actualNetRevenue.trim() !== "";
 
-    const actualGross = Number.isFinite(grossInput) ? grossInput : (Number.isFinite(actualCopies) ? actualCopies * launchPrice : 0);
-    const estimatedActualNet = actualGross * (1 - 0.3) * (1 - (calculations.witholdingRate || 0) / 100) * (1 - (Number.isFinite(actualRefunds) ? actualRefunds : 0) / 100);
-    const resolvedActualNet = Number.isFinite(netInput) ? netInput : estimatedActualNet;
+    const actualCopies = parseNumericInput(actualCopiesSold, { min: 0, max: MAX_COPIES_VALUE, fallback: 0 });
+    const actualRefunds = parseNumericInput(actualRefundRate, { min: 0, max: 100, fallback: 0 });
+    const grossInput = parseNumericInput(actualGrossRevenue, { min: 0, max: MAX_MONEY_VALUE, fallback: 0 });
+    const netInput = parseNumericInput(actualNetRevenue, { min: 0, max: MAX_MONEY_VALUE, fallback: 0 });
+    const launchPrice = sanitizeMoney(calculations.pricePoints[launchPriceIdx]);
 
-    if (!Number.isFinite(actualCopies) || actualCopies <= 0) {
+    const actualGross = hasActualGrossInput ? grossInput : sanitizeMoney(actualCopies * launchPrice);
+    const estimatedActualNet =
+      actualGross *
+      (1 - 0.3) *
+      (1 - sanitizePercent(calculations.witholdingRate) / 100) *
+      (1 - actualRefunds / 100);
+    const resolvedActualNet = hasActualNetInput ? netInput : sanitizeMoney(estimatedActualNet);
+
+    if (actualCopies <= 0) {
       return null;
     }
 
@@ -330,7 +394,7 @@ export default function LaunchBudgetPage() {
         bullets.push("Actual copies sold exceeded the original rough break-even target.");
       }
     }
-    if (Number.isFinite(actualRefunds)) {
+    if (hasActualRefundInput) {
       if (actualRefunds > plannedRefundRate) {
         bullets.push("Actual refunds and chargebacks were higher than planned.");
       } else if (actualRefunds < plannedRefundRate) {
@@ -353,9 +417,9 @@ export default function LaunchBudgetPage() {
       actualCopies,
       differenceVsPlan,
       plannedRefundRate,
-      actualRefunds: Number.isFinite(actualRefunds) ? actualRefunds : null,
+      actualRefunds: hasActualRefundInput ? actualRefunds : null,
       plannedNetRevenuePerCopy,
-      actualNetRevenue: resolvedActualNet,
+      actualNetRevenue: sanitizeMoney(resolvedActualNet),
       summary,
       bullets: bullets.slice(0, 4),
     };

@@ -1,9 +1,17 @@
 import OpenAI from 'openai';
 
-// This looks for the key in your .env.local file
-const apiKey = process.env.OPENAI_API_KEY;
+let openaiClient: OpenAI | null = null;
 
-export const openai = new OpenAI({
-    // Using a placeholder so the app doesn't crash without a key
-    apiKey: apiKey || 'empty_placeholder',
-});
+export function getOpenAIClient(): OpenAI {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+    if (!apiKey) {
+        throw new Error('Missing OPENAI_API_KEY');
+    }
+
+    if (!openaiClient) {
+        openaiClient = new OpenAI({ apiKey });
+    }
+
+    return openaiClient;
+}
