@@ -99,6 +99,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [userLabel, setUserLabel] = useState("Account");
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const header = getHeaderText(pathname);
 
   useEffect(() => {
@@ -118,21 +120,57 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const loadUser = async () => {
       const supabase = createClient();
-      if (!supabase) return;
+      if (!supabase) {
+        if (!mounted) return;
+        setUserLabel("Account");
+        setIsAuthenticated(false);
+        setIsAuthChecked(true);
+        router.replace("/login");
+        return;
+      }
 
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!mounted) return;
+
       if (user?.email) {
         setUserLabel(user.email);
+      } else {
+        setUserLabel("Account");
       }
 
       if (!user) {
+        setIsAuthenticated(false);
+        setIsAuthChecked(true);
+        router.replace("/login");
         return;
       }
+
+      setIsAuthenticated(true);
+      setIsAuthChecked(true);
     };
+
+    const supabase = createClient();
+    const authSubscription = supabase?.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      if (event === "SIGNED_OUT" || !session?.user) {
+        setUserLabel("Account");
+        setIsAuthenticated(false);
+        setIsAuthChecked(true);
+        router.replace("/login");
+        router.refresh();
+        return;
+      }
+
+      if (session.user.email) {
+        setUserLabel(session.user.email);
+      }
+      setIsAuthenticated(true);
+      setIsAuthChecked(true);
+    });
 
     const refresh = () => {
       void loadUser();
@@ -140,14 +178,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     void loadUser();
     window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
     const intervalId = window.setInterval(refresh, 15000);
 
     return () => {
       mounted = false;
+      authSubscription?.data.subscription.unsubscribe();
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [router]);
+
+  if (!isAuthChecked || !isAuthenticated) {
+    return (
+      <div className={[
+        "min-h-screen p-6",
+        theme === "dark" ? "bg-slate-950 text-slate-300" : "bg-slate-100 text-slate-700",
+      ].join(" ")}>
+        <p className="text-sm font-semibold">Checking account access...</p>
+      </div>
+    );
+  }
 
   return (
     <div className={[
@@ -291,7 +343,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }
 
               await supabase.auth.signOut();
-              router.push("/login");
+              router.replace("/login");
+              router.refresh();
             }}
             className={[
               "w-full rounded-2xl border transition-all px-3 py-2 text-sm font-semibold flex items-center justify-center gap-2",
