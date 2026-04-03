@@ -24,6 +24,10 @@ export default function LoginPage() {
       return "/dashboard";
     }
 
+    if (!candidate.startsWith("/dashboard")) {
+      return "/dashboard";
+    }
+
     return candidate;
   }, []);
 

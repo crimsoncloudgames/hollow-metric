@@ -163,7 +163,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="mb-6 lg:mb-10">
           <Link href="/dashboard" className="inline-flex items-center gap-3">
             <Image
-              src="/HM Logo Icon.webp"
+              src="/HM Logo Icon.ico"
               alt="Hollow Metric logo"
               width={40}
               height={40}
@@ -174,7 +174,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               "text-xl font-black italic tracking-tight sm:text-2xl",
               theme === "dark" ? "text-white" : "text-slate-900",
             ].join(" ")}>
-              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">0.4.3</span>
+              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">0.4.8</span>
             </div>
           </Link>
           <p className={[

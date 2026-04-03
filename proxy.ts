@@ -13,13 +13,23 @@ function getSafeRedirectPath(candidate: string | null) {
 export async function proxy(request: NextRequest) {
   const { supabase, supabaseResponse } = createClient(request);
   const secureCookies = request.nextUrl.protocol === "https:" || process.env.NODE_ENV === "production";
-
-  if (!supabase) {
-    return supabaseResponse;
-  }
-
   const pathname = request.nextUrl.pathname;
   const isDashboardRoute = pathname.startsWith("/dashboard");
+
+  if (pathname === "/landing/dashboard" || pathname.startsWith("/landing/dashboard/")) {
+    const normalizedPath = pathname.replace("/landing", "");
+    return NextResponse.redirect(new URL(`${normalizedPath}${request.nextUrl.search}`, request.url));
+  }
+
+  if (!supabase) {
+    if (isDashboardRoute) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return supabaseResponse;
+  }
 
   const {
     data: { user },
@@ -27,7 +37,7 @@ export async function proxy(request: NextRequest) {
 
   if (!user && isDashboardRoute) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+    loginUrl.searchParams.set("next", getSafeRedirectPath(`${pathname}${request.nextUrl.search}`));
     return NextResponse.redirect(loginUrl);
   }
 
