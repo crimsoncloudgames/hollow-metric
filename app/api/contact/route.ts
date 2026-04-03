@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 type ContactPayload = {
   name?: string;
@@ -6,6 +7,7 @@ type ContactPayload = {
   subject?: string;
   message?: string;
   website?: string;
+  turnstileToken?: string;
 };
 
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -104,6 +106,7 @@ export async function POST(request: NextRequest) {
   const message = normalizeText(body.message, 5000);
   const website = normalizeText(body.website, 200);
   const resolvedSubject = subject || "New Hollow Metric Contact Form Submission";
+  const turnstileToken = normalizeText(body.turnstileToken, 4096);
 
   // Honeypot field should stay empty for real users.
   if (website) {
@@ -116,6 +119,16 @@ export async function POST(request: NextRequest) {
 
   if (!validateEmail(email)) {
     return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
+  }
+
+  const captchaResult = await verifyTurnstileToken({
+    token: turnstileToken,
+    ip: ipKey === "unknown" ? undefined : ipKey,
+    expectedAction: "contact_form",
+  });
+
+  if (!captchaResult.ok) {
+    return NextResponse.json({ error: captchaResult.error ?? "Captcha verification failed." }, { status: 400 });
   }
 
   const emailPayload = {

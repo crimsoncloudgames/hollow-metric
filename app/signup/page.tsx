@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 import { createClient } from "@/utils/supabase/client";
 import { missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
@@ -15,6 +16,9 @@ export default function SignUpPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
+  const isTurnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -27,6 +31,11 @@ export default function SignUpPage() {
       return;
     }
 
+    if (isTurnstileEnabled && !turnstileToken) {
+      setError("Please complete the captcha challenge.");
+      return;
+    }
+
     setIsSubmitting(true);
     const { error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -36,9 +45,12 @@ export default function SignUpPage() {
           full_name: fullName.trim(),
           username: username.trim() || null,
         },
+        captchaToken: turnstileToken ?? undefined,
       },
     });
     setIsSubmitting(false);
+    setTurnstileToken(null);
+    setTurnstileResetNonce((value) => value + 1);
 
     if (signUpError) {
       setError(signUpError.message);
@@ -139,6 +151,12 @@ export default function SignUpPage() {
           >
             {isSubmitting ? "Creating account..." : "Create account"}
           </button>
+
+          <TurnstileWidget
+            action="signup_form"
+            onTokenChange={setTurnstileToken}
+            resetNonce={turnstileResetNonce}
+          />
         </form>
       </div>
     </main>

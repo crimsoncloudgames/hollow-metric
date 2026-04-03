@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 import { createClient } from "@/utils/supabase/client";
 import { missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
@@ -13,6 +14,9 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
+  const isTurnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
 
   const nextPath = useMemo(() => {
     if (typeof window === "undefined") {
@@ -42,12 +46,22 @@ export default function LoginPage() {
       return;
     }
 
+    if (isTurnstileEnabled && !turnstileToken) {
+      setError("Please complete the captcha challenge.");
+      return;
+    }
+
     setIsSubmitting(true);
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
+      options: {
+        captchaToken: turnstileToken ?? undefined,
+      },
     });
     setIsSubmitting(false);
+    setTurnstileToken(null);
+    setTurnstileResetNonce((value) => value + 1);
 
     if (signInError) {
       setError(signInError.message);
@@ -121,6 +135,12 @@ export default function LoginPage() {
           >
             {isSubmitting ? "Logging in..." : "Log in"}
           </button>
+
+          <TurnstileWidget
+            action="login_form"
+            onTokenChange={setTurnstileToken}
+            resetNonce={turnstileResetNonce}
+          />
         </form>
       </div>
     </main>

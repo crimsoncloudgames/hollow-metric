@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -30,6 +31,9 @@ export default function ForgotPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
+  const isTurnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -42,10 +46,20 @@ export default function ForgotPasswordPage() {
       return;
     }
 
+    if (isTurnstileEnabled && !turnstileToken) {
+      setError("Please complete the captcha challenge.");
+      return;
+    }
+
     setIsSubmitting(true);
     const redirectTo = new URL("/reset-password", window.location.origin).toString();
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo,
+      captchaToken: turnstileToken ?? undefined,
+    });
     setIsSubmitting(false);
+    setTurnstileToken(null);
+    setTurnstileResetNonce((value) => value + 1);
 
     if (resetError) {
       setError(resetError.message);
@@ -97,6 +111,12 @@ export default function ForgotPasswordPage() {
           >
             {isSubmitting ? "Sending reset link..." : "Send reset link"}
           </button>
+
+          <TurnstileWidget
+            action="forgot_password_form"
+            onTokenChange={setTurnstileToken}
+            resetNonce={turnstileResetNonce}
+          />
         </form>
       </div>
     </main>

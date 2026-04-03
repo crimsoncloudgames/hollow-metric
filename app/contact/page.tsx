@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 type ContactFormState = {
   name: string;
@@ -16,6 +17,9 @@ export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
+  const isTurnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
   const [formState, setFormState] = useState<ContactFormState>({
     name: "",
     email: "",
@@ -30,13 +34,23 @@ export default function ContactPage() {
     setStatusMessage(null);
     setStatusType(null);
 
+    if (isTurnstileEnabled && !turnstileToken) {
+      setStatusType("error");
+      setStatusMessage("Please complete the captcha challenge.");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formState),
+        body: JSON.stringify({
+          ...formState,
+          turnstileToken: turnstileToken ?? "",
+        }),
       });
 
       const payload = (await response.json()) as { error?: string; message?: string };
@@ -51,6 +65,8 @@ export default function ContactPage() {
       setStatusType("success");
       setStatusMessage(payload.message ?? "Message sent successfully.");
       setFormState({ name: "", email: "", subject: "", message: "", website: "" });
+      setTurnstileToken(null);
+      setTurnstileResetNonce((value) => value + 1);
     } catch {
       setStatusType("error");
       setStatusMessage("Unable to send your message right now. Please try again.");
@@ -184,6 +200,13 @@ export default function ContactPage() {
                 >
                   {isSubmitting ? "Sending..." : "Send Message"}
                 </button>
+
+                <TurnstileWidget
+                  action="contact_form"
+                  onTokenChange={setTurnstileToken}
+                  resetNonce={turnstileResetNonce}
+                  className="pt-1"
+                />
 
                 {statusMessage && (
                   <p
