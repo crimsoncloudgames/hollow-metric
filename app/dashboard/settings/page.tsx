@@ -146,6 +146,23 @@ export default function SettingsPage() {
     return 1;
   }, [subscriptionTier]);
 
+  const formattedRenewalDate = useMemo(() => {
+    if (!renewalDate) {
+      return null;
+    }
+
+    const parsedDate = new Date(renewalDate);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return renewalDate;
+    }
+
+    return new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }).format(parsedDate);
+  }, [renewalDate]);
+
   const activeProjectsCount = maxProjects === Infinity ? projects.length : Math.min(projects.length, maxProjects);
   const savedProjectsCount = projects.length;
 
@@ -363,7 +380,7 @@ export default function SettingsPage() {
             <div className="mt-4 space-y-2 text-sm">
               <p className="text-slate-400">Current plan: <span className="font-semibold text-white">{PLAN_LABELS[subscriptionTier]}</span></p>
               <p className="text-slate-400">Billing status: <span className="font-semibold text-white">{billingStatus}</span></p>
-              <p className="text-slate-400">Renewal date: <span className="font-semibold text-white">{renewalDate ?? "—"}</span></p>
+              <p className="text-slate-400">Renewal date: <span className="font-semibold text-white">{formattedRenewalDate ?? "—"}</span></p>
             </div>
           </div>
 
