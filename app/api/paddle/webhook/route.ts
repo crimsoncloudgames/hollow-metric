@@ -35,7 +35,7 @@ type BillingSubscriptionUpsert = {
   paddle_customer_id: string | null;
   paddle_status: string;
   status_normalized: string;
-  plan_key: string | null;
+  plan_key: string;
   started_at: string | null;
   current_period_start: string | null;
   current_period_end: string | null;
@@ -59,6 +59,24 @@ const SUBSCRIPTION_EVENT_TYPES = new Set([
 type Database = {
   public: {
     Tables: {
+      billing_price_map: {
+        Row: {
+          plan_key: string;
+          paddle_price_id: string;
+          is_active: boolean;
+        };
+        Insert: {
+          plan_key: string;
+          paddle_price_id: string;
+          is_active: boolean;
+        };
+        Update: {
+          plan_key?: string;
+          paddle_price_id?: string;
+          is_active?: boolean;
+        };
+        Relationships: [];
+      };
       billing_webhook_events: {
         Row: {
           id: number;
@@ -98,7 +116,7 @@ type Database = {
           paddle_customer_id: string | null;
           paddle_status: string;
           status_normalized: string;
-          plan_key: string | null;
+          plan_key: string;
           started_at: string | null;
           current_period_start: string | null;
           current_period_end: string | null;
@@ -240,6 +258,52 @@ function readTimestamp(value: unknown): string | null {
   return Number.isNaN(Date.parse(text)) ? null : text;
 }
 
+function extractFirstSubscriptionItemPriceId(data: Record<string, unknown>) {
+  const items = Array.isArray(data.items) ? data.items : [];
+  const firstItem = asRecord(items[0]);
+  const firstPrice = asRecord(firstItem?.price);
+
+  return readString(firstPrice?.id);
+}
+
+async function resolveSubscriptionPlanKey(
+  supabase: SupabaseClient<Database>,
+  data: Record<string, unknown>,
+  customData: Record<string, unknown> | null,
+): Promise<{ ok: true; planKey: string } | { ok: false; reason: string }> {
+  const directPlanKey = readString(data.plan_key) ?? readString(customData?.plan_key);
+  if (directPlanKey) {
+    return { ok: true, planKey: directPlanKey };
+  }
+
+  const paddlePriceId = extractFirstSubscriptionItemPriceId(data);
+  if (!paddlePriceId) {
+    return { ok: false, reason: "missing plan key and data.items[0].price.id" };
+  }
+
+  const { data: priceMapRow, error } = await supabase
+    .from("billing_price_map")
+    .select("plan_key")
+    .eq("paddle_price_id", paddlePriceId)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      reason: `billing_price_map lookup failed for price ${paddlePriceId}: ${error.message}`,
+    };
+  }
+
+  const mappedPlanKey = readString(priceMapRow?.plan_key);
+  if (!mappedPlanKey) {
+    return { ok: false, reason: `no active billing_price_map mapping for price ${paddlePriceId}` };
+  }
+
+  return { ok: true, planKey: mappedPlanKey };
+}
+
 function normalizeSubscriptionStatus(rawStatus: string, eventType: string): string {
   const status = rawStatus.toLowerCase();
 
@@ -257,10 +321,11 @@ function normalizeSubscriptionStatus(rawStatus: string, eventType: string): stri
   return "unknown";
 }
 
-function extractSubscriptionUpsert(
+async function extractSubscriptionUpsert(
+  supabase: SupabaseClient<Database>,
   event: PaddleWebhookEvent,
   eventType: string,
-): { ok: true; row: BillingSubscriptionUpsert } | { ok: false; reason: string } {
+): Promise<{ ok: true; row: BillingSubscriptionUpsert } | { ok: false; reason: string }> {
   const data = asRecord(event.data);
   if (!data) {
     return { ok: false, reason: "missing subscription data object" };
@@ -285,7 +350,10 @@ function extractSubscriptionUpsert(
     return { ok: false, reason: "missing custom_data.supabase_user_id" };
   }
 
-  const planKey = readString(data.plan_key) ?? readString(customData?.plan_key);
+  const planKeyResult = await resolveSubscriptionPlanKey(supabase, data, customData);
+  if (!planKeyResult.ok) {
+    return planKeyResult;
+  }
 
   const currentPeriod = asRecord(data.current_billing_period);
   const currentPeriodStart =
@@ -303,7 +371,7 @@ function extractSubscriptionUpsert(
     paddle_customer_id: paddleCustomerId,
     paddle_status: paddleStatus,
     status_normalized: normalizeSubscriptionStatus(paddleStatus, eventType),
-    plan_key: planKey,
+    plan_key: planKeyResult.planKey,
     started_at: readTimestamp(data.started_at),
     current_period_start: currentPeriodStart,
     current_period_end: currentPeriodEnd,
@@ -429,7 +497,7 @@ export async function POST(request: Request) {
   }
 
   if (SUBSCRIPTION_EVENT_TYPES.has(eventType)) {
-    const extracted = extractSubscriptionUpsert(parsedEvent, eventType);
+    const extracted = await extractSubscriptionUpsert(supabase, parsedEvent, eventType);
 
     if (!extracted.ok) {
       console.error("Malformed Paddle subscription event payload", {
