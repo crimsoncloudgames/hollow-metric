@@ -35,8 +35,8 @@ const DEFAULT_PLANNING_DEFAULTS: PlanningDefaults = {
 
 export default function SettingsPage() {
   const [signedInEmail, setSignedInEmail] = useState("Loading...");
-  const [subscriptionTier] = useState<SubscriptionTier>("starter");
-  const [billingStatus] = useState("Not live yet");
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
+  const [billingStatus, setBillingStatus] = useState("Loading...");
   const [renewalDate] = useState<string | null>(null);
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [defaults, setDefaults] = useState<PlanningDefaults>(DEFAULT_PLANNING_DEFAULTS);
@@ -54,6 +54,7 @@ export default function SettingsPage() {
       const supabase = createClient();
       if (!supabase) {
         setSignedInEmail("Not available");
+        setBillingStatus("Unavailable");
         return;
       }
 
@@ -63,10 +64,41 @@ export default function SettingsPage() {
 
       if (!user) {
         setSignedInEmail("Not signed in");
+        setBillingStatus("Not signed in");
         return;
       }
 
       setSignedInEmail(user.email ?? "Email unavailable");
+
+      const { data: entitlement, error: entitlementError } = await supabase
+        .from("user_entitlements")
+        .select("tier, billing_state, active_subscription_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (entitlementError) {
+        console.error("Failed to load live billing state for settings page", entitlementError);
+        setSubscriptionTier("starter");
+        setBillingStatus("Unavailable");
+        return;
+      }
+
+      if (!entitlement) {
+        setSubscriptionTier("starter");
+        setBillingStatus("No billing record");
+        return;
+      }
+
+      setSubscriptionTier(entitlement.tier === "pro" ? "launch-planner" : "starter");
+
+      const liveBillingState =
+        typeof entitlement.billing_state === "string" ? entitlement.billing_state.trim() : "";
+
+      setBillingStatus(
+        liveBillingState
+          ? liveBillingState[0].toUpperCase() + liveBillingState.slice(1).replace(/_/g, " ")
+          : "Unknown",
+      );
     };
 
     void loadUserContext();
