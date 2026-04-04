@@ -47,6 +47,23 @@ type BillingSubscriptionUpsert = {
   raw_snapshot: JsonValue;
 };
 
+type BillingCustomerSync = {
+  user_id: string;
+  paddle_customer_id: string;
+  customer_email?: string | null;
+  last_synced_at: string;
+};
+
+type UserEntitlementSync = {
+  user_id: string;
+  tier: "pro";
+  premium_access: true;
+  billing_state: "active";
+  active_subscription_id: number;
+  source: "paddle";
+  effective_from: string;
+};
+
 const SUBSCRIPTION_EVENT_TYPES = new Set([
   "subscription.created",
   "subscription.activated",
@@ -74,6 +91,57 @@ type Database = {
           plan_key?: string;
           paddle_price_id?: string;
           is_active?: boolean;
+        };
+        Relationships: [];
+      };
+      billing_customers: {
+        Row: {
+          user_id: string;
+          paddle_customer_id: string;
+          customer_email: string | null;
+          last_synced_at: string;
+        };
+        Insert: {
+          user_id: string;
+          paddle_customer_id: string;
+          customer_email?: string | null;
+          last_synced_at: string;
+        };
+        Update: {
+          user_id?: string;
+          paddle_customer_id?: string;
+          customer_email?: string | null;
+          last_synced_at?: string;
+        };
+        Relationships: [];
+      };
+      user_entitlements: {
+        Row: {
+          user_id: string;
+          tier: string;
+          premium_access: boolean;
+          billing_state: string;
+          active_subscription_id: number;
+          source: string;
+          effective_from: string;
+        };
+        Insert: {
+          user_id: string;
+          tier: string;
+          premium_access: boolean;
+          billing_state: string;
+          active_subscription_id: number;
+          source: string;
+          effective_from: string;
+        };
+        Update: {
+          user_id?: string;
+          tier?: string;
+          premium_access?: boolean;
+          billing_state?: string;
+          active_subscription_id?: number;
+          source?: string;
+          effective_from?: string;
         };
         Relationships: [];
       };
@@ -111,6 +179,7 @@ type Database = {
       };
       billing_subscriptions: {
         Row: {
+          id: number;
           user_id: string;
           paddle_subscription_id: string;
           paddle_customer_id: string | null;
@@ -321,6 +390,13 @@ function normalizeSubscriptionStatus(rawStatus: string, eventType: string): stri
   return "unknown";
 }
 
+function extractTrustedCustomerEmail(event: PaddleWebhookEvent) {
+  const data = asRecord(event.data);
+  const customer = asRecord(data?.customer);
+
+  return readString(customer?.email);
+}
+
 async function extractSubscriptionUpsert(
   supabase: SupabaseClient<Database>,
   event: PaddleWebhookEvent,
@@ -411,15 +487,122 @@ async function upsertSubscription(
   supabase: SupabaseClient<Database>,
   row: BillingSubscriptionUpsert,
 ) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("billing_subscriptions")
-    .upsert(row, { onConflict: "paddle_subscription_id" });
+    .upsert(row, { onConflict: "paddle_subscription_id" })
+    .select("id")
+    .single();
 
   if (!error) {
-    return { ok: true as const };
+    return { ok: true as const, subscriptionId: data.id };
   }
 
   return { ok: false as const, error };
+}
+
+async function syncBillingCustomer(
+  supabase: SupabaseClient<Database>,
+  row: BillingCustomerSync,
+) {
+  const { data: existingRow, error: lookupError } = await supabase
+    .from("billing_customers")
+    .select("user_id")
+    .eq("user_id", row.user_id)
+    .limit(1)
+    .maybeSingle();
+
+  if (lookupError) {
+    return { ok: false as const, error: lookupError };
+  }
+
+  const syncRow: Database["public"]["Tables"]["billing_customers"]["Insert"] = {
+    user_id: row.user_id,
+    paddle_customer_id: row.paddle_customer_id,
+    last_synced_at: row.last_synced_at,
+    ...(row.customer_email !== undefined ? { customer_email: row.customer_email } : {}),
+  };
+
+  if (existingRow) {
+    const { error } = await supabase
+      .from("billing_customers")
+      .update(syncRow)
+      .eq("user_id", row.user_id);
+
+    if (error) {
+      return { ok: false as const, error };
+    }
+
+    return { ok: true as const };
+  }
+
+  const { error } = await supabase
+    .from("billing_customers")
+    .insert(syncRow);
+
+  if (error) {
+    return { ok: false as const, error };
+  }
+
+  return { ok: true as const };
+}
+
+async function syncUserEntitlement(
+  supabase: SupabaseClient<Database>,
+  row: UserEntitlementSync,
+) {
+  const { data: existingRow, error: lookupError } = await supabase
+    .from("user_entitlements")
+    .select("user_id")
+    .eq("user_id", row.user_id)
+    .limit(1)
+    .maybeSingle();
+
+  if (lookupError) {
+    return { ok: false as const, error: lookupError };
+  }
+
+  if (existingRow) {
+    const { error } = await supabase
+      .from("user_entitlements")
+      .update(row)
+      .eq("user_id", row.user_id);
+
+    if (error) {
+      return { ok: false as const, error };
+    }
+
+    return { ok: true as const };
+  }
+
+  const { error } = await supabase
+    .from("user_entitlements")
+    .insert(row);
+
+  if (error) {
+    return { ok: false as const, error };
+  }
+
+  return { ok: true as const };
+}
+
+async function markWebhookEventProcessed(
+  supabase: SupabaseClient<Database>,
+  paddleEventId: string,
+  processedAt: string,
+) {
+  const { error } = await supabase
+    .from("billing_webhook_events")
+    .update({
+      processing_status: "processed",
+      processed_at: processedAt,
+    })
+    .eq("paddle_event_id", paddleEventId);
+
+  if (error) {
+    return { ok: false as const, error };
+  }
+
+  return { ok: true as const };
 }
 
 export async function POST(request: Request) {
@@ -530,6 +713,97 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         { error: "Failed to persist subscription state." },
+        { status: 500 },
+      );
+    }
+
+    if (!extracted.row.paddle_customer_id) {
+      console.error("Missing paddle customer id for billing_customers sync", {
+        paddleEventId: eventId,
+        eventType,
+        paddleSubscriptionId: extracted.row.paddle_subscription_id,
+      });
+
+      return NextResponse.json(
+        { error: "Failed to sync billing customer state." },
+        { status: 500 },
+      );
+    }
+
+    const syncTimestamp = new Date().toISOString();
+    const billingCustomerResult = await syncBillingCustomer(supabase, {
+      user_id: extracted.row.user_id,
+      paddle_customer_id: extracted.row.paddle_customer_id,
+      customer_email: extractTrustedCustomerEmail(parsedEvent) ?? undefined,
+      last_synced_at: syncTimestamp,
+    });
+
+    if (!billingCustomerResult.ok) {
+      console.error("Failed to sync billing_customers from Paddle webhook", {
+        paddleEventId: eventId,
+        eventType,
+        paddleSubscriptionId: extracted.row.paddle_subscription_id,
+        paddleCustomerId: extracted.row.paddle_customer_id,
+        error: billingCustomerResult.error,
+      });
+
+      return NextResponse.json(
+        { error: "Failed to sync billing customer state." },
+        { status: 500 },
+      );
+    }
+
+    if (extracted.row.plan_key !== "pro" || extracted.row.status_normalized !== "active") {
+      console.error("Unsupported subscription state for user_entitlements sync", {
+        paddleEventId: eventId,
+        eventType,
+        paddleSubscriptionId: extracted.row.paddle_subscription_id,
+        planKey: extracted.row.plan_key,
+        statusNormalized: extracted.row.status_normalized,
+      });
+
+      return NextResponse.json(
+        { error: "Failed to sync user entitlement state." },
+        { status: 500 },
+      );
+    }
+
+    const entitlementResult = await syncUserEntitlement(supabase, {
+      user_id: extracted.row.user_id,
+      tier: "pro",
+      premium_access: true,
+      billing_state: "active",
+      active_subscription_id: subscriptionResult.subscriptionId,
+      source: "paddle",
+      effective_from: syncTimestamp,
+    });
+
+    if (!entitlementResult.ok) {
+      console.error("Failed to sync user_entitlements from Paddle webhook", {
+        paddleEventId: eventId,
+        eventType,
+        paddleSubscriptionId: extracted.row.paddle_subscription_id,
+        userId: extracted.row.user_id,
+        error: entitlementResult.error,
+      });
+
+      return NextResponse.json(
+        { error: "Failed to sync user entitlement state." },
+        { status: 500 },
+      );
+    }
+
+    const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, syncTimestamp);
+
+    if (!markProcessedResult.ok) {
+      console.error("Failed to mark Paddle webhook event as processed", {
+        paddleEventId: eventId,
+        eventType,
+        error: markProcessedResult.error,
+      });
+
+      return NextResponse.json(
+        { error: "Failed to finalize webhook processing state." },
         { status: 500 },
       );
     }
