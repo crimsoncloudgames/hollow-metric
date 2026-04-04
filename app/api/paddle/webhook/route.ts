@@ -363,7 +363,7 @@ async function extractSubscriptionUpsert(
 
   const cancelAtPeriodEnd =
     readBoolean(data.cancel_at_period_end) ??
-    (asRecord(data.scheduled_change)?.action === "cancel" ? true : null);
+    (asRecord(data.scheduled_change)?.action === "cancel" ? true : false);
 
   const row: BillingSubscriptionUpsert = {
     user_id: userId,
