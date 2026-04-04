@@ -30,6 +30,7 @@ type JsonValue =
   | JsonValue[];
 
 type BillingSubscriptionUpsert = {
+  user_id: string;
   paddle_subscription_id: string;
   paddle_customer_id: string | null;
   paddle_status: string;
@@ -92,6 +93,7 @@ type Database = {
       };
       billing_subscriptions: {
         Row: {
+          user_id: string;
           paddle_subscription_id: string;
           paddle_customer_id: string | null;
           paddle_status: string;
@@ -278,6 +280,11 @@ function extractSubscriptionUpsert(
   const paddleCustomerId = readString(data.customer_id) ?? readString(customer?.id);
 
   const customData = asRecord(data.custom_data);
+  const userId = readString(customData?.supabase_user_id);
+  if (!userId) {
+    return { ok: false, reason: "missing custom_data.supabase_user_id" };
+  }
+
   const planKey = readString(data.plan_key) ?? readString(customData?.plan_key);
 
   const currentPeriod = asRecord(data.current_billing_period);
@@ -291,6 +298,7 @@ function extractSubscriptionUpsert(
     (asRecord(data.scheduled_change)?.action === "cancel" ? true : null);
 
   const row: BillingSubscriptionUpsert = {
+    user_id: userId,
     paddle_subscription_id: subscriptionId,
     paddle_customer_id: paddleCustomerId,
     paddle_status: paddleStatus,
