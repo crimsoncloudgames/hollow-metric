@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const [signedInEmail, setSignedInEmail] = useState("Loading...");
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
   const [billingStatus, setBillingStatus] = useState("Loading...");
-  const [renewalDate] = useState<string | null>(null);
+  const [renewalDate, setRenewalDate] = useState<string | null>(null);
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [defaults, setDefaults] = useState<PlanningDefaults>(DEFAULT_PLANNING_DEFAULTS);
   const [defaultsSavedState, setDefaultsSavedState] = useState<string>("");
@@ -99,6 +99,25 @@ export default function SettingsPage() {
           ? liveBillingState[0].toUpperCase() + liveBillingState.slice(1).replace(/_/g, " ")
           : "Unknown",
       );
+
+      if (typeof entitlement.active_subscription_id !== "number") {
+        setRenewalDate(null);
+        return;
+      }
+
+      const { data: subscription, error: subscriptionError } = await supabase
+        .from("billing_subscriptions")
+        .select("current_period_end")
+        .eq("id", entitlement.active_subscription_id)
+        .maybeSingle();
+
+      if (subscriptionError) {
+        console.error("Failed to load renewal date for settings page", subscriptionError);
+        setRenewalDate(null);
+        return;
+      }
+
+      setRenewalDate(subscription?.current_period_end ?? null);
     };
 
     void loadUserContext();
