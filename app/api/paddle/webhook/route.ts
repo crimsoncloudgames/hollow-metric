@@ -60,7 +60,7 @@ type UserEntitlementSync = {
   premium_access: boolean;
   billing_state: "active" | "canceled";
   active_subscription_id: number | null;
-  source: "paddle";
+  source: "webhook_sync";
   effective_from: string;
 };
 
@@ -839,7 +839,7 @@ export async function POST(request: Request) {
         premium_access: true,
         billing_state: "active",
         active_subscription_id: subscriptionResult.subscriptionId,
-        source: "paddle",
+        source: "webhook_sync",
         effective_from: syncTimestamp,
       };
     } else if (extracted.row.plan_key === "pro" && extracted.row.status_normalized === "canceled") {
@@ -849,7 +849,7 @@ export async function POST(request: Request) {
         premium_access: false,
         billing_state: "canceled",
         active_subscription_id: null,
-        source: "paddle",
+        source: "webhook_sync",
         effective_from: syncTimestamp,
       };
     }
