@@ -17,7 +17,7 @@ type BillingWebhookEventInsert = {
   event_type: string;
   event_created_at: string | null;
   received_at: string;
-  processing_status: "verified";
+  processing_status: "pending" | "processed";
   payload: JsonValue;
 };
 
@@ -75,7 +75,7 @@ type Database = {
           event_type: string;
           event_created_at: string | null;
           received_at: string;
-          processing_status: "verified";
+          processing_status: "pending" | "processed";
           payload: JsonValue;
         };
         Update: {
@@ -390,7 +390,7 @@ export async function POST(request: Request) {
     event_type: eventType,
     event_created_at: extractEventCreatedAt(parsedEvent),
     received_at: new Date().toISOString(),
-    processing_status: "verified",
+    processing_status: "pending",
     payload: verifiedPayload,
   });
 
