@@ -390,6 +390,18 @@ function normalizeSubscriptionStatus(rawStatus: string, eventType: string): stri
   return "unknown";
 }
 
+function isLiveSubscriptionConflict(error: {
+  code?: string;
+  message?: string;
+  details?: string | null;
+}) {
+  return (
+    error.code === "23505" &&
+    (error.message?.includes("billing_subscriptions_one_live_per_user_idx") === true ||
+      error.details?.includes("Key (user_id)=") === true)
+  );
+}
+
 function extractTrustedCustomerEmail(event: PaddleWebhookEvent) {
   const data = asRecord(event.data);
   const customer = asRecord(data?.customer);
@@ -494,7 +506,21 @@ async function upsertSubscription(
     .single();
 
   if (!error) {
-    return { ok: true as const, subscriptionId: data.id };
+    return { ok: true as const, subscriptionId: data.id, liveConflict: false as const };
+  }
+
+  if (isLiveSubscriptionConflict(error)) {
+    return {
+      ok: true as const,
+      subscriptionId: null,
+      liveConflict: true as const,
+      conflict: {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      },
+    };
   }
 
   return { ok: false as const, error };
@@ -689,6 +715,20 @@ export async function POST(request: Request) {
         reason: extracted.reason,
       });
 
+      const { error: errorMessageUpdateError } = await supabase
+        .from("billing_webhook_events")
+        .update({ error_message: extracted.reason })
+        .eq("paddle_event_id", eventId);
+
+      if (errorMessageUpdateError) {
+        console.error("Failed to persist malformed Paddle webhook reason", {
+          paddleEventId: eventId,
+          eventType,
+          reason: extracted.reason,
+          error: errorMessageUpdateError,
+        });
+      }
+
       return NextResponse.json(
         {
           ok: true,
@@ -714,6 +754,43 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Failed to persist subscription state." },
         { status: 500 },
+      );
+    }
+
+    if (subscriptionResult.liveConflict) {
+      console.warn("Conflicting live subscription already exists for user; skipping downstream sync", {
+        paddleEventId: eventId,
+        eventType,
+        userId: extracted.row.user_id,
+        paddleSubscriptionId: extracted.row.paddle_subscription_id,
+        conflict: subscriptionResult.conflict,
+      });
+
+      const processedAt = new Date().toISOString();
+      const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, processedAt);
+
+      if (!markProcessedResult.ok) {
+        console.error("Failed to mark conflicting Paddle webhook event as processed", {
+          paddleEventId: eventId,
+          eventType,
+          error: markProcessedResult.error,
+        });
+
+        return NextResponse.json(
+          { error: "Failed to finalize webhook processing state." },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          paddleEventId: eventId,
+          duplicate: persistResult.duplicate,
+          subscriptionSynced: false,
+          skipped: "conflicting_live_subscription",
+        },
+        { status: 200 },
       );
     }
 
