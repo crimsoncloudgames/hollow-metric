@@ -56,10 +56,10 @@ type BillingCustomerSync = {
 
 type UserEntitlementSync = {
   user_id: string;
-  tier: "pro";
-  premium_access: true;
-  billing_state: "active";
-  active_subscription_id: number;
+  tier: "pro" | "starter";
+  premium_access: boolean;
+  billing_state: "active" | "canceled";
+  active_subscription_id: number | null;
   source: "paddle";
   effective_from: string;
 };
@@ -121,7 +121,7 @@ type Database = {
           tier: string;
           premium_access: boolean;
           billing_state: string;
-          active_subscription_id: number;
+          active_subscription_id: number | null;
           source: string;
           effective_from: string;
         };
@@ -130,7 +130,7 @@ type Database = {
           tier: string;
           premium_access: boolean;
           billing_state: string;
-          active_subscription_id: number;
+          active_subscription_id: number | null;
           source: string;
           effective_from: string;
         };
@@ -139,7 +139,7 @@ type Database = {
           tier?: string;
           premium_access?: boolean;
           billing_state?: string;
-          active_subscription_id?: number;
+          active_subscription_id?: number | null;
           source?: string;
           effective_from?: string;
         };
@@ -830,7 +830,31 @@ export async function POST(request: Request) {
       );
     }
 
-    if (extracted.row.plan_key !== "pro" || extracted.row.status_normalized !== "active") {
+    let entitlementRow: UserEntitlementSync | null = null;
+
+    if (extracted.row.plan_key === "pro" && extracted.row.status_normalized === "active") {
+      entitlementRow = {
+        user_id: extracted.row.user_id,
+        tier: "pro",
+        premium_access: true,
+        billing_state: "active",
+        active_subscription_id: subscriptionResult.subscriptionId,
+        source: "paddle",
+        effective_from: syncTimestamp,
+      };
+    } else if (extracted.row.plan_key === "pro" && extracted.row.status_normalized === "canceled") {
+      entitlementRow = {
+        user_id: extracted.row.user_id,
+        tier: "starter",
+        premium_access: false,
+        billing_state: "canceled",
+        active_subscription_id: null,
+        source: "paddle",
+        effective_from: syncTimestamp,
+      };
+    }
+
+    if (!entitlementRow) {
       console.error("Unsupported subscription state for user_entitlements sync", {
         paddleEventId: eventId,
         eventType,
@@ -845,15 +869,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const entitlementResult = await syncUserEntitlement(supabase, {
-      user_id: extracted.row.user_id,
-      tier: "pro",
-      premium_access: true,
-      billing_state: "active",
-      active_subscription_id: subscriptionResult.subscriptionId,
-      source: "paddle",
-      effective_from: syncTimestamp,
-    });
+    const entitlementResult = await syncUserEntitlement(supabase, entitlementRow);
 
     if (!entitlementResult.ok) {
       console.error("Failed to sync user_entitlements from Paddle webhook", {
