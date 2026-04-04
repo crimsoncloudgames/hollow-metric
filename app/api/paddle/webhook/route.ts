@@ -18,6 +18,7 @@ type BillingWebhookEventInsert = {
   event_created_at: string | null;
   received_at: string;
   processing_status: "verified";
+  payload: JsonValue;
 };
 
 type JsonValue =
@@ -47,6 +48,7 @@ type BillingSubscriptionUpsert = {
 
 const SUBSCRIPTION_EVENT_TYPES = new Set([
   "subscription.created",
+  "subscription.activated",
   "subscription.updated",
   "subscription.paused",
   "subscription.resumed",
@@ -66,6 +68,7 @@ type Database = {
           processed_at: string | null;
           processing_status: string;
           error_message: string | null;
+          payload: JsonValue;
         };
         Insert: {
           paddle_event_id: string;
@@ -73,6 +76,7 @@ type Database = {
           event_created_at: string | null;
           received_at: string;
           processing_status: "verified";
+          payload: JsonValue;
         };
         Update: {
           paddle_event_id?: string;
@@ -82,6 +86,7 @@ type Database = {
           processed_at?: string | null;
           processing_status?: string;
           error_message?: string | null;
+          payload?: JsonValue;
         };
         Relationships: [];
       };
@@ -372,6 +377,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid webhook JSON payload." }, { status: 400 });
   }
 
+  const verifiedPayload = parsedEvent as JsonValue;
+
   const { eventId, eventType } = extractEventDetails(parsedEvent);
 
   if (!eventId) {
@@ -384,12 +391,17 @@ export async function POST(request: Request) {
     event_created_at: extractEventCreatedAt(parsedEvent),
     received_at: new Date().toISOString(),
     processing_status: "verified",
+    payload: verifiedPayload,
   });
 
   if (!persistResult.ok) {
     console.error("Failed to persist Paddle webhook event", {
       paddleEventId: eventId,
       eventType,
+      code: persistResult.error.code,
+      message: persistResult.error.message,
+      details: persistResult.error.details,
+      hint: persistResult.error.hint,
       error: persistResult.error,
     });
     return NextResponse.json({ error: "Failed to persist webhook event." }, { status: 500 });
