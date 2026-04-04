@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Lock, Plus } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 import {
   type FinancialProject,
   buildFinancialProjectTemplate,
@@ -23,7 +24,8 @@ function formatCurrency(value: number): string {
 export default function FinancialLibraryPage() {
   // TODO(security): In production, tier must come from trusted billing state server-side.
   // TODO(security): Financial Library data must be loaded from server with per-user isolation (RLS), not localStorage.
-  const [subscriptionTier] = useState<SubscriptionTier>("starter");
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
+  const [billingStatus, setBillingStatus] = useState("Loading...");
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
@@ -33,12 +35,71 @@ export default function FinancialLibraryPage() {
   }, []);
 
   useEffect(() => {
+    const loadBillingContext = async () => {
+      const supabase = createClient();
+      if (!supabase) {
+        setSubscriptionTier("starter");
+        setBillingStatus("Unavailable");
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setSubscriptionTier("starter");
+        setBillingStatus("Not signed in");
+        return;
+      }
+
+      const { data: entitlement, error } = await supabase
+        .from("user_entitlements")
+        .select("tier, premium_access, billing_state")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Failed to load live billing state for financial library page", error);
+        setSubscriptionTier("starter");
+        setBillingStatus("Unavailable");
+        return;
+      }
+
+      if (!entitlement) {
+        setSubscriptionTier("starter");
+        setBillingStatus("No billing record");
+        return;
+      }
+
+      const hasPaidAccess =
+        entitlement.tier === "pro" &&
+        entitlement.premium_access === true &&
+        entitlement.billing_state === "active";
+
+      setSubscriptionTier(hasPaidAccess ? "launch-planner" : "starter");
+
+      const liveBillingState =
+        typeof entitlement.billing_state === "string" ? entitlement.billing_state.trim() : "";
+
+      setBillingStatus(
+        liveBillingState
+          ? liveBillingState[0].toUpperCase() + liveBillingState.slice(1).replace(/_/g, " ")
+          : "Unknown",
+      );
+    };
+
+    void loadBillingContext();
+  }, []);
+
+  useEffect(() => {
     saveFinancialProjects(projects);
   }, [projects]);
 
   const canAccessLibrary = subscriptionTier !== "starter";
   const maxProjects = subscriptionTier === "launch-planner" ? 1 : 0;
   const launchPlannerLimitReached = subscriptionTier === "launch-planner" && projects.length >= 1;
+  const currentPlanLabel = subscriptionTier === "launch-planner" ? "Launch Planner" : "Starter";
 
   const visibleProjects = useMemo(() => {
     if (subscriptionTier === "launch-planner") return projects.slice(0, 1);
@@ -70,10 +131,12 @@ export default function FinancialLibraryPage() {
       <div className="rounded-2xl border border-slate-900 bg-slate-900/25 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="w-full md:w-64">
-            <p className="text-xs text-slate-500">Current plan: Starter. Billing is not live yet.</p>
+            <p className="text-xs text-slate-500">Current plan: {currentPlanLabel}. Billing status: {billingStatus}.</p>
           </div>
           <p className="text-xs text-slate-500">
-            Project saving and paid access will open after billing rollout is complete.
+            {canAccessLibrary
+              ? "Project saving is unlocked for your active Launch Planner access."
+              : "Project saving and paid access unlock with an active Launch Planner subscription."}
           </p>
         </div>
       </div>

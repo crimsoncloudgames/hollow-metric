@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { AlertCircle, Zap, X, Plus } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 const MAX_MONEY_VALUE = 1_000_000_000;
 const MAX_COPIES_VALUE = 1_000_000_000;
@@ -247,9 +248,49 @@ const generatePlanningReview = (
 
 export default function LaunchBudgetPage() {
   // TODO(security): Resolve tier from trusted billing state server-side; do not trust client-selected tier in production.
-  const [subscriptionTier] = useState<SubscriptionTier>("starter");
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
   const isPaidTier = subscriptionTier !== "starter";
   const currentPlanLabel = subscriptionTier === "launch-planner" ? "Launch Planner" : "Starter";
+
+  useEffect(() => {
+    const loadBillingContext = async () => {
+      const supabase = createClient();
+      if (!supabase) {
+        setSubscriptionTier("starter");
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setSubscriptionTier("starter");
+        return;
+      }
+
+      const { data: entitlement, error } = await supabase
+        .from("user_entitlements")
+        .select("tier, premium_access, billing_state")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Failed to load live billing state for launch budget page", error);
+        setSubscriptionTier("starter");
+        return;
+      }
+
+      const hasPaidAccess =
+        entitlement?.tier === "pro" &&
+        entitlement.premium_access === true &&
+        entitlement.billing_state === "active";
+
+      setSubscriptionTier(hasPaidAccess ? "launch-planner" : "starter");
+    };
+
+    void loadBillingContext();
+  }, []);
 
   // Expense inputs - customizable list
   const [expenses, setExpenses] = useState<ExpenseRow[]>([
