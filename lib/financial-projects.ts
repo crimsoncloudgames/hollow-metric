@@ -50,6 +50,29 @@ export type FinancialProjectDraft = {
   postLaunchActuals?: unknown;
 };
 
+export type FinancialProjectSubscriptionTier = "starter" | "launch-planner";
+
+export type FinancialProjectAccessState = {
+  subscriptionTier: FinancialProjectSubscriptionTier;
+  billingStatus: string;
+  canAccessLibrary: boolean;
+  canSaveProjects: boolean;
+  projectLimit: number;
+};
+
+export type SavedFinancialProjectsState = {
+  access: FinancialProjectAccessState;
+  projects: FinancialProject[];
+};
+
+export const DEFAULT_FINANCIAL_PROJECT_ACCESS: FinancialProjectAccessState = {
+  subscriptionTier: "starter",
+  billingStatus: "Unavailable",
+  canAccessLibrary: false,
+  canSaveProjects: false,
+  projectLimit: 0,
+};
+
 export const FINANCIAL_PROJECTS_STORAGE_KEY = "hm_financial_projects";
 export const FINANCIAL_PROJECTS_UPDATED_EVENT = "hm-financial-projects-updated";
 const DEFAULT_PROJECT_NAME = "Launch Budget Project";
@@ -130,6 +153,46 @@ function normalizeStringArray(values: unknown): string[] {
   return values
     .map((value) => sanitizeText(value))
     .filter((value) => value.length > 0);
+}
+
+function normalizeFinancialProjectAccessState(
+  value: unknown
+): FinancialProjectAccessState {
+  if (!isRecord(value)) {
+    return DEFAULT_FINANCIAL_PROJECT_ACCESS;
+  }
+
+  const subscriptionTier =
+    value.subscriptionTier === "launch-planner" ? "launch-planner" : "starter";
+  const billingStatus = sanitizeText(
+    value.billingStatus,
+    DEFAULT_FINANCIAL_PROJECT_ACCESS.billingStatus
+  );
+  const requestedProjectLimit = Math.max(
+    0,
+    Math.round(
+      toFiniteNumber(
+        value.projectLimit,
+        subscriptionTier === "launch-planner" ? 1 : 0
+      )
+    )
+  );
+  const canAccessLibrary =
+    subscriptionTier === "launch-planner" &&
+    value.canAccessLibrary === true &&
+    requestedProjectLimit > 0;
+  const canSaveProjects =
+    subscriptionTier === "launch-planner" &&
+    value.canSaveProjects === true &&
+    requestedProjectLimit > 0;
+
+  return {
+    subscriptionTier,
+    billingStatus,
+    canAccessLibrary,
+    canSaveProjects,
+    projectLimit: canAccessLibrary || canSaveProjects ? requestedProjectLimit : 0,
+  };
 }
 
 export function formatProjectLastUpdated(date = new Date()): string {
@@ -331,6 +394,59 @@ export function saveFinancialProjects(projects: FinancialProject[]) {
   window.localStorage.setItem(FINANCIAL_PROJECTS_STORAGE_KEY, serializedProjects);
 
   window.dispatchEvent(new Event(FINANCIAL_PROJECTS_UPDATED_EVENT));
+}
+
+export async function fetchSavedFinancialProjectsState(): Promise<SavedFinancialProjectsState> {
+  const response = await fetch("/api/save-financial-project", {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const rawResponse = await response.text();
+  let result:
+    | {
+        success?: boolean;
+        error?: string;
+        access?: unknown;
+        projects?: unknown;
+      }
+    | null = null;
+
+  if (rawResponse) {
+    try {
+      result = JSON.parse(rawResponse) as {
+        success?: boolean;
+        error?: string;
+        access?: unknown;
+        projects?: unknown;
+      };
+    } catch {
+      result = null;
+    }
+  }
+
+  if (!response.ok || !result?.success) {
+    throw new Error(
+      result?.error ?? rawResponse.trim() ?? `Request failed with status ${response.status}.`
+    );
+  }
+
+  const access = normalizeFinancialProjectAccessState(result.access);
+  const projects = Array.isArray(result.projects)
+    ? result.projects
+        .map((project) => normalizeFinancialProject(project as FinancialProjectDraft))
+        .slice(0, Math.max(0, access.projectLimit))
+    : EMPTY_FINANCIAL_PROJECTS;
+
+  return {
+    access,
+    projects: access.canAccessLibrary ? projects : EMPTY_FINANCIAL_PROJECTS,
+  };
+}
+
+export function clearSavedFinancialProjects(): FinancialProject[] {
+  saveFinancialProjects([]);
+  return EMPTY_FINANCIAL_PROJECTS;
 }
 
 export function upsertSavedFinancialProject(

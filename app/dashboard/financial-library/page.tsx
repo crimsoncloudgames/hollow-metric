@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Lock, Plus } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
+import { ChevronDown, Lock, Plus, Trash2 } from "lucide-react";
 import {
+  clearSavedFinancialProjects,
+  fetchSavedFinancialProjectsState,
   type FinancialProject,
-  FINANCIAL_PROJECTS_STORAGE_KEY,
   FINANCIAL_PROJECTS_UPDATED_EVENT,
-  getSavedFinancialProjects,
 } from "@/lib/financial-projects";
 
 type SubscriptionTier = "starter" | "launch-planner";
-const EMPTY_PROJECTS_SNAPSHOT: FinancialProject[] = [];
+type ProjectActionFeedback = {
+  tone: "success" | "error";
+  message: string;
+};
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -23,116 +25,78 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-const getServerProjectsSnapshot = (): FinancialProject[] => EMPTY_PROJECTS_SNAPSHOT;
-
-const subscribeToSavedProjects = (onStoreChange: () => void) => {
-  if (typeof window === "undefined") {
-    return () => undefined;
-  }
-
-  const handleFocus = () => {
-    onStoreChange();
-  };
-
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === "visible") {
-      onStoreChange();
-    }
-  };
-
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key === FINANCIAL_PROJECTS_STORAGE_KEY) {
-      onStoreChange();
-    }
-  };
-
-  const handleProjectsUpdated = () => {
-    onStoreChange();
-  };
-
-  window.addEventListener("focus", handleFocus);
-  window.addEventListener("storage", handleStorage);
-  window.addEventListener(FINANCIAL_PROJECTS_UPDATED_EVENT, handleProjectsUpdated);
-  document.addEventListener("visibilitychange", handleVisibilityChange);
-
-  return () => {
-    window.removeEventListener("focus", handleFocus);
-    window.removeEventListener("storage", handleStorage);
-    window.removeEventListener(FINANCIAL_PROJECTS_UPDATED_EVENT, handleProjectsUpdated);
-    document.removeEventListener("visibilitychange", handleVisibilityChange);
-  };
-};
-
 export default function FinancialLibraryPage() {
-  // TODO(security): In production, tier must come from trusted billing state server-side.
-  // TODO(security): Financial Library data must be loaded from server with per-user isolation (RLS), not localStorage.
   const router = useRouter();
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
   const [billingStatus, setBillingStatus] = useState("Loading...");
+  const [projects, setProjects] = useState<FinancialProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
-  const projects = useSyncExternalStore(
-    subscribeToSavedProjects,
-    getSavedFinancialProjects,
-    getServerProjectsSnapshot,
-  );
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [projectActionFeedback, setProjectActionFeedback] =
+    useState<ProjectActionFeedback | null>(null);
 
   useEffect(() => {
-    const loadBillingContext = async () => {
-      const supabase = createClient();
-      if (!supabase) {
+    let mounted = true;
+
+    const loadFinancialProjects = async () => {
+      if (!mounted) {
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const result = await fetchSavedFinancialProjectsState();
+
+        if (!mounted) {
+          return;
+        }
+
+        setSubscriptionTier(result.access.subscriptionTier);
+        setBillingStatus(result.access.billingStatus);
+        setProjects(result.projects);
+
+        if (result.access.subscriptionTier === "starter") {
+          setExpandedProjectId(null);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load saved financial projects for financial library page",
+          error
+        );
+
+        if (!mounted) {
+          return;
+        }
+
         setSubscriptionTier("starter");
         setBillingStatus("Unavailable");
-        return;
+        setProjects([]);
+        setExpandedProjectId(null);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setSubscriptionTier("starter");
-        setBillingStatus("Not signed in");
-        return;
-      }
-
-      const { data: entitlement, error } = await supabase
-        .from("user_entitlements")
-        .select("tier, premium_access, billing_state")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Failed to load live billing state for financial library page", error);
-        setSubscriptionTier("starter");
-        setBillingStatus("Unavailable");
-        return;
-      }
-
-      if (!entitlement) {
-        setSubscriptionTier("starter");
-        setBillingStatus("No billing record");
-        return;
-      }
-
-      const hasPaidAccess =
-        entitlement.tier === "pro" &&
-        entitlement.premium_access === true &&
-        entitlement.billing_state === "active";
-
-      setSubscriptionTier(hasPaidAccess ? "launch-planner" : "starter");
-
-      const liveBillingState =
-        typeof entitlement.billing_state === "string" ? entitlement.billing_state.trim() : "";
-
-      setBillingStatus(
-        liveBillingState
-          ? liveBillingState[0].toUpperCase() + liveBillingState.slice(1).replace(/_/g, " ")
-          : "Unknown",
-      );
     };
 
-    void loadBillingContext();
+    const refresh = () => {
+      void loadFinancialProjects();
+    };
+
+    void loadFinancialProjects();
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
+    window.addEventListener(FINANCIAL_PROJECTS_UPDATED_EVENT, refresh);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
+      window.removeEventListener(FINANCIAL_PROJECTS_UPDATED_EVENT, refresh);
+    };
   }, []);
 
   const canAccessLibrary = subscriptionTier !== "starter";
@@ -155,6 +119,70 @@ export default function FinancialLibraryPage() {
     router.push("/dashboard/budgeter");
   };
 
+  const onClearSavedProject = async () => {
+    setLimitMessage(null);
+    setProjectActionFeedback(null);
+
+    if (!hasSavedProject) {
+      setProjectActionFeedback({
+        tone: "error",
+        message: "There is no saved financial project to clear.",
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Clear your saved financial project? This removes it from your account and Financial Library."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingProject(true);
+
+    try {
+      const response = await fetch("/api/save-financial-project", {
+        method: "DELETE",
+      });
+
+      const rawResponse = await response.text();
+      let result: { success?: boolean; error?: string } | null = null;
+
+      if (rawResponse) {
+        try {
+          result = JSON.parse(rawResponse) as { success?: boolean; error?: string };
+        } catch {
+          result = null;
+        }
+      }
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error ?? rawResponse.trim() ?? `Request failed with status ${response.status}.`
+        );
+      }
+
+      clearSavedFinancialProjects();
+      setProjects([]);
+      setExpandedProjectId(null);
+      setProjectActionFeedback({
+        tone: "success",
+        message: "Saved financial project cleared.",
+      });
+    } catch (error) {
+      setProjectActionFeedback({
+        tone: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to clear saved financial project.",
+      });
+    } finally {
+      setIsDeletingProject(false);
+    }
+  };
+
   return (
     <section className="space-y-8">
       <div className="rounded-2xl border border-slate-900 bg-slate-900/25 p-4">
@@ -170,7 +198,14 @@ export default function FinancialLibraryPage() {
         </div>
       </div>
 
-      {!canAccessLibrary ? (
+      {isLoading ? (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
+          <h3 className="text-2xl font-black text-white">Financial Library</h3>
+          <p className="mt-2 max-w-2xl text-slate-400">
+            Loading your saved financial project...
+          </p>
+        </div>
+      ) : !canAccessLibrary ? (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
           <div className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs font-semibold text-slate-300">
             <Lock size={14} /> Paid Feature
@@ -195,6 +230,23 @@ export default function FinancialLibraryPage() {
             >
               <Plus size={16} /> {hasSavedProject ? "Open Launch Budget" : "Create In Launch Budget"}
             </button>
+            {hasSavedProject && (
+              <button
+                type="button"
+                onClick={() => {
+                  void onClearSavedProject();
+                }}
+                disabled={isDeletingProject}
+                className={[
+                  "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition",
+                  isDeletingProject
+                    ? "cursor-not-allowed border-slate-800 bg-slate-900/60 text-slate-500"
+                    : "border-rose-600/40 bg-rose-600/10 text-rose-200 hover:bg-rose-600/15",
+                ].join(" ")}
+              >
+                <Trash2 size={16} /> {isDeletingProject ? "Clearing..." : "Clear Saved Project"}
+              </button>
+            )}
             <p className="text-xs text-slate-500">
               {subscriptionTier === "launch-planner"
                 ? "Launch Planner: up to 1 saved project"
@@ -211,6 +263,19 @@ export default function FinancialLibraryPage() {
           {limitMessage && (
             <div className="rounded-2xl border border-amber-600/30 bg-amber-600/10 px-4 py-3 text-sm text-amber-200">
               {limitMessage}
+            </div>
+          )}
+
+          {projectActionFeedback && (
+            <div
+              className={[
+                "rounded-2xl px-4 py-3 text-sm",
+                projectActionFeedback.tone === "success"
+                  ? "border border-emerald-600/30 bg-emerald-600/10 text-emerald-200"
+                  : "border border-amber-600/30 bg-amber-600/10 text-amber-200",
+              ].join(" ")}
+            >
+              {projectActionFeedback.message}
             </div>
           )}
 

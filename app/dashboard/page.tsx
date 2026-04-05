@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DollarSign, FolderOpen, ArrowRight } from "lucide-react";
 import {
+  FINANCIAL_PROJECTS_UPDATED_EVENT,
+  fetchSavedFinancialProjectsState,
   type FinancialProject,
-  getSavedFinancialProjects,
 } from "@/lib/financial-projects";
+
+type SubscriptionTier = "starter" | "launch-planner";
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -18,40 +21,68 @@ function formatCurrency(value: number): string {
 }
 
 export default function DashboardPage() {
-  // TODO(security): Replace localStorage project reads with user-scoped server data protected by Supabase RLS.
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
+  const [billingStatus, setBillingStatus] = useState("Loading...");
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadProjects = () => {
-    setIsLoading(true);
-    setProjects(getSavedFinancialProjects());
-    setIsLoading(false);
-  };
-
   useEffect(() => {
-    loadProjects();
-  }, []);
+    let mounted = true;
 
-  useEffect(() => {
-    const onFocus = () => {
-      loadProjects();
-    };
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === "hm_financial_projects") {
-        loadProjects();
+    const loadProjects = async () => {
+      if (!mounted) {
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const result = await fetchSavedFinancialProjectsState();
+
+        if (!mounted) {
+          return;
+        }
+
+        setSubscriptionTier(result.access.subscriptionTier);
+        setBillingStatus(result.access.billingStatus);
+        setProjects(result.projects);
+      } catch (error) {
+        console.error("Failed to load saved financial projects for dashboard", error);
+
+        if (!mounted) {
+          return;
+        }
+
+        setSubscriptionTier("starter");
+        setBillingStatus("Unavailable");
+        setProjects([]);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("storage", onStorage);
+    const refresh = () => {
+      void loadProjects();
+    };
+
+    void loadProjects();
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
+    window.addEventListener(FINANCIAL_PROJECTS_UPDATED_EVENT, refresh);
+
     return () => {
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("storage", onStorage);
+      mounted = false;
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
+      window.removeEventListener(FINANCIAL_PROJECTS_UPDATED_EVENT, refresh);
     };
   }, []);
 
-  const activeProject = projects[0] ?? null;
-  const recentCount = projects.length;
+  const canAccessLibrary = subscriptionTier !== "starter";
+  const activeProject = canAccessLibrary ? projects[0] ?? null : null;
+  const recentCount = canAccessLibrary ? projects.length : 0;
   const warningCount = activeProject && activeProject.budgetStatus.toLowerCase() !== "balanced" ? 1 : 0;
 
   return (
@@ -125,9 +156,12 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Saved Projects</p>
               <h2 className="text-2xl font-black text-white mb-2">Financial Library</h2>
-              <p className="text-slate-400 max-w-xs text-sm mb-4">
-                Library access is locked on Starter and will open when billing is live.
+              <p className="text-slate-400 max-w-xs text-sm mb-2">
+                {canAccessLibrary
+                  ? "Review the saved launch budget currently available on your account."
+                  : "Library access is locked on Starter and will open when billing is live."}
               </p>
+              <p className="text-xs text-slate-500">Billing status: {billingStatus}</p>
             </div>
             <div className="rounded-2xl bg-slate-800/50 p-3 group-hover:bg-blue-600/20 transition-all">
               <FolderOpen size={24} className="text-slate-400 group-hover:text-blue-300 transition-all" />
@@ -139,7 +173,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {recentCount > 0 && (
+      {canAccessLibrary && recentCount > 0 && (
         <div>
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-black text-white">Recent Projects</h3>
@@ -176,8 +210,14 @@ export default function DashboardPage() {
 
       {!isLoading && recentCount === 0 && (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-12 text-center">
-          <p className="text-slate-200 font-semibold mb-2">No saved launch budgets yet.</p>
-          <p className="text-slate-500 text-sm mb-6">Starter currently includes calculator access only. Saved projects are unavailable until billing is live.</p>
+          <p className="text-slate-200 font-semibold mb-2">
+            {canAccessLibrary ? "No saved launch budgets yet." : "Saved launch budgets unlock on Launch Planner."}
+          </p>
+          <p className="text-slate-500 text-sm mb-6">
+            {canAccessLibrary
+              ? "Build or update your launch budget to save the current project into Financial Library."
+              : "Starter currently includes calculator access only. Saved projects are unavailable until billing is live."}
+          </p>
           <Link
             href="/dashboard/budgeter"
             className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 transition-all"

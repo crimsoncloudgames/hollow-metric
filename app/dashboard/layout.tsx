@@ -13,8 +13,6 @@ import {
   DollarSign,
   Settings,
   LogOut,
-  Moon,
-  Sun,
 } from "lucide-react";
 
 const navItems = [
@@ -88,23 +86,16 @@ function getHeaderText(pathname: string) {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const theme = "dark" as const;
   const [userLabel, setUserLabel] = useState("Account");
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const header = getHeaderText(pathname);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("hm_theme");
-    if (savedTheme === "light" || savedTheme === "dark") {
-      setTheme(savedTheme);
-    }
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem("hm_theme", theme);
     document.documentElement.dataset.theme = theme;
-  }, [theme]);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -301,18 +292,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           "mt-5 pt-4 lg:mt-auto",
           theme === "dark" ? "border-t border-slate-900" : "border-t border-slate-300",
         ].join(" ")}>
-          <button
-            onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
-            className={[
-              "w-full mb-3 rounded-2xl border px-3 py-2 text-sm font-semibold flex items-center justify-center gap-2 transition-all",
-              theme === "dark"
-                ? "border-slate-800 bg-slate-900 text-slate-200 hover:border-blue-600/40 hover:text-blue-400"
-                : "border-slate-300 bg-slate-200 text-slate-800 hover:border-blue-500/40 hover:text-blue-700",
-            ].join(" ")}
-          >
-            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-            {theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          </button>
           <button
             type="button"
             className={[

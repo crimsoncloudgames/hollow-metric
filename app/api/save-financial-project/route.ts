@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 import {
+  type FinancialProjectAccessState,
   normalizeFinancialProject,
   type FinancialProjectDraft,
 } from "@/lib/financial-projects";
@@ -11,6 +12,12 @@ export const runtime = "nodejs";
 type FinancialProjectRow = {
   id: number;
   project_data?: FinancialProjectDraft | null;
+};
+
+type UserEntitlementRow = {
+  tier?: string | null;
+  premium_access?: boolean | null;
+  billing_state?: string | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,6 +64,181 @@ function isMissingProjectNameColumnError(
       combinedMessage.includes("schema cache") ||
       combinedMessage.includes("column"))
   );
+}
+
+function formatBillingStatusLabel(
+  billingState: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof billingState !== "string" || billingState.trim().length === 0) {
+    return fallback;
+  }
+
+  const normalized = billingState.trim().replace(/_/g, " ");
+  return normalized[0].toUpperCase() + normalized.slice(1);
+}
+
+function deriveFinancialProjectAccess(
+  entitlement: UserEntitlementRow | null
+): FinancialProjectAccessState {
+  if (!entitlement) {
+    return {
+      subscriptionTier: "starter",
+      billingStatus: "No billing record",
+      canAccessLibrary: false,
+      canSaveProjects: false,
+      projectLimit: 0,
+    };
+  }
+
+  const normalizedBillingState =
+    typeof entitlement.billing_state === "string"
+      ? entitlement.billing_state.trim().toLowerCase()
+      : "";
+  const hasPaidAccess =
+    entitlement.tier === "pro" &&
+    entitlement.premium_access === true &&
+    normalizedBillingState === "active";
+
+  return {
+    subscriptionTier: hasPaidAccess ? "launch-planner" : "starter",
+    billingStatus: formatBillingStatusLabel(entitlement.billing_state, "Unknown"),
+    canAccessLibrary: hasPaidAccess,
+    canSaveProjects: hasPaidAccess,
+    projectLimit: hasPaidAccess ? 1 : 0,
+  };
+}
+
+async function loadFinancialProjectAccess({
+  supabase,
+  userId,
+}: {
+  supabase: NonNullable<ReturnType<typeof createServerClient>>;
+  userId: string;
+}) {
+  const { data: entitlement, error } = await supabase
+    .from("user_entitlements")
+    .select("tier, premium_access, billing_state")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      access: null,
+      error,
+    };
+  }
+
+  return {
+    access: deriveFinancialProjectAccess(
+      (entitlement as UserEntitlementRow | null) ?? null
+    ),
+    error: null,
+  };
+}
+
+function getFinancialProjectRowList(rows: unknown): FinancialProjectRow[] {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  return rows.filter(
+    (row): row is FinancialProjectRow =>
+      isRecord(row) && typeof row.id === "number"
+  );
+}
+
+function getLatestFinancialProjectRow(
+  rowList: FinancialProjectRow[]
+): FinancialProjectRow | null {
+  return rowList.reduce<FinancialProjectRow | null>((latestRow, row) => {
+    if (!latestRow || row.id > latestRow.id) {
+      return row;
+    }
+
+    return latestRow;
+  }, null);
+}
+
+export async function GET() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(cookieStore);
+
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase configuration error." },
+      { status: 500 }
+    );
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const { access, error: accessError } = await loadFinancialProjectAccess({
+    supabase,
+    userId: user.id,
+  });
+
+  if (accessError || !access) {
+    const formattedError = formatSupabaseError(accessError);
+    console.error("Failed to load financial project entitlements", {
+      error: accessError,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: `Failed to load financial project entitlements: ${formattedError}` },
+      { status: 500 }
+    );
+  }
+
+  if (!access.canAccessLibrary || access.projectLimit < 1) {
+    return NextResponse.json({ success: true, access, projects: [] });
+  }
+
+  const { data: existingRows, error: existingRowsError } = await supabase
+    .from("financial_projects")
+    .select("id, project_data")
+    .eq("user_id", user.id);
+
+  if (existingRowsError) {
+    const formattedError = formatSupabaseError(existingRowsError);
+    console.error("Failed to load saved financial projects", {
+      error: existingRowsError,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: `Failed to load saved financial projects: ${formattedError}` },
+      { status: 500 }
+    );
+  }
+
+  const rowList = getFinancialProjectRowList(existingRows);
+  const latestRow = getLatestFinancialProjectRow(rowList);
+
+  if (rowList.length > access.projectLimit) {
+    console.warn("Saved financial project rows exceed current plan limit", {
+      count: rowList.length,
+      projectLimit: access.projectLimit,
+      userId: user.id,
+    });
+  }
+
+  const projects =
+    latestRow && isRecord(latestRow.project_data)
+      ? [
+          normalizeFinancialProject(
+            latestRow.project_data as FinancialProjectDraft
+          ),
+        ].slice(0, access.projectLimit)
+      : [];
+
+  return NextResponse.json({ success: true, access, projects });
 }
 
 async function writeFinancialProject({
@@ -131,6 +313,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid project payload." }, { status: 400 });
   }
 
+  const { access, error: accessError } = await loadFinancialProjectAccess({
+    supabase,
+    userId: user.id,
+  });
+
+  if (accessError || !access) {
+    const formattedError = formatSupabaseError(accessError);
+    console.error("Failed to load financial project entitlements", {
+      error: accessError,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: `Failed to load financial project entitlements: ${formattedError}` },
+      { status: 500 }
+    );
+  }
+
+  if (!access.canSaveProjects || access.projectLimit < 1) {
+    return NextResponse.json(
+      {
+        error:
+          "Saving financial projects requires an active Launch Planner subscription.",
+      },
+      { status: 403 }
+    );
+  }
+
   const projectInput = isRecord(body.project) ? body.project : body;
   const { data: existingRows, error: existingRowsError } = await supabase
     .from("financial_projects")
@@ -149,22 +358,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const rowList = Array.isArray(existingRows) ? existingRows : [];
-  const existingRow = rowList.reduce<FinancialProjectRow | null>((latestRow, row) => {
-    if (!row || typeof row.id !== "number") {
-      return latestRow;
-    }
-
-    if (!latestRow || row.id > latestRow.id) {
-      return row as FinancialProjectRow;
-    }
-
-    return latestRow;
-  }, null);
+  const rowList = getFinancialProjectRowList(existingRows);
+  const existingRow = getLatestFinancialProjectRow(rowList);
 
   if (rowList.length > 1) {
     console.warn("Multiple financial project rows found for user; updating the most recent row", {
       count: rowList.length,
+      projectLimit: access.projectLimit,
       userId: user.id,
     });
   }
@@ -201,7 +401,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // TODO(security): Enforce billing tier and save limits from trusted server-owned entitlements.
   let writeResult = await writeFinancialProject({
     existingRowId: existingRow?.id,
     includeProjectName: true,
@@ -244,4 +443,44 @@ export async function POST(request: Request) {
   );
 
   return NextResponse.json({ success: true, project: savedProject });
+}
+
+export async function DELETE() {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(cookieStore);
+
+  if (!supabase) {
+    return NextResponse.json(
+      { error: "Supabase configuration error." },
+      { status: 500 }
+    );
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const { error } = await supabase
+    .from("financial_projects")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) {
+    const formattedError = formatSupabaseError(error);
+    console.error("Failed to clear financial project", {
+      error,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: `Failed to clear financial project: ${formattedError}` },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ success: true });
 }
