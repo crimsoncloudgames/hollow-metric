@@ -63,9 +63,9 @@ export default function RefundsPage() {
             <Image
               src="/HM logo icon with text webP.webp"
               alt="Hollow Metric"
-              width={300}
-              height={70}
-              className="h-auto w-full"
+              width={1200}
+              height={300}
+              style={{ width: "100%", height: "auto" }}
               priority
             />
             <p className="absolute bottom-[6%] left-[34%] whitespace-nowrap text-[8px] font-medium leading-none text-slate-500 sm:text-[9px] md:text-[10px]">

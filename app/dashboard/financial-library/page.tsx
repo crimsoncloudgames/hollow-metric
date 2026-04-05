@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, Lock, Plus } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import {
   type FinancialProject,
-  buildFinancialProjectTemplate,
+  FINANCIAL_PROJECTS_STORAGE_KEY,
+  FINANCIAL_PROJECTS_UPDATED_EVENT,
   getSavedFinancialProjects,
-  saveFinancialProjects,
 } from "@/lib/financial-projects";
 
 type SubscriptionTier = "starter" | "launch-planner";
+const EMPTY_PROJECTS_SNAPSHOT: FinancialProject[] = [];
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -21,18 +23,59 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+const getServerProjectsSnapshot = (): FinancialProject[] => EMPTY_PROJECTS_SNAPSHOT;
+
+const subscribeToSavedProjects = (onStoreChange: () => void) => {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const handleFocus = () => {
+    onStoreChange();
+  };
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") {
+      onStoreChange();
+    }
+  };
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === FINANCIAL_PROJECTS_STORAGE_KEY) {
+      onStoreChange();
+    }
+  };
+
+  const handleProjectsUpdated = () => {
+    onStoreChange();
+  };
+
+  window.addEventListener("focus", handleFocus);
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(FINANCIAL_PROJECTS_UPDATED_EVENT, handleProjectsUpdated);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  return () => {
+    window.removeEventListener("focus", handleFocus);
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(FINANCIAL_PROJECTS_UPDATED_EVENT, handleProjectsUpdated);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+  };
+};
+
 export default function FinancialLibraryPage() {
   // TODO(security): In production, tier must come from trusted billing state server-side.
   // TODO(security): Financial Library data must be loaded from server with per-user isolation (RLS), not localStorage.
+  const router = useRouter();
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
   const [billingStatus, setBillingStatus] = useState("Loading...");
-  const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    setProjects(getSavedFinancialProjects());
-  }, []);
+  const projects = useSyncExternalStore(
+    subscribeToSavedProjects,
+    getSavedFinancialProjects,
+    getServerProjectsSnapshot,
+  );
 
   useEffect(() => {
     const loadBillingContext = async () => {
@@ -92,21 +135,16 @@ export default function FinancialLibraryPage() {
     void loadBillingContext();
   }, []);
 
-  useEffect(() => {
-    saveFinancialProjects(projects);
-  }, [projects]);
-
   const canAccessLibrary = subscriptionTier !== "starter";
-  const maxProjects = subscriptionTier === "launch-planner" ? 1 : 0;
-  const launchPlannerLimitReached = subscriptionTier === "launch-planner" && projects.length >= 1;
   const currentPlanLabel = subscriptionTier === "launch-planner" ? "Launch Planner" : "Starter";
+  const hasSavedProject = projects.length > 0;
 
   const visibleProjects = useMemo(() => {
     if (subscriptionTier === "launch-planner") return projects.slice(0, 1);
     return [];
   }, [projects, subscriptionTier]);
 
-  const onAddProject = () => {
+  const onOpenLaunchBudget = () => {
     setLimitMessage(null);
 
     if (subscriptionTier === "starter") {
@@ -114,16 +152,7 @@ export default function FinancialLibraryPage() {
       return;
     }
 
-    if (projects.length >= maxProjects) {
-      setLimitMessage("Launch Planner includes 1 saved financial project. More plans with expanded capacity are coming soon.");
-      return;
-    }
-
-    const nextIndex = projects.length;
-    const newProject: FinancialProject = buildFinancialProjectTemplate(nextIndex);
-
-    setProjects((prev) => [newProject, ...prev]);
-    setExpandedProjectId(newProject.id);
+    router.push("/dashboard/budgeter");
   };
 
   return (
@@ -158,16 +187,13 @@ export default function FinancialLibraryPage() {
         <>
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={onAddProject}
-              disabled={launchPlannerLimitReached}
+              onClick={onOpenLaunchBudget}
               className={[
                 "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition",
-                launchPlannerLimitReached
-                  ? "cursor-not-allowed border-slate-800 bg-slate-900/50 text-slate-500"
-                  : "border-blue-600/40 bg-blue-600/10 text-blue-300 hover:bg-blue-600/15",
+                "border-blue-600/40 bg-blue-600/10 text-blue-300 hover:bg-blue-600/15",
               ].join(" ")}
             >
-              <Plus size={16} /> Save New Financial Project
+              <Plus size={16} /> {hasSavedProject ? "Open Launch Budget" : "Create In Launch Budget"}
             </button>
             <p className="text-xs text-slate-500">
               {subscriptionTier === "launch-planner"
@@ -176,9 +202,9 @@ export default function FinancialLibraryPage() {
             </p>
           </div>
 
-          {launchPlannerLimitReached && (
+          {hasSavedProject && (
             <div className="rounded-2xl border border-amber-600/30 bg-amber-600/10 px-4 py-3 text-sm text-amber-200">
-              Launch Planner includes 1 saved financial project. More plans with expanded capacity are coming soon.
+              Financial Library reflects your currently saved Launch Budget project. Update it from Launch Budget to refresh this view.
             </div>
           )}
 
@@ -278,7 +304,17 @@ export default function FinancialLibraryPage() {
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
                           <p className="text-[11px] text-slate-500">Post-launch actuals summary</p>
                           <p className="mt-2 text-sm text-slate-300">Actual copies sold: {project.postLaunchActuals.actualCopiesSold.toLocaleString()}</p>
-                          <p className="text-sm text-slate-300">Actual refunds: {project.postLaunchActuals.actualRefunds.toFixed(1)}%</p>
+                          {typeof project.postLaunchActuals.actualLaunchPrice === "number" && (
+                            <p className="text-sm text-slate-300">
+                              Actual launch price used: {project.postLaunchActuals.actualLaunchPricePoint ? `Price Point ${project.postLaunchActuals.actualLaunchPricePoint} ` : ""}(${`$${project.postLaunchActuals.actualLaunchPrice.toFixed(2)}`})
+                            </p>
+                          )}
+                          <p className="text-sm text-slate-300">
+                            Actual refunds: {project.postLaunchActuals.actualRefunds !== null ? `${project.postLaunchActuals.actualRefunds.toFixed(1)}%` : "Not provided"}
+                          </p>
+                          {typeof project.postLaunchActuals.actualGrossRevenue === "number" && (
+                            <p className="text-sm text-slate-300">Actual gross revenue: {formatCurrency(project.postLaunchActuals.actualGrossRevenue)}</p>
+                          )}
                           <p className="text-sm text-slate-300">Actual net revenue: {formatCurrency(project.postLaunchActuals.actualNetRevenue)}</p>
                           <p className="mt-1 text-sm font-semibold text-blue-300">{project.postLaunchActuals.comparisonSummary}</p>
                         </div>

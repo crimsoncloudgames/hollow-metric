@@ -3,10 +3,15 @@
 import { useState, useMemo, useEffect } from "react";
 import { AlertCircle, Zap, X, Plus } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import {
+  normalizeFinancialProject,
+  upsertSavedFinancialProject,
+} from "@/lib/financial-projects";
 
 const MAX_MONEY_VALUE = 1_000_000_000;
 const MAX_COPIES_VALUE = 1_000_000_000;
 const PLANNING_DEFAULTS_STORAGE_KEY = "hm_planning_defaults";
+const LAUNCH_BUDGET_DRAFT_STORAGE_KEY = "hm_launch_budget_draft";
 
 const toFiniteNumber = (value: unknown, fallback = 0): number => {
   const numeric = typeof value === "number" ? value : Number(value);
@@ -105,6 +110,44 @@ type PlanningDefaults = {
   withholdingTax: number;
   refundsAssumption: number;
 };
+
+type LaunchBudgetDraft = {
+  expenses?: unknown;
+  refundRate?: unknown;
+  withholding?: unknown;
+  price1?: unknown;
+  price2?: unknown;
+  price3?: unknown;
+  projectName?: unknown;
+  actualLaunchPrice?: unknown;
+  actualCopiesSold?: unknown;
+  actualRefundRate?: unknown;
+  actualGrossRevenue?: unknown;
+  actualNetRevenue?: unknown;
+};
+
+type SaveProjectFeedback = {
+  tone: "success" | "error";
+  message: string;
+};
+
+const deriveBudgetStatus = (review: PlanningReview): string => {
+  if (review.healthScore >= 75 && review.costSignal === "Balanced") {
+    return "Balanced";
+  }
+
+  if (review.healthScore >= 60) {
+    return "Monitor closely";
+  }
+
+  return "Needs review";
+};
+
+const sanitizeStoredText = (value: unknown, fallback: string): string =>
+  typeof value === "string" ? value : fallback;
+
+const isDraftRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const generatePlanningReview = (
   totalCost: number,
@@ -338,6 +381,11 @@ export default function LaunchBudgetPage() {
   const [price1, setPrice1] = useState("12.99");
   const [price2, setPrice2] = useState("16.99");
   const [price3, setPrice3] = useState("19.99");
+  const [projectName, setProjectName] = useState("Launch Budget Project");
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [saveProjectFeedback, setSaveProjectFeedback] =
+    useState<SaveProjectFeedback | null>(null);
+  const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
   // Post-launch actuals
   const [actualLaunchPrice, setActualLaunchPrice] = useState("1");
@@ -345,6 +393,98 @@ export default function LaunchBudgetPage() {
   const [actualRefundRate, setActualRefundRate] = useState("");
   const [actualGrossRevenue, setActualGrossRevenue] = useState("");
   const [actualNetRevenue, setActualNetRevenue] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const raw = window.localStorage.getItem(LAUNCH_BUDGET_DRAFT_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as LaunchBudgetDraft;
+      if (!isDraftRecord(parsed)) {
+        return;
+      }
+
+      if (Array.isArray(parsed.expenses)) {
+        const restoredExpenses = parsed.expenses.map((expense, index) => {
+          const record = isDraftRecord(expense) ? expense : {};
+
+          return {
+            id: sanitizeStoredText(record.id, String(index + 1)),
+            name: sanitizeStoredText(record.name, ""),
+            amount: parseNumericInput(String(record.amount ?? "0"), {
+              min: 0,
+              max: MAX_MONEY_VALUE,
+              fallback: 0,
+            }),
+          };
+        });
+
+        setExpenses(restoredExpenses);
+      }
+
+      setRefundRate(sanitizeStoredText(parsed.refundRate, "8"));
+      setWithholding(sanitizeStoredText(parsed.withholding, "30"));
+      setPrice1(sanitizeStoredText(parsed.price1, "12.99"));
+      setPrice2(sanitizeStoredText(parsed.price2, "16.99"));
+      setPrice3(sanitizeStoredText(parsed.price3, "19.99"));
+      setProjectName(sanitizeStoredText(parsed.projectName, "Launch Budget Project"));
+      setActualLaunchPrice(sanitizeStoredText(parsed.actualLaunchPrice, "1"));
+      setActualCopiesSold(sanitizeStoredText(parsed.actualCopiesSold, ""));
+      setActualRefundRate(sanitizeStoredText(parsed.actualRefundRate, ""));
+      setActualGrossRevenue(sanitizeStoredText(parsed.actualGrossRevenue, ""));
+      setActualNetRevenue(sanitizeStoredText(parsed.actualNetRevenue, ""));
+    } catch {
+      // Ignore invalid draft data and keep current in-page defaults.
+    } finally {
+      setHasLoadedDraft(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasLoadedDraft) return;
+
+    const draft: LaunchBudgetDraft = {
+      expenses,
+      refundRate,
+      withholding,
+      price1,
+      price2,
+      price3,
+      projectName,
+      actualLaunchPrice,
+      actualCopiesSold,
+      actualRefundRate,
+      actualGrossRevenue,
+      actualNetRevenue,
+    };
+
+    try {
+      window.localStorage.setItem(
+        LAUNCH_BUDGET_DRAFT_STORAGE_KEY,
+        JSON.stringify(draft)
+      );
+    } catch {
+      // Ignore storage write failures so editing the form never breaks the page.
+    }
+  }, [
+    actualCopiesSold,
+    actualGrossRevenue,
+    actualLaunchPrice,
+    actualNetRevenue,
+    actualRefundRate,
+    expenses,
+    hasLoadedDraft,
+    price1,
+    price2,
+    price3,
+    projectName,
+    refundRate,
+    withholding,
+  ]);
 
   // Add new expense
   const addExpense = () => {
@@ -486,12 +626,15 @@ export default function LaunchBudgetPage() {
     }
 
     return {
+      actualLaunchPricePoint: launchPriceIdx + 1,
+      actualLaunchPrice: launchPrice,
       plannedBreakEven,
       actualCopies,
       differenceVsPlan,
       plannedRefundRate,
       actualRefunds: hasActualRefundInput ? actualRefunds : null,
       plannedNetRevenuePerCopy,
+      actualGrossRevenue: sanitizeMoney(actualGross),
       actualNetRevenue: sanitizeMoney(resolvedActualNet),
       summary,
       bullets: bullets.slice(0, 4),
@@ -508,6 +651,142 @@ export default function LaunchBudgetPage() {
     calculations.refundRateNum,
     calculations.witholdingRate,
   ]);
+
+  const saveProjectDisabled =
+    !isPaidTier ||
+    isSavingProject ||
+    calculations.totalCost <= 0 ||
+    calculations.breakEvenResults
+      .slice(0, activePriceCount)
+      .some((result) => result === null);
+
+  const handleSaveProject = async () => {
+    setSaveProjectFeedback(null);
+
+    if (!isPaidTier) {
+      setSaveProjectFeedback({
+        tone: "error",
+        message:
+          "Project saving is currently available on Launch Planner while billing access is enabled.",
+      });
+      return;
+    }
+
+    const resolvedBreakEvenResults = calculations.breakEvenResults
+      .slice(0, activePriceCount)
+      .filter((result): result is number => result !== null);
+
+    if (resolvedBreakEvenResults.length !== activePriceCount) {
+      setSaveProjectFeedback({
+        tone: "error",
+        message: "Enter valid price points and costs before saving this project.",
+      });
+      return;
+    }
+
+    const project = normalizeFinancialProject({
+      name: projectName,
+      totalPlannedSpend: calculations.totalCost,
+      mainPricePoint: calculations.pricePoints[0] ?? 0,
+      roughBreakEvenCopies: resolvedBreakEvenResults[0] ?? 0,
+      budgetStatus: deriveBudgetStatus(calculations.planningReview),
+      expenses: expenses.map((expense) => ({
+        name: expense.name,
+        amount: expense.amount,
+      })),
+      platformFee: 30,
+      withholdingTax: calculations.witholdingRate,
+      refundsAssumption: calculations.refundRateNum,
+      pricePoints: calculations.pricePoints.slice(0, activePriceCount),
+      breakEvenResults: resolvedBreakEvenResults,
+      netRevenuePerCopy: calculations.netRevenuesPerCopy.slice(0, activePriceCount),
+      planningReview: {
+        healthScore: calculations.planningReview.healthScore,
+        salesTargetPressure: calculations.planningReview.targetPressure,
+        costStructureSignal: calculations.planningReview.costSignal,
+        insights: calculations.planningReview.insights,
+      },
+      postLaunchActuals:
+        postLaunchSummary
+          ? {
+              actualLaunchPricePoint: postLaunchSummary.actualLaunchPricePoint,
+              actualLaunchPrice: postLaunchSummary.actualLaunchPrice,
+              actualCopiesSold: postLaunchSummary.actualCopies,
+              actualRefunds: postLaunchSummary.actualRefunds,
+              actualGrossRevenue: postLaunchSummary.actualGrossRevenue,
+              actualNetRevenue: postLaunchSummary.actualNetRevenue,
+              comparisonSummary: postLaunchSummary.summary,
+              comparisonBullets: postLaunchSummary.bullets,
+            }
+          : undefined,
+    });
+
+    setIsSavingProject(true);
+
+    try {
+      const response = await fetch("/api/save-financial-project", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(project),
+      });
+
+      const rawResponse = await response.text();
+      let result: {
+        success?: boolean;
+        error?: string;
+        project?: unknown;
+      } | null = null;
+
+      if (rawResponse) {
+        try {
+          result = JSON.parse(rawResponse) as {
+            success?: boolean;
+            error?: string;
+            project?: unknown;
+          };
+        } catch {
+          result = null;
+        }
+      }
+
+      if (!response.ok || !result?.success || !result.project) {
+        const fallbackMessage =
+          result?.error ??
+          rawResponse.trim() ??
+          `Request failed with status ${response.status}.`;
+
+        console.error("Save Project request failed", {
+          responseBody: rawResponse,
+          status: response.status,
+        });
+        setSaveProjectFeedback({
+          tone: "error",
+          message: fallbackMessage,
+        });
+        return;
+      }
+
+      const savedProject = normalizeFinancialProject(result.project as Record<string, unknown>);
+      upsertSavedFinancialProject(savedProject);
+      setProjectName(savedProject.name);
+      setSaveProjectFeedback({
+        tone: "success",
+        message: "Project saved successfully. Your current saved budget has been updated.",
+      });
+    } catch (error) {
+      setSaveProjectFeedback({
+        tone: "error",
+        message:
+          error instanceof Error
+            ? `Failed to save project: ${error.message}`
+            : "Failed to save project.",
+      });
+    } finally {
+      setIsSavingProject(false);
+    }
+  };
 
   return (
     <section className="space-y-8">
@@ -534,6 +813,67 @@ export default function LaunchBudgetPage() {
           <div>
             <p className="font-semibold text-slate-400">More Plans</p>
             <p className="text-slate-600">More plans coming soon</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-black text-white">Save Project</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Save the current launch budget inputs and break-even snapshot to your account.
+            </p>
+            <p className="mt-2 text-xs text-slate-500">
+              {isPaidTier
+                ? "Launch Planner currently includes 1 saved project. Saving here updates that saved budget with your latest inputs."
+                : "Project saving is locked on Starter while paid access is pending."}
+            </p>
+          </div>
+
+          <div className="w-full max-w-xl">
+            <label htmlFor="project-name" className="mb-2 block text-sm font-semibold text-slate-300">
+              Project Name
+            </label>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                id="project-name"
+                type="text"
+                placeholder="e.g. Hollow Metric launch plan"
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+                disabled={isSavingProject}
+                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all disabled:cursor-not-allowed disabled:opacity-70"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  void handleSaveProject();
+                }}
+                disabled={saveProjectDisabled}
+                className={[
+                  "rounded-2xl px-5 py-3 text-sm font-semibold transition-all sm:min-w-36",
+                  saveProjectDisabled
+                    ? "cursor-not-allowed border border-slate-800 bg-slate-900/60 text-slate-500"
+                    : "border border-blue-600/30 bg-blue-600/10 text-blue-300 hover:bg-blue-600/15",
+                ].join(" ")}
+              >
+                {isSavingProject ? "Saving..." : "Save Project"}
+              </button>
+            </div>
+
+            {saveProjectFeedback && (
+              <p
+                className={[
+                  "mt-3 text-sm",
+                  saveProjectFeedback.tone === "success"
+                    ? "text-emerald-300"
+                    : "text-amber-300",
+                ].join(" ")}
+              >
+                {saveProjectFeedback.message}
+              </p>
+            )}
           </div>
         </div>
       </div>

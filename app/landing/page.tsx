@@ -155,9 +155,9 @@ export default function LandingPage() {
             <Image
               src="/HM logo icon with text webP.webp"
               alt="Hollow Metric"
-              width={300}
-              height={70}
-              className="h-auto w-full"
+              width={1200}
+              height={300}
+              style={{ width: "100%", height: "auto" }}
               priority
             />
             <p className="absolute bottom-[6%] left-[34%] whitespace-nowrap text-[8px] font-medium leading-none text-slate-500 sm:text-[9px] md:text-[10px]">
@@ -509,7 +509,7 @@ export default function LandingPage() {
           <div className="grid gap-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
             <div>
               <div className="relative inline-block w-[min(72vw,20rem)] sm:w-[min(52vw,19rem)] md:w-[18.75rem]">
-                <Image src="/HM logo icon with text webP.webp" alt="Hollow Metric" width={300} height={70} className="h-auto w-full" />
+                <Image src="/HM logo icon with text webP.webp" alt="Hollow Metric" width={1200} height={300} style={{ width: "100%", height: "auto" }} />
                 <p className="absolute bottom-[6%] left-[34%] whitespace-nowrap text-[9px] font-medium leading-none text-slate-500 sm:text-[10px]">
                   A tool by Crimson Cloud Games
                 </p>
