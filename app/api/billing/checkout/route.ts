@@ -8,6 +8,8 @@ export const runtime = "nodejs";
 // Only "pro" is a valid plan in the current billing_price_map schema.
 const VALID_PLAN_KEYS = new Set(["pro"]);
 
+type PaddleRuntimeEnvironment = "production" | "sandbox";
+
 type CheckoutRequestBody = {
   planKey?: unknown;
 };
@@ -15,6 +17,32 @@ type CheckoutRequestBody = {
 type BillingPriceRow = {
   paddle_price_id: string;
 };
+
+function getPaddleEnvironment(): PaddleRuntimeEnvironment {
+  const configuredEnvironment =
+    process.env.PADDLE_ENV?.trim().toLowerCase() ??
+    process.env.NEXT_PUBLIC_PADDLE_ENV?.trim().toLowerCase();
+
+  return configuredEnvironment === "production" || configuredEnvironment === "live"
+    ? "production"
+    : "sandbox";
+}
+
+function getConfiguredPriceId(planKey: string, environment: PaddleRuntimeEnvironment) {
+  const normalizedPlanKey = planKey.trim().toUpperCase().replace(/-/g, "_");
+  const specificKey =
+    environment === "production"
+      ? `PADDLE_${normalizedPlanKey}_PRICE_ID_LIVE`
+      : `PADDLE_${normalizedPlanKey}_PRICE_ID_SANDBOX`;
+
+  const specificPriceId = process.env[specificKey]?.trim();
+  if (specificPriceId) {
+    return specificPriceId;
+  }
+
+  const genericPriceId = process.env[`PADDLE_${normalizedPlanKey}_PRICE_ID`]?.trim();
+  return genericPriceId || null;
+}
 
 function getSupabaseAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -68,7 +96,29 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3. Look up the active Paddle price for this plan from billing_price_map.
+  const paddleEnvironment = getPaddleEnvironment();
+  const configuredPriceId = getConfiguredPriceId(planKey, paddleEnvironment);
+
+  if (configuredPriceId) {
+    return NextResponse.json({
+      priceId: configuredPriceId,
+      userId: user.id,
+      email: user.email ?? null,
+    });
+  }
+
+  if (paddleEnvironment === "production") {
+    return NextResponse.json(
+      {
+        error:
+          "Missing live Paddle price configuration. Set PADDLE_PRO_PRICE_ID_LIVE in production.",
+      },
+      { status: 500 }
+    );
+  }
+
+  // 3. Sandbox/local fallback: look up the active Paddle price for this plan from
+  //    billing_price_map when no sandbox override env var is configured.
   //    billing_price_map has no client RLS policies so service role is required.
   const admin = getSupabaseAdminClient();
   if (!admin) {
