@@ -5,11 +5,11 @@ export const metadata: Metadata = {
   description:
     "Estimate launch costs, compare price points, and plan break-even targets before you ship.",
   alternates: {
-    canonical: "/",
+    canonical: "/landing",
   },
   openGraph: {
     type: "website",
-    url: "/",
+    url: "/landing",
     title: "Hollow Metric",
     description:
       "Estimate launch costs, compare price points, and plan break-even targets before you ship.",
