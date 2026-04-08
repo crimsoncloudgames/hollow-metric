@@ -4,125 +4,72 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
 
-const pricingPlans = [
+const exampleMetrics = [
   {
-    name: "Starter",
-    price: "$0",
-    featured: true,
-    comingSoon: false,
-    items: [
-      "Try the launch planner free during public testing",
-      "Estimate break-even before launch",
-      "Build a launch budget with your current spend",
-      "Check profitability before you commit more money",
-      "No paid checkout required right now",
-    ],
+    label: "Launch budget",
+    value: "$25,500",
   },
   {
-    name: "Launch Planner",
-    price: "Paid plans soon",
-    featured: false,
-    comingSoon: true,
-    items: [
-      "Saved projects and deeper workflow support",
-      "Financial library and account-level tracking",
-      "Expanded planning analysis",
-      "Billing is still being finalized",
-      "Not available during public testing",
-    ],
+    label: "Game price",
+    value: "$14.99",
   },
   {
-    name: "MORE PLANS",
-    price: "Later",
-    featured: false,
-    comingSoon: true,
-    items: [
-      "Additional options for studios and teams",
-      "Expanded project capacity",
-      "More advanced planning workflows",
-      "Future premium features",
-    ],
+    label: "Break-even",
+    value: "2,430 copies",
+  },
+];
+
+const valueBlocks = [
+  {
+    title: "Estimate your launch budget",
+    body: "Plan art, audio, contractors, marketing, QA, and other costs in one place.",
+  },
+  {
+    title: "See your break-even copies",
+    body: "Test different price points and see how many copies you need to sell.",
+  },
+  {
+    title: "Spot risky assumptions early",
+    body: "Find out where your budget or pricing may be setting you up to fail.",
+  },
+];
+
+const bestFor = [
+  {
+    label: "Solo indie developers",
+  },
+  {
+    label: "Small game teams planning a launch",
+  },
+  {
+    label: "Studios comparing budget vs expected sales",
+  },
+  {
+    label: "Publishers reviewing project risk",
   },
 ];
 
 const faqs = [
   {
-    question: "What does Hollow Metric actually help me decide?",
-    answer:
-      "It helps you decide whether your launch budget and pricing assumptions make sense, how many copies you need to sell to break even, and whether your current plan is strong enough to support a commercial launch.",
-  },
-  {
-    question: "How does break-even planning work?",
-    answer:
-      "You enter your current launch spend and compare up to three price points. Hollow Metric recalculates the required unit sales for each option so you can see exactly how a pricing change moves the target.",
-  },
-  {
     question: "Why not just use a spreadsheet?",
     answer:
-      "Because most spreadsheets start useful and end outdated. Hollow Metric is built for launch decisions: price point comparison, automatic break-even updates, profitability planning, and clearer decision support without building and maintaining your own system from scratch.",
+      "You can, but most launch spreadsheets get harder to trust once budget, pricing, and assumptions start changing. Hollow Metric keeps those planning decisions in one flow.",
   },
   {
-    question: "Why would I keep using it as launch gets closer?",
+    question: "Does this guarantee sales?",
     answer:
-      "Because the risky part is not making the first plan. It is keeping the plan true as launch gets closer. Costs change, scope grows, pricing gets revisited, and late expenses show up. Hollow Metric helps you keep the launch math current so you do not make decisions off stale numbers.",
+      "No. Hollow Metric helps you estimate launch budget, break-even copies, and profitability using your own assumptions. It is a planning tool, not a sales guarantee.",
   },
   {
-    question: "Are the planning results guarantees?",
+    question: "Can I use it free right now?",
     answer:
-      "No. Hollow Metric is a planning tool, not a guarantee engine. It helps you model assumptions and see how cost and pricing changes affect your break-even target before launch.",
-  },
-];
-
-const heroCards = [
-  {
-    title: "Estimate break-even faster",
-    body: "Enter your budget and price assumptions to see how many copies you need before launch spending gets locked in.",
+      "Yes. The Free Launch Planner is currently open for testing.",
   },
   {
-    title: "Make the budget visible",
-    body: "Keep launch costs in one place so changing scope, marketing, or services does not quietly distort your target.",
+    question: "Are paid subscriptions live yet?",
+    answer:
+      "No. Paid subscriptions are not live yet while billing setup is being finalized.",
   },
-  {
-    title: "Check profitability before you spend more",
-    body: "Pressure test pricing and assumptions early enough to catch weak math while the fixes are still cheap.",
-  },
-];
-
-const problemPoints = [
-  "Budgets get built from memory, old messages, and half-finished spreadsheets.",
-  "Budget assumptions drift over time and no one notices until late.",
-  "Price gets chosen before anyone knows how many copies the game needs to sell.",
-  "Late changes push break-even higher while the plan still looks fine on paper.",
-];
-
-const featureCards = [
-  {
-    title: "See whether your budget still makes sense",
-    body: "Keep your full launch spend in one place so bad assumptions do not hide across notes, messages, and stale sheets.",
-    accent: "border-blue-600/40 bg-blue-600/5",
-  },
-  {
-    title: "See what pricing does to break-even",
-    body: "Test three price points side by side and see how fast the required unit sales move before the store price is set.",
-    accent: "border-blue-600/40 bg-blue-600/5",
-  },
-  {
-    title: "Plan around changing launch costs",
-    body: "Update cost assumptions as scope changes so your break-even targets stay grounded in your own launch plan.",
-    accent: "border-blue-600/40 bg-blue-600/5",
-  },
-  {
-    title: "Find weak spend before it gets expensive",
-    body: "Highlights underfunded priorities, weak assumptions, and budget areas that need a second look before launch.",
-    accent: "border-blue-600/40 bg-blue-600/5",
-  },
-];
-
-const subscriptionReasons = [
-  "Update the plan the moment your budget or scope changes.",
-  "Re-check break-even whenever pricing, timing, or costs shift.",
-  "Compare launch scenarios before you lock in the wrong decision.",
-  "Keep the numbers current so expensive choices are not based on stale math.",
 ];
 
 export default function LandingPage() {
@@ -165,310 +112,99 @@ export default function LandingPage() {
             </p>
           </Link>
           <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
-            <Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link>
             <Link href="/resources" className="transition hover:text-blue-400">Resources</Link>
             <Link href="/contact" className="transition hover:text-blue-400">Contact</Link>
             <Link href="/login" className="transition hover:text-blue-400">Login</Link>
-            <Link href="/signup" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
-              Try Launch Planner
-            </Link>
           </nav>
           <div className="flex items-center gap-2 md:hidden">
             <Link href="/contact" className="text-sm font-semibold text-blue-300">Contact</Link>
             <Link href="/login" className="text-sm font-semibold text-slate-200">Login</Link>
-            <Link href="/signup" className="rounded-full border border-blue-500 px-4 py-2 text-sm font-semibold text-blue-300">
-              Try Planner
-            </Link>
           </div>
         </header>
 
         <section className="fade-in pt-14 pb-10 text-center">
           <p className="mx-auto inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-blue-300">
-            Built for indie developers and small game teams
+            Launch planning for indie game developers and small teams
           </p>
           <h1 className="hero-glow mx-auto mt-6 max-w-5xl text-4xl font-black leading-[1.02] text-white sm:text-5xl lg:text-7xl">
-            Do you know how many copies you need to break even?
+            Do you know how many copies your game needs to sell to break even?
           </h1>
           <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-            Hollow Metric helps indie game developers estimate break-even, launch budget, and profitability before they waste money.
+            Hollow Metric helps indie game developers and small teams estimate launch budget, break-even copies, and profitability before they commit money.
           </p>
 
-          <div className="mx-auto mt-10 flex max-w-2xl flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mx-auto mt-10 flex max-w-2xl flex-col items-center justify-center">
             <Link
               href="/signup"
               className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-7 py-4 text-sm font-bold text-white transition hover:bg-blue-500 sm:w-auto"
             >
-              Try the free launch planner
-            </Link>
-            <Link
-              href="#example-result"
-              className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-700 px-7 py-4 text-sm font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-300 sm:w-auto"
-            >
-              See example result
+              Try the Free Launch Planner
             </Link>
           </div>
           <p className="mt-4 text-center text-xs text-slate-500">
-            Currently in free public testing. Paid subscriptions are not live yet.
+            Currently open for free testing. Paid subscriptions are not live yet.
           </p>
 
-          <div className="mx-auto mt-10 grid max-w-4xl gap-4 text-left md:grid-cols-3">
-            {heroCards.map((item) => (
+          <article id="example-result" className="mx-auto mt-10 max-w-4xl rounded-[2rem] border border-blue-600/30 bg-slate-900/75 p-6 text-left shadow-[0_0_32px_rgba(37,99,235,0.12)] backdrop-blur-xl sm:p-7">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Quick example result</p>
+                <h2 className="mt-3 text-2xl font-black text-white">See the kind of planning answer the tool gives you fast.</h2>
+              </div>
+              <p className="text-sm text-slate-400">What one launch plan could look like</p>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {exampleMetrics.map((metric) => (
+                <div key={metric.label} className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5 text-center md:text-left">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">{metric.label}</p>
+                  <p className="mt-3 text-2xl font-black text-white">{metric.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-5 text-sm leading-7 text-slate-300">
+              One pricing mistake can add hundreds or thousands of extra sales to your break-even target.
+            </p>
+          </article>
+
+          <div className="mx-auto mt-10 grid max-w-5xl gap-4 text-left md:grid-cols-3">
+            {valueBlocks.map((item) => (
               <article key={item.title} className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-                <p className="text-sm font-black uppercase tracking-[0.15em] text-blue-300">{item.title}</p>
+                <p className="text-lg font-black text-white">{item.title}</p>
                 <p className="mt-3 text-sm leading-7 text-slate-300">{item.body}</p>
               </article>
             ))}
           </div>
+        </section>
 
-          <div className="mx-auto mt-10 grid max-w-5xl gap-5 text-left lg:grid-cols-[1.1fr_0.9fr]">
-            <article className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-7 shadow-[0_0_40px_rgba(15,23,42,0.45)] backdrop-blur-xl">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Why this matters</p>
-              <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">
-                See if the launch plan still works before you spend more.
-              </h2>
-              <p className="mt-4 max-w-2xl leading-7 text-slate-300">
-                Hollow Metric is built to answer the basic financial questions quickly: what is your real budget, what does your current price imply, and how many copies do you need to break even?
-              </p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Budget</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">Pull your current launch costs into one working plan instead of scattered notes.</p>
-                </div>
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Break-even</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">See how many copies your current plan needs to sell before you commit further.</p>
-                </div>
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Profitability</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">Pressure test assumptions before launch costs rise and the easy fixes disappear.</p>
-                </div>
-              </div>
-            </article>
-
-            <article id="example-result" className="rounded-[2rem] border border-blue-600/30 bg-blue-600/10 p-7 shadow-[0_0_32px_rgba(37,99,235,0.1)]">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Example outcome</p>
-              <h2 className="mt-3 text-2xl font-black text-white">A quick example of the answer people want fast.</h2>
-              <div className="mt-6 space-y-3 rounded-3xl border border-blue-500/20 bg-slate-950/50 p-5 text-sm leading-7 text-slate-100">
-                <div className="flex items-center justify-between gap-4 border-b border-slate-800 pb-3">
-                  <span className="text-slate-400">Launch budget</span>
-                  <span className="text-lg font-black text-white">$8,000</span>
-                </div>
-                <div className="flex items-center justify-between gap-4 border-b border-slate-800 pb-3">
-                  <span className="text-slate-400">Game price</span>
-                  <span className="text-lg font-black text-white">$9.99</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-400">Estimated copies to break even</span>
-                  <span className="text-2xl font-black text-blue-300">1,430</span>
-                </div>
-              </div>
-              <p className="mt-6 border-t border-blue-500/20 pt-5 text-sm leading-7 text-slate-200">
-                This is the kind of simple planning answer the free launch planner is meant to surface before you waste money or lock in the wrong price.
+        <section className="fade-in border-t border-slate-800/60 py-10">
+          <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+            <article className="rounded-[2rem] border border-slate-800 bg-slate-900/60 p-6">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Best for</p>
+              <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
+                {bestFor.map((item) => (
+                  <li key={item.label} className="flex items-start gap-2">
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                    {item.label}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-5 text-xs leading-6 text-slate-500">
+                Also useful for larger teams evaluating launch risk across multiple projects.
               </p>
             </article>
-          </div>
-        </section>
 
-        <section className="fade-in border-t border-slate-800/60 py-10">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl font-black leading-tight text-white md:text-4xl">
-              The real risk is not one bad decision. It is making five of them with stale numbers.
-            </h2>
-            <p className="mt-4 text-lg font-semibold leading-7 text-blue-300">
-              Costs change. Scope changes. Pricing changes. If the math does not update with them, you are guessing with more confidence, not more clarity.
-            </p>
-            <ul className="mt-8 space-y-4">
-              {problemPoints.map((point) => (
-                <li key={point} className="flex items-start gap-3 text-lg leading-7 text-slate-300">
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
-                  {point}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        <section className="fade-in border-t border-slate-800/60 py-10">
-          <h2 className="mb-6 text-3xl font-black text-white md:text-4xl">
-            What you need before you spend more
-          </h2>
-          <p className="mb-8 max-w-3xl text-base font-semibold leading-7 text-blue-300">
-            Know if your launch plan makes financial sense before you keep funding it.
-          </p>
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {featureCards.map((card) => (
-              <article
-                key={card.title}
-                className={`rounded-3xl border ${card.accent} bg-slate-900/60 p-7 backdrop-blur-sm`}
-              >
-                <p className="text-xl font-black text-white">{card.title}</p>
-                <p className="mt-3 leading-7 text-slate-400">{card.body}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="product-preview" className="fade-in border-t border-slate-800/60 py-10">
-          <div className="mb-8">
-            <h2 className="text-3xl font-black text-white md:text-4xl">How this works in practice</h2>
-            <p className="mt-4 text-sm text-slate-400">
-              Enter current spend • Compare 3 prices • Pressure test assumptions • Fix weak math
-            </p>
-          </div>
-
-          <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-7 shadow-2xl backdrop-blur-xl">
-              <div className="mb-6 flex items-center justify-between border-b border-slate-800 pb-5">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Example Scenario</p>
-                  <h3 className="mt-2 text-2xl font-black text-white">What one bad assumption does to launch math</h3>
-                </div>
-                <div className="rounded-full border border-blue-600/30 bg-blue-600/10 px-4 py-2 text-sm font-black text-blue-300">
-                  Risk check
-                </div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl border border-yellow-500/25 bg-yellow-500/10 p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-300">Inputs</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-100">
-                    <span className="block">Dev budget: $18,000</span>
-                    <span className="block">Marketing: $4,500</span>
-                    <span className="block">Launch services: $3,000</span>
-                    <span className="block">Total planned spend: $25,500 before late scope increase.</span>
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-blue-600/25 bg-blue-600/10 p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Price Points</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-100">
-                    Compare $12.99, $16.99, and $19.99 before store pricing is final and before soft pricing quietly inflates the target.
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5 md:col-span-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Outputs</p>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                      <p className="text-sm font-semibold text-white">Break-even units</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">
-                        <span className="block">$12.99: about 2,710 units</span>
-                        <span className="block">$16.99: about 2,070 units</span>
-                        <span className="block">$19.99: about 1,760 units</span>
-                        <span className="block mt-2">The wrong price can add roughly 950 extra sales.</span>
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                      <p className="text-sm font-semibold text-white">Cost planning check</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">
-                        Shows how changing your own cost assumptions affects break-even targets and total launch risk.
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-                      <p className="text-sm font-semibold text-white">Plan review</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">
-                        Highlights underfunded categories, optimistic assumptions, and parts of the plan that need a second pass before launch.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-5">
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6">
-                <p className="mb-4 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Decision support includes</p>
-                <div className="space-y-3 text-sm leading-7 text-slate-300">
-                  <p>See where the money is really going instead of relying on scattered notes.</p>
-                  <p>Keep break-even current when price, scope, or spend changes.</p>
-                  <p>Catch weak assumptions and weak allocation before they get expensive.</p>
-                </div>
-              </div>
-              <div className="rounded-[2rem] border border-blue-600/30 bg-blue-600/10 p-6">
-                <p className="mb-3 text-lg font-black text-white">
-                  Check your launch plan before the expensive decisions are already made.
-                </p>
-                <Link
-                  href="/signup"
-                  className="inline-block rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
-                >
-                  Try the free launch planner
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="fade-in border-t border-slate-800/60 py-10">
-          <div className="mb-8">
-            <h2 className="text-3xl font-black text-white md:text-4xl">What you can use right now</h2>
-            <p className="mt-3 max-w-3xl text-slate-400">
-              Start with the free planner during public testing. Paid subscriptions are still being finalized.
-            </p>
-          </div>
-          <div>
-            <div className="grid gap-5 lg:grid-cols-3">
-              {pricingPlans.map((plan) => (
-                <article
-                  key={plan.name}
-                  className={[
-                    "rounded-[2rem] border p-6",
-                    plan.comingSoon
-                      ? "border-blue-500/35 bg-blue-950/20"
-                      : "",
-                    plan.featured
-                      ? "border-blue-500/50 bg-blue-600/10 shadow-[0_0_32px_rgba(37,99,235,0.12)]"
-                      : "border-slate-800 bg-slate-900/60",
-                  ].join(" ")}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">{plan.name}</p>
-                    {plan.featured && (
-                      <span className="rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">
-                        Recommended
-                      </span>
-                    )}
-                    {plan.comingSoon && (
-                      <span className="rounded-full border border-slate-600 bg-slate-800/60 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
-                        Not available yet
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-4">
-                    <span className={plan.comingSoon ? "text-3xl font-black uppercase tracking-[0.08em] text-slate-200" : "text-4xl font-black text-white"}>
-                      {plan.price}
-                    </span>
-                  </div>
-                  <ul className="mt-5 space-y-3 text-sm text-slate-400">
-                    {plan.items.map((item) => (
-                      <li key={item} className="flex items-start gap-2">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500/60" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
-            </div>
-
-            <div className="mt-8 grid gap-5 lg:grid-cols-2">
-              <article className="rounded-[2rem] border border-slate-800 bg-slate-900/60 p-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Why teams keep using it before launch</p>
-                <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
-                  {subscriptionReasons.map((item) => (
-                    <li key={item} className="flex items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500/60" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </article>
-              <article className="rounded-[2rem] border border-blue-600/30 bg-blue-600/10 p-6">
-                <p className="text-lg font-black text-white">One bad assumption or one soft price can cost far more than the time it takes to check the math.</p>
-                <p className="mt-3 text-sm leading-7 text-slate-200">
-                  Public testing is focused on helping teams get to a clearer launch plan faster while billing setup is still being finalized.
-                </p>
-              </article>
-            </div>
-
-            <p className="mt-8 text-center text-xs text-slate-500">Additional plan options will be released over time.</p>
+            <article className="rounded-[2rem] border border-blue-600/25 bg-blue-600/10 p-6">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Audience fit</p>
+              <h2 className="mt-3 text-2xl font-black text-white">Built for practical launch planning, not enterprise forecasting.</h2>
+              <p className="mt-4 text-sm leading-7 text-slate-200">
+                Not built for AAA forecasting or enterprise BI. Hollow Metric is designed for practical launch planning for indie and small-to-mid game teams.
+              </p>
+              <p className="mt-4 text-sm leading-7 text-slate-300">
+                The goal is simple: get from your current launch assumptions to a clearer budget, clearer break-even target, and a more useful next decision.
+              </p>
+            </article>
           </div>
         </section>
 
@@ -487,23 +223,17 @@ export default function LandingPage() {
         <section className="fade-in py-10">
           <div className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.22),rgba(15,23,42,0.92))] p-10 text-center shadow-2xl">
             <h2 className="mx-auto max-w-2xl text-3xl font-black text-white sm:text-4xl">
-              Stop pricing and budgeting your launch on guesswork.
+              Get to a useful launch answer before you commit more money.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-slate-200">
-              Build the budget, stress-test assumptions, test pricing, and find weak math before bad decisions turn into real losses.
+              Start with the free planner, test your current assumptions, and see whether your launch plan still makes sense.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <div className="mt-8 flex justify-center">
               <Link
                 href="/signup"
                 className="rounded-full bg-blue-600 px-8 py-3 font-bold text-white transition hover:bg-blue-500"
               >
-                Try the free launch planner
-              </Link>
-              <Link
-                href="#example-result"
-                className="rounded-full border border-slate-700 px-8 py-3 font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-300"
-              >
-                See example result
+                Try the Free Launch Planner
               </Link>
             </div>
           </div>
@@ -531,7 +261,7 @@ export default function LandingPage() {
                 <p><Link href="/resources" className="transition hover:text-blue-400">Resources</Link></p>
                 <p><Link href="/contact" className="transition hover:text-blue-400">Contact</Link></p>
                 <p><Link href="/login" className="transition hover:text-blue-400">Login</Link></p>
-                <p><Link href="/signup" className="transition hover:text-blue-400">Sign Up</Link></p>
+                <p><Link href="/signup" className="transition hover:text-blue-400">Free Launch Planner</Link></p>
               </div>
             </div>
             <div>
