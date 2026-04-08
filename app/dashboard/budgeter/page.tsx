@@ -149,6 +149,52 @@ const sanitizeStoredText = (value: unknown, fallback: string): string =>
 const isDraftRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+const getFriendlyBudgeterLoadError = (
+  error: unknown,
+  fallbackMessage: string
+): string => {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (message.includes("network") || message.includes("fetch")) {
+    return `${fallbackMessage} Check your connection and try again.`;
+  }
+
+  return fallbackMessage;
+};
+
+const getFriendlySaveProjectError = (
+  status: number | null,
+  message: string
+): string => {
+  const normalizedMessage = message.toLowerCase();
+
+  if (status === 401) {
+    return "Please sign in again before saving this project.";
+  }
+
+  if (status === 403) {
+    return "Your account cannot save projects right now.";
+  }
+
+  if (status === 429 || normalizedMessage.includes("too many")) {
+    return "Too many save attempts. Please wait a moment and try again.";
+  }
+
+  if (normalizedMessage.includes("network") || normalizedMessage.includes("fetch")) {
+    return "We couldn't reach the server to save your project. Please check your connection and try again.";
+  }
+
+  if (
+    normalizedMessage.includes("invalid save response") ||
+    normalizedMessage.includes("unexpected") ||
+    normalizedMessage.includes("malformed")
+  ) {
+    return "The save response was incomplete. Please try saving again.";
+  }
+
+  return message.trim() || "We couldn't save your project right now. Please try again.";
+};
+
 const generatePlanningReview = (
   totalCost: number,
   expenses: ExpenseRow[],
@@ -292,47 +338,115 @@ const generatePlanningReview = (
 export default function LaunchBudgetPage() {
   // TODO(security): Resolve tier from trusted billing state server-side; do not trust client-selected tier in production.
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
+  const [isLoadingBillingContext, setIsLoadingBillingContext] = useState(true);
+  const [billingContextError, setBillingContextError] = useState<string | null>(null);
+  const [localDataNotice, setLocalDataNotice] = useState<string | null>(null);
   const isPaidTier = subscriptionTier !== "starter";
-  const currentPlanLabel = subscriptionTier === "launch-planner" ? "Launch Planner" : "Starter";
+  const currentPlanLabel = isLoadingBillingContext
+    ? "Checking access..."
+    : subscriptionTier === "launch-planner"
+      ? "Launch Planner"
+      : "Starter";
 
   useEffect(() => {
+    let mounted = true;
+
     const loadBillingContext = async () => {
-      const supabase = createClient();
-      if (!supabase) {
-        setSubscriptionTier("starter");
-        return;
-      }
+      setBillingContextError(null);
+      setIsLoadingBillingContext(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        if (!supabase) {
+          if (mounted) {
+            setSubscriptionTier("starter");
+            setBillingContextError(
+              "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+            );
+          }
+          return;
+        }
 
-      if (!user) {
-        setSubscriptionTier("starter");
-        return;
-      }
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-      const { data: entitlement, error } = await supabase
-        .from("user_entitlements")
-        .select("tier, premium_access, billing_state")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        if (!mounted) {
+          return;
+        }
 
-      if (error) {
+        if (userError) {
+          console.error("Failed to load current user for launch budget page", userError);
+          setSubscriptionTier("starter");
+          setBillingContextError(
+            getFriendlyBudgeterLoadError(
+              userError,
+              "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+            )
+          );
+          return;
+        }
+
+        if (!user) {
+          setSubscriptionTier("starter");
+          return;
+        }
+
+        const { data: entitlement, error } = await supabase
+          .from("user_entitlements")
+          .select("tier, premium_access, billing_state")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!mounted) {
+          return;
+        }
+
+        if (error) {
+          console.error("Failed to load live billing state for launch budget page", error);
+          setSubscriptionTier("starter");
+          setBillingContextError(
+            getFriendlyBudgeterLoadError(
+              error,
+              "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+            )
+          );
+          return;
+        }
+
+        const hasPaidAccess =
+          entitlement?.tier === "pro" &&
+          entitlement.premium_access === true &&
+          entitlement.billing_state === "active";
+
+        setSubscriptionTier(hasPaidAccess ? "launch-planner" : "starter");
+      } catch (error) {
         console.error("Failed to load live billing state for launch budget page", error);
+
+        if (!mounted) {
+          return;
+        }
+
         setSubscriptionTier("starter");
-        return;
+        setBillingContextError(
+          getFriendlyBudgeterLoadError(
+            error,
+            "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+          )
+        );
+      } finally {
+        if (mounted) {
+          setIsLoadingBillingContext(false);
+        }
       }
-
-      const hasPaidAccess =
-        entitlement?.tier === "pro" &&
-        entitlement.premium_access === true &&
-        entitlement.billing_state === "active";
-
-      setSubscriptionTier(hasPaidAccess ? "launch-planner" : "starter");
     };
 
     void loadBillingContext();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Expense inputs - customizable list
@@ -373,6 +487,9 @@ export default function LaunchBudgetPage() {
       setWithholding(nextWithholding.toString());
       setRefundRate(nextRefunds.toString());
     } catch {
+      setLocalDataNotice((current) =>
+        current ?? "Some saved planning defaults could not be restored, so built-in defaults were used."
+      );
       // Keep in-page defaults if stored defaults are invalid.
     }
   }, []);
@@ -405,6 +522,9 @@ export default function LaunchBudgetPage() {
 
       const parsed = JSON.parse(raw) as LaunchBudgetDraft;
       if (!isDraftRecord(parsed)) {
+        setLocalDataNotice((current) =>
+          current ?? "Your saved budget draft could not be restored, so the page started with default values."
+        );
         return;
       }
 
@@ -438,6 +558,9 @@ export default function LaunchBudgetPage() {
       setActualGrossRevenue(sanitizeStoredText(parsed.actualGrossRevenue, ""));
       setActualNetRevenue(sanitizeStoredText(parsed.actualNetRevenue, ""));
     } catch {
+      setLocalDataNotice((current) =>
+        current ?? "Your saved budget draft could not be restored, so the page started with default values."
+      );
       // Ignore invalid draft data and keep current in-page defaults.
     } finally {
       setHasLoadedDraft(true);
@@ -468,6 +591,9 @@ export default function LaunchBudgetPage() {
         JSON.stringify(draft)
       );
     } catch {
+      setLocalDataNotice((current) =>
+        current ?? "Changes can't be saved locally in this browser right now, but you can keep editing."
+      );
       // Ignore storage write failures so editing the form never breaks the page.
     }
   }, [
@@ -560,6 +686,17 @@ export default function LaunchBudgetPage() {
 
   const activePriceCount = isPaidTier ? 3 : 1;
   const visiblePricePoints = calculations.pricePoints.slice(0, activePriceCount);
+  const trimmedProjectName = projectName.trim();
+  const calculationNotice =
+    calculations.totalCost <= 0
+      ? "Add at least one planned cost above $0 to calculate a break-even target."
+      : visiblePricePoints.some((price) => price <= 0)
+        ? "Enter a launch price above $0 to calculate a break-even target."
+        : calculations.netRevenuesPerCopy
+            .slice(0, activePriceCount)
+            .some((value) => value <= 0)
+          ? "Adjust your pricing, refunds, or withholding assumptions so estimated net revenue per copy stays above $0."
+          : null;
 
   const postLaunchSummary = useMemo(() => {
     const launchPriceIdx = Number(actualLaunchPrice) - 1;
@@ -653,15 +790,29 @@ export default function LaunchBudgetPage() {
   ]);
 
   const saveProjectDisabled =
+    isLoadingBillingContext ||
     !isPaidTier ||
     isSavingProject ||
+    trimmedProjectName.length === 0 ||
     calculations.totalCost <= 0 ||
     calculations.breakEvenResults
       .slice(0, activePriceCount)
       .some((result) => result === null);
 
   const handleSaveProject = async () => {
+    if (isSavingProject || isLoadingBillingContext) {
+      return;
+    }
+
     setSaveProjectFeedback(null);
+
+    if (!trimmedProjectName) {
+      setSaveProjectFeedback({
+        tone: "error",
+        message: "Enter a project name before saving.",
+      });
+      return;
+    }
 
     if (!isPaidTier) {
       setSaveProjectFeedback({
@@ -685,7 +836,7 @@ export default function LaunchBudgetPage() {
     }
 
     const project = normalizeFinancialProject({
-      name: projectName,
+      name: trimmedProjectName,
       totalPlannedSpend: calculations.totalCost,
       mainPricePoint: calculations.pricePoints[0] ?? 0,
       roughBreakEvenCopies: resolvedBreakEvenResults[0] ?? 0,
@@ -751,11 +902,10 @@ export default function LaunchBudgetPage() {
         }
       }
 
-      if (!response.ok || !result?.success || !result.project) {
-        const fallbackMessage =
+      if (!response.ok || !result?.success || !isDraftRecord(result?.project)) {
+        const responseMessage =
           result?.error ??
-          rawResponse.trim() ??
-          `Request failed with status ${response.status}.`;
+          (!isDraftRecord(result?.project) ? "invalid save response" : rawResponse.trim());
 
         console.error("Save Project request failed", {
           responseBody: rawResponse,
@@ -763,7 +913,7 @@ export default function LaunchBudgetPage() {
         });
         setSaveProjectFeedback({
           tone: "error",
-          message: fallbackMessage,
+          message: getFriendlySaveProjectError(response.status, responseMessage),
         });
         return;
       }
@@ -778,10 +928,10 @@ export default function LaunchBudgetPage() {
     } catch (error) {
       setSaveProjectFeedback({
         tone: "error",
-        message:
-          error instanceof Error
-            ? `Failed to save project: ${error.message}`
-            : "Failed to save project.",
+        message: getFriendlySaveProjectError(
+          null,
+          error instanceof Error ? error.message : ""
+        ),
       });
     } finally {
       setIsSavingProject(false);
@@ -801,6 +951,16 @@ export default function LaunchBudgetPage() {
             <span className="text-white">{currentPlanLabel}</span>
           </p>
         </div>
+        {billingContextError && (
+          <p className="mb-4 text-xs text-amber-300" role="alert">
+            {billingContextError}
+          </p>
+        )}
+        {localDataNotice && (
+          <p className="mb-4 text-xs text-amber-300" role="status">
+            {localDataNotice}
+          </p>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
           <div>
             <p className="font-semibold text-slate-400">Starter</p>
@@ -825,7 +985,9 @@ export default function LaunchBudgetPage() {
               Save the current launch budget inputs and break-even snapshot to your account.
             </p>
             <p className="mt-2 text-xs text-slate-500">
-              {isPaidTier
+              {isLoadingBillingContext
+                ? "Checking your plan access before project saving is enabled."
+                : isPaidTier
                 ? "Launch Planner currently includes 1 saved project. Saving here updates that saved budget with your latest inputs."
                 : "Project saving is locked on Starter while paid access is pending."}
             </p>
@@ -858,12 +1020,13 @@ export default function LaunchBudgetPage() {
                     : "border border-blue-600/30 bg-blue-600/10 text-blue-300 hover:bg-blue-600/15",
                 ].join(" ")}
               >
-                {isSavingProject ? "Saving..." : "Save Project"}
+                {isSavingProject ? "Saving..." : isLoadingBillingContext ? "Checking access..." : "Save Project"}
               </button>
             </div>
 
             {saveProjectFeedback && (
               <p
+                role={saveProjectFeedback.tone === "error" ? "alert" : "status"}
                 className={[
                   "mt-3 text-sm",
                   saveProjectFeedback.tone === "success"
@@ -1054,6 +1217,14 @@ export default function LaunchBudgetPage() {
       {/* SECTION 5 & 6: RESULTS AREA */}
       <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
         <h2 className="text-2xl font-black text-white mb-6">Break-Even Results</h2>
+
+        {calculationNotice && (
+          <div className="mb-6 rounded-2xl border border-amber-600/20 bg-amber-600/10 p-4">
+            <p className="text-sm text-amber-100" role="alert">
+              {calculationNotice}
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
           {visiblePricePoints.map((price, idx) => {

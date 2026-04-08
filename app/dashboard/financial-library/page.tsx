@@ -16,6 +16,192 @@ type ProjectActionFeedback = {
   message: string;
 };
 
+type DisplayFinancialProject = {
+  id: string;
+  name: string;
+  lastUpdated: string;
+  totalPlannedSpend: number;
+  mainPricePoint: number;
+  roughBreakEvenCopies: number;
+  budgetStatus: string;
+  expenses: Array<{
+    name: string;
+    amount: number;
+  }>;
+  platformFee: number;
+  withholdingTax: number;
+  refundsAssumption: number;
+  pricePoints: number[];
+  breakEvenResults: number[];
+  planningReview:
+    | {
+        healthScore: number;
+        salesTargetPressure: string;
+        costStructureSignal: string;
+      }
+    | null;
+  postLaunchActuals:
+    | {
+        actualCopiesSold: number;
+        actualLaunchPrice: number | null;
+        actualLaunchPricePoint: number | null;
+        actualRefunds: number | null;
+        actualGrossRevenue: number | null;
+        actualNetRevenue: number;
+        comparisonSummary: string;
+      }
+    | null;
+};
+
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function sanitizeCurrencyValue(value: unknown): number {
+  return Math.max(0, toFiniteNumber(value, 0));
+}
+
+function sanitizeCountValue(value: unknown): number {
+  return Math.max(0, Math.trunc(toFiniteNumber(value, 0)));
+}
+
+function sanitizePercentValue(value: unknown): number {
+  return Math.max(0, Math.min(100, toFiniteNumber(value, 0)));
+}
+
+function getFinancialLibraryLoadErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (message.includes("network") || message.includes("fetch")) {
+    return "We couldn't load your Financial Library right now. Please check your connection and try again.";
+  }
+
+  if (message.includes("invalid financial library data") || message.includes("malformed")) {
+    return "Your saved project data is temporarily unavailable. Please try again in a moment.";
+  }
+
+  return "We couldn't load your saved financial projects right now. Please try again in a moment.";
+}
+
+function getClearProjectErrorMessage(status: number | null, message: string): string {
+  const normalizedMessage = message.toLowerCase();
+
+  if (status === 401) {
+    return "Please sign in again before clearing your saved project.";
+  }
+
+  if (status === 403) {
+    return "Your account can't clear the saved project right now.";
+  }
+
+  if (status === 429 || normalizedMessage.includes("too many")) {
+    return "Too many clear attempts. Please wait a moment and try again.";
+  }
+
+  if (normalizedMessage.includes("network") || normalizedMessage.includes("fetch")) {
+    return "We couldn't clear the saved project right now. Please check your connection and try again.";
+  }
+
+  if (normalizedMessage.includes("invalid delete response") || normalizedMessage.includes("unexpected")) {
+    return "The clear request returned an unexpected response. Please try again.";
+  }
+
+  return message.trim() || "We couldn't clear the saved project right now. Please try again.";
+}
+
+function normalizeProjectForDisplay(project: FinancialProject): DisplayFinancialProject {
+  const expenses = Array.isArray(project.expenses)
+    ? project.expenses
+        .map((expense, index) => ({
+          name:
+            typeof expense?.name === "string" && expense.name.trim()
+              ? expense.name.trim()
+              : `Expense ${index + 1}`,
+          amount: sanitizeCurrencyValue(expense?.amount),
+        }))
+        .filter((expense) => expense.amount > 0 || expense.name.trim().length > 0)
+    : [];
+
+  const pricePoints = Array.isArray(project.pricePoints)
+    ? project.pricePoints.map((value) => sanitizeCurrencyValue(value)).filter((value) => value > 0)
+    : [];
+
+  const breakEvenResults = Array.isArray(project.breakEvenResults)
+    ? project.breakEvenResults
+        .map((value) => sanitizeCountValue(value))
+        .filter((value) => value > 0)
+    : [];
+
+  const planningReview = project.planningReview
+    ? {
+        healthScore: sanitizeCountValue(project.planningReview.healthScore),
+        salesTargetPressure:
+          typeof project.planningReview.salesTargetPressure === "string" &&
+          project.planningReview.salesTargetPressure.trim()
+            ? project.planningReview.salesTargetPressure
+            : "Unavailable",
+        costStructureSignal:
+          typeof project.planningReview.costStructureSignal === "string" &&
+          project.planningReview.costStructureSignal.trim()
+            ? project.planningReview.costStructureSignal
+            : "Unavailable",
+      }
+    : null;
+
+  const postLaunchActuals = project.postLaunchActuals
+    ? {
+        actualCopiesSold: sanitizeCountValue(project.postLaunchActuals.actualCopiesSold),
+        actualLaunchPrice:
+          typeof project.postLaunchActuals.actualLaunchPrice === "number"
+            ? sanitizeCurrencyValue(project.postLaunchActuals.actualLaunchPrice)
+            : null,
+        actualLaunchPricePoint:
+          typeof project.postLaunchActuals.actualLaunchPricePoint === "number"
+            ? sanitizeCountValue(project.postLaunchActuals.actualLaunchPricePoint)
+            : null,
+        actualRefunds:
+          typeof project.postLaunchActuals.actualRefunds === "number"
+            ? sanitizePercentValue(project.postLaunchActuals.actualRefunds)
+            : null,
+        actualGrossRevenue:
+          typeof project.postLaunchActuals.actualGrossRevenue === "number"
+            ? sanitizeCurrencyValue(project.postLaunchActuals.actualGrossRevenue)
+            : null,
+        actualNetRevenue: sanitizeCurrencyValue(project.postLaunchActuals.actualNetRevenue),
+        comparisonSummary:
+          typeof project.postLaunchActuals.comparisonSummary === "string" &&
+          project.postLaunchActuals.comparisonSummary.trim()
+            ? project.postLaunchActuals.comparisonSummary
+            : "Summary unavailable",
+      }
+    : null;
+
+  return {
+    id: typeof project.id === "string" && project.id.trim() ? project.id : "saved-project",
+    name: typeof project.name === "string" && project.name.trim() ? project.name : "Untitled project",
+    lastUpdated:
+      typeof project.lastUpdated === "string" && project.lastUpdated.trim()
+        ? project.lastUpdated
+        : "Unknown date",
+    totalPlannedSpend: sanitizeCurrencyValue(project.totalPlannedSpend),
+    mainPricePoint: sanitizeCurrencyValue(project.mainPricePoint),
+    roughBreakEvenCopies: sanitizeCountValue(project.roughBreakEvenCopies),
+    budgetStatus:
+      typeof project.budgetStatus === "string" && project.budgetStatus.trim()
+        ? project.budgetStatus
+        : "Unavailable",
+    expenses,
+    platformFee: sanitizePercentValue(project.platformFee),
+    withholdingTax: sanitizePercentValue(project.withholdingTax),
+    refundsAssumption: sanitizePercentValue(project.refundsAssumption),
+    pricePoints,
+    breakEvenResults,
+    planningReview,
+    postLaunchActuals,
+  };
+}
+
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -31,6 +217,7 @@ export default function FinancialLibraryPage() {
   const [billingStatus, setBillingStatus] = useState("Loading...");
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
@@ -46,16 +233,27 @@ export default function FinancialLibraryPage() {
       }
 
       setIsLoading(true);
+      setLoadError(null);
 
       try {
         const result = await fetchSavedFinancialProjectsState();
+
+        if (!result || !result.access || !Array.isArray(result.projects)) {
+          throw new Error("invalid financial library data");
+        }
 
         if (!mounted) {
           return;
         }
 
-        setSubscriptionTier(result.access.subscriptionTier);
-        setBillingStatus(result.access.billingStatus);
+        setSubscriptionTier(
+          result.access.subscriptionTier === "launch-planner" ? "launch-planner" : "starter"
+        );
+        setBillingStatus(
+          typeof result.access.billingStatus === "string" && result.access.billingStatus.trim()
+            ? result.access.billingStatus
+            : "Unavailable"
+        );
         setProjects(result.projects);
 
         if (result.access.subscriptionTier === "starter") {
@@ -71,6 +269,7 @@ export default function FinancialLibraryPage() {
           return;
         }
 
+        setLoadError(getFinancialLibraryLoadErrorMessage(error));
         setSubscriptionTier("starter");
         setBillingStatus("Unavailable");
         setProjects([]);
@@ -101,14 +300,22 @@ export default function FinancialLibraryPage() {
 
   const canAccessLibrary = subscriptionTier !== "starter";
   const currentPlanLabel = subscriptionTier === "launch-planner" ? "Launch Planner" : "Starter";
-  const hasSavedProject = projects.length > 0;
 
   const visibleProjects = useMemo(() => {
-    if (subscriptionTier === "launch-planner") return projects.slice(0, 1);
+    if (subscriptionTier === "launch-planner") {
+      return projects.slice(0, 1).map((project) => normalizeProjectForDisplay(project));
+    }
+
     return [];
   }, [projects, subscriptionTier]);
 
+  const hasSavedProject = visibleProjects.length > 0;
+
   const onOpenLaunchBudget = () => {
+    if (isDeletingProject) {
+      return;
+    }
+
     setLimitMessage(null);
 
     if (subscriptionTier === "starter") {
@@ -120,6 +327,10 @@ export default function FinancialLibraryPage() {
   };
 
   const onClearSavedProject = async () => {
+    if (isDeletingProject || isLoading) {
+      return;
+    }
+
     setLimitMessage(null);
     setProjectActionFeedback(null);
 
@@ -159,7 +370,10 @@ export default function FinancialLibraryPage() {
 
       if (!response.ok || !result?.success) {
         throw new Error(
-          result?.error ?? rawResponse.trim() ?? `Request failed with status ${response.status}.`
+          getClearProjectErrorMessage(
+            response.status,
+            result?.error ?? rawResponse.trim() ?? "invalid delete response"
+          )
         );
       }
 
@@ -173,10 +387,10 @@ export default function FinancialLibraryPage() {
     } catch (error) {
       setProjectActionFeedback({
         tone: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to clear saved financial project.",
+        message: getClearProjectErrorMessage(
+          null,
+          error instanceof Error ? error.message : ""
+        ),
       });
     } finally {
       setIsDeletingProject(false);
@@ -205,6 +419,16 @@ export default function FinancialLibraryPage() {
             Loading your saved financial project...
           </p>
         </div>
+      ) : loadError ? (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
+          <h3 className="text-2xl font-black text-white">Financial Library</h3>
+          <p className="mt-2 max-w-2xl text-amber-200" role="alert">
+            {loadError}
+          </p>
+          <p className="mt-3 text-xs text-slate-500">
+            Your saved project list is temporarily unavailable. Try again in a moment or return to Launch Budget.
+          </p>
+        </div>
       ) : !canAccessLibrary ? (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
           <div className="mb-4 inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-xs font-semibold text-slate-300">
@@ -223,9 +447,12 @@ export default function FinancialLibraryPage() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={onOpenLaunchBudget}
+              disabled={isDeletingProject}
               className={[
                 "inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition",
-                "border-blue-600/40 bg-blue-600/10 text-blue-300 hover:bg-blue-600/15",
+                isDeletingProject
+                  ? "cursor-not-allowed border-slate-800 bg-slate-900/60 text-slate-500"
+                  : "border-blue-600/40 bg-blue-600/10 text-blue-300 hover:bg-blue-600/15",
               ].join(" ")}
             >
               <Plus size={16} /> {hasSavedProject ? "Open Launch Budget" : "Create In Launch Budget"}
@@ -261,13 +488,14 @@ export default function FinancialLibraryPage() {
           )}
 
           {limitMessage && (
-            <div className="rounded-2xl border border-amber-600/30 bg-amber-600/10 px-4 py-3 text-sm text-amber-200">
+            <div className="rounded-2xl border border-amber-600/30 bg-amber-600/10 px-4 py-3 text-sm text-amber-200" role="alert">
               {limitMessage}
             </div>
           )}
 
           {projectActionFeedback && (
             <div
+              role={projectActionFeedback.tone === "error" ? "alert" : "status"}
               className={[
                 "rounded-2xl px-4 py-3 text-sm",
                 projectActionFeedback.tone === "success"
@@ -279,9 +507,20 @@ export default function FinancialLibraryPage() {
             </div>
           )}
 
-          <div className="space-y-4">
-            {visibleProjects.map((project) => {
+          {!hasSavedProject ? (
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+              <h3 className="text-2xl font-black text-white">No saved project yet</h3>
+              <p className="mt-2 max-w-2xl text-slate-400">
+                Save your current Launch Budget project to see it here in Financial Library.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {visibleProjects.map((project) => {
               const isExpanded = expandedProjectId === project.id;
+              const projectExpenses = project.expenses;
+              const projectPricePoints = project.pricePoints;
+              const projectBreakEvenResults = project.breakEvenResults;
 
               return (
                 <article
@@ -312,11 +551,11 @@ export default function FinancialLibraryPage() {
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
                         <p className="text-[11px] text-slate-500">Main price point</p>
-                        <p className="mt-1 text-sm font-black text-white">${project.mainPricePoint.toFixed(2)}</p>
+                        <p className="mt-1 text-sm font-black text-white">{project.mainPricePoint > 0 ? `$${project.mainPricePoint.toFixed(2)}` : "Unavailable"}</p>
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
                         <p className="text-[11px] text-slate-500">Rough break-even</p>
-                        <p className="mt-1 text-sm font-black text-white">{project.roughBreakEvenCopies.toLocaleString()} copies</p>
+                        <p className="mt-1 text-sm font-black text-white">{project.roughBreakEvenCopies > 0 ? `${project.roughBreakEvenCopies.toLocaleString()} copies` : "Unavailable"}</p>
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
                         <p className="text-[11px] text-slate-500">Budget status summary</p>
@@ -329,14 +568,18 @@ export default function FinancialLibraryPage() {
                     <div className="mt-6 space-y-5 rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
                       <div>
                         <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Expense breakdown</p>
-                        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-                          {project.expenses.map((expense) => (
-                            <div key={expense.name} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
-                              <span className="text-sm text-slate-300">{expense.name}</span>
-                              <span className="text-sm font-semibold text-white">{formatCurrency(expense.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
+                        {projectExpenses.length > 0 ? (
+                          <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                            {projectExpenses.map((expense) => (
+                              <div key={`${project.id}-${expense.name}`} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-3 py-2">
+                                <span className="text-sm text-slate-300">{expense.name}</span>
+                                <span className="text-sm font-semibold text-white">{formatCurrency(expense.amount)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-sm text-slate-400">Expense details are unavailable for this saved project.</p>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -348,11 +591,19 @@ export default function FinancialLibraryPage() {
                         </div>
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
                           <p className="text-[11px] text-slate-500">Selected price points</p>
-                          <p className="mt-2 text-sm text-slate-300">{project.pricePoints.map((v) => `$${v.toFixed(2)}`).join(" / ")}</p>
+                          <p className="mt-2 text-sm text-slate-300">
+                            {projectPricePoints.length > 0
+                              ? projectPricePoints.map((value) => `$${value.toFixed(2)}`).join(" / ")
+                              : "Unavailable"}
+                          </p>
                         </div>
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
                           <p className="text-[11px] text-slate-500">Rough break-even results</p>
-                          <p className="mt-2 text-sm text-slate-300">{project.breakEvenResults.map((v) => v.toLocaleString()).join(" / ")} copies</p>
+                          <p className="mt-2 text-sm text-slate-300">
+                            {projectBreakEvenResults.length > 0
+                              ? `${projectBreakEvenResults.map((value) => value.toLocaleString()).join(" / ")} copies`
+                              : "Unavailable"}
+                          </p>
                         </div>
                       </div>
 
@@ -369,7 +620,7 @@ export default function FinancialLibraryPage() {
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
                           <p className="text-[11px] text-slate-500">Post-launch actuals summary</p>
                           <p className="mt-2 text-sm text-slate-300">Actual copies sold: {project.postLaunchActuals.actualCopiesSold.toLocaleString()}</p>
-                          {typeof project.postLaunchActuals.actualLaunchPrice === "number" && (
+                          {project.postLaunchActuals.actualLaunchPrice !== null && (
                             <p className="text-sm text-slate-300">
                               Actual launch price used: {project.postLaunchActuals.actualLaunchPricePoint ? `Price Point ${project.postLaunchActuals.actualLaunchPricePoint} ` : ""}(${`$${project.postLaunchActuals.actualLaunchPrice.toFixed(2)}`})
                             </p>
@@ -388,8 +639,9 @@ export default function FinancialLibraryPage() {
                   )}
                 </article>
               );
-            })}
-          </div>
+              })}
+            </div>
+          )}
         </>
       )}
     </section>

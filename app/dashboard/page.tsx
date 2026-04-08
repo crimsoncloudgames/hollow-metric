@@ -20,11 +20,26 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+function getDashboardLoadErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (message.includes("network") || message.includes("fetch")) {
+    return "We couldn't load your dashboard right now. Please check your connection and try again.";
+  }
+
+  if (message.includes("invalid dashboard data") || message.includes("missing dashboard data")) {
+    return "Some dashboard data is temporarily unavailable. Please try again in a moment.";
+  }
+
+  return "We couldn't load your saved dashboard data right now. Please try again in a moment.";
+}
+
 export default function DashboardPage() {
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
   const [billingStatus, setBillingStatus] = useState("Loading...");
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -35,16 +50,25 @@ export default function DashboardPage() {
       }
 
       setIsLoading(true);
+      setLoadError(null);
 
       try {
         const result = await fetchSavedFinancialProjectsState();
+
+        if (!result || !result.access || !Array.isArray(result.projects)) {
+          throw new Error("invalid dashboard data");
+        }
 
         if (!mounted) {
           return;
         }
 
-        setSubscriptionTier(result.access.subscriptionTier);
-        setBillingStatus(result.access.billingStatus);
+        setSubscriptionTier(result.access.subscriptionTier === "launch-planner" ? "launch-planner" : "starter");
+        setBillingStatus(
+          typeof result.access.billingStatus === "string" && result.access.billingStatus.trim()
+            ? result.access.billingStatus
+            : "Unavailable"
+        );
         setProjects(result.projects);
       } catch (error) {
         console.error("Failed to load saved financial projects for dashboard", error);
@@ -53,6 +77,7 @@ export default function DashboardPage() {
           return;
         }
 
+        setLoadError(getDashboardLoadErrorMessage(error));
         setSubscriptionTier("starter");
         setBillingStatus("Unavailable");
         setProjects([]);
@@ -80,10 +105,50 @@ export default function DashboardPage() {
     };
   }, []);
 
+  const displayBillingStatus = isLoading ? "Loading..." : billingStatus;
   const canAccessLibrary = subscriptionTier !== "starter";
   const activeProject = canAccessLibrary ? projects[0] ?? null : null;
   const recentCount = canAccessLibrary ? projects.length : 0;
-  const warningCount = activeProject && activeProject.budgetStatus.toLowerCase() !== "balanced" ? 1 : 0;
+  const warningCount =
+    activeProject && typeof activeProject.budgetStatus === "string" && activeProject.budgetStatus.toLowerCase() !== "balanced"
+      ? 1
+      : 0;
+  const breakEvenValue = isLoading
+    ? "Loading..."
+    : loadError
+      ? "Unavailable"
+      : activeProject
+        ? `${activeProject.roughBreakEvenCopies.toLocaleString()}`
+        : "Not calculated yet";
+  const plannedSpendValue = isLoading
+    ? "Loading..."
+    : loadError
+      ? "Unavailable"
+      : activeProject
+        ? formatCurrency(activeProject.totalPlannedSpend)
+        : "No budget saved yet";
+  const lastUpdatedValue = isLoading
+    ? "Loading..."
+    : loadError
+      ? "Unavailable"
+      : activeProject
+        ? activeProject.lastUpdated
+        : "No saved project";
+  const lastUpdatedLabel = isLoading
+    ? "fetching project"
+    : loadError
+      ? "dashboard data"
+      : activeProject
+        ? activeProject.name
+        : "project name";
+  const warningsValue = isLoading ? "Loading..." : loadError ? "Unavailable" : activeProject ? warningCount.toString() : "None yet";
+  const libraryDescription = isLoading
+    ? "Loading your saved launch data..."
+    : loadError
+      ? "Saved launch data is temporarily unavailable. Try again in a moment."
+      : canAccessLibrary
+        ? "Review the saved launch budget currently available on your account."
+        : "Library access is locked on Starter and will open when billing is live.";
 
   return (
     <section className="space-y-10">
@@ -94,37 +159,43 @@ export default function DashboardPage() {
         <p className="text-slate-400 max-w-2xl">
           Track your launch budget, test price points, and catch weak spending before expensive decisions are locked in.
         </p>
+        {isLoading && <p className="mt-3 text-sm text-slate-500">Loading your saved launch data...</p>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Current Break-Even</p>
-          <p className="text-3xl font-black text-blue-500">
-            {activeProject ? `${activeProject.roughBreakEvenCopies.toLocaleString()}` : "Not calculated yet"}
-          </p>
+          <p className="text-3xl font-black text-blue-500">{breakEvenValue}</p>
           <p className="text-slate-500 text-sm mt-2">copies to sell</p>
         </div>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Total Planned Spend</p>
-          <p className="text-3xl font-black text-white">
-            {activeProject ? formatCurrency(activeProject.totalPlannedSpend) : "No budget saved yet"}
-          </p>
+          <p className="text-3xl font-black text-white">{plannedSpendValue}</p>
           <p className="text-slate-500 text-sm mt-2">launch costs</p>
         </div>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Last Updated</p>
-          <p className="text-2xl font-black text-white">{activeProject ? activeProject.lastUpdated : "No saved project"}</p>
-          <p className="text-slate-500 text-sm mt-2">{activeProject ? activeProject.name : "project name"}</p>
+          <p className="text-2xl font-black text-white">{lastUpdatedValue}</p>
+          <p className="text-slate-500 text-sm mt-2">{lastUpdatedLabel}</p>
         </div>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Active Warnings</p>
-          <p className="text-3xl font-black text-blue-500">{activeProject ? warningCount.toString() : "None yet"}</p>
+          <p className="text-3xl font-black text-blue-500">{warningsValue}</p>
           <p className="text-slate-500 text-sm mt-2">issues to address</p>
         </div>
       </div>
+
+      {loadError && !isLoading && (
+        <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 p-6">
+          <p className="text-sm font-semibold text-rose-200">{loadError}</p>
+          <p className="mt-2 text-sm text-slate-300">
+            You can still use Launch Budget while saved project data is temporarily unavailable.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Link
@@ -156,12 +227,8 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Saved Projects</p>
               <h2 className="text-2xl font-black text-white mb-2">Financial Library</h2>
-              <p className="text-slate-400 max-w-xs text-sm mb-2">
-                {canAccessLibrary
-                  ? "Review the saved launch budget currently available on your account."
-                  : "Library access is locked on Starter and will open when billing is live."}
-              </p>
-              <p className="text-xs text-slate-500">Billing status: {billingStatus}</p>
+              <p className="text-slate-400 max-w-xs text-sm mb-2">{libraryDescription}</p>
+              <p className="text-xs text-slate-500">Billing status: {displayBillingStatus}</p>
             </div>
             <div className="rounded-2xl bg-slate-800/50 p-3 group-hover:bg-blue-600/20 transition-all">
               <FolderOpen size={24} className="text-slate-400 group-hover:text-blue-300 transition-all" />
@@ -208,7 +275,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {!isLoading && recentCount === 0 && (
+      {!isLoading && !loadError && recentCount === 0 && (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-12 text-center">
           <p className="text-slate-200 font-semibold mb-2">
             {canAccessLibrary ? "No saved launch budgets yet." : "Saved launch budgets unlock on Launch Planner."}

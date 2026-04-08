@@ -14,10 +14,70 @@ type ContactFormState = {
   website: string;
 };
 
+type ContactFieldErrors = {
+  name?: string;
+  email?: string;
+  subject?: string;
+  message?: string;
+};
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateContactForm(formState: ContactFormState): ContactFieldErrors {
+  const nextErrors: ContactFieldErrors = {};
+  const trimmedName = formState.name.trim();
+  const trimmedEmail = formState.email.trim();
+  const trimmedSubject = formState.subject.trim();
+  const trimmedMessage = formState.message.trim();
+
+  if (!trimmedName) {
+    nextErrors.name = "Enter your name.";
+  }
+
+  if (!trimmedEmail) {
+    nextErrors.email = "Enter your email address.";
+  } else if (!emailPattern.test(trimmedEmail)) {
+    nextErrors.email = "Enter a valid email address.";
+  }
+
+  if (!trimmedSubject) {
+    nextErrors.subject = "Enter a subject.";
+  }
+
+  if (!trimmedMessage) {
+    nextErrors.message = "Enter your message.";
+  }
+
+  return nextErrors;
+}
+
+function getFriendlyContactErrorMessage(message: string): string {
+  const normalizedMessage = message.toLowerCase();
+
+  if (normalizedMessage.includes("captcha")) {
+    return "Please complete the captcha challenge again and resubmit the form.";
+  }
+
+  if (normalizedMessage.includes("email") && normalizedMessage.includes("invalid")) {
+    return "Enter a valid email address before sending your message.";
+  }
+
+  if (normalizedMessage.includes("too many requests")) {
+    return "Too many contact requests were sent. Please wait a moment and try again.";
+  }
+
+  if (normalizedMessage.includes("network") || normalizedMessage.includes("fetch")) {
+    return "We couldn't send your message right now. Please check your connection and try again.";
+  }
+
+  return "Unable to send your message right now. Please try again.";
+}
+
 export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ContactFieldErrors>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
   const isTurnstileEnabled =
@@ -36,16 +96,44 @@ export default function ContactPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsSubmitting(true);
+
+    if (isSubmitting) {
+      return;
+    }
+
     setStatusMessage(null);
     setStatusType(null);
+
+    const nextFieldErrors = validateContactForm(formState);
+    setFieldErrors(nextFieldErrors);
+
+    if (
+      nextFieldErrors.name ||
+      nextFieldErrors.email ||
+      nextFieldErrors.subject ||
+      nextFieldErrors.message
+    ) {
+      setStatusType("error");
+      setStatusMessage("Please fix the highlighted fields and try again.");
+      return;
+    }
 
     if (isTurnstileEnabled && !turnstileToken) {
       setStatusType("error");
       setStatusMessage("Please complete the captcha challenge.");
-      setIsSubmitting(false);
       return;
     }
+
+    setIsSubmitting(true);
+
+    const payload = {
+      ...formState,
+      name: formState.name.trim(),
+      email: formState.email.trim(),
+      subject: formState.subject.trim(),
+      message: formState.message.trim(),
+      turnstileToken: turnstileToken ?? "",
+    };
 
     try {
       const response = await fetch("/api/contact", {
@@ -53,32 +141,51 @@ export default function ContactPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...formState,
-          turnstileToken: turnstileToken ?? "",
-        }),
+        body: JSON.stringify(payload),
       });
 
-      const payload = (await response.json()) as { error?: string; message?: string };
+      const rawResponse = await response.text();
+      let responsePayload: { error?: string; message?: string } | null = null;
+
+      if (rawResponse) {
+        try {
+          responsePayload = JSON.parse(rawResponse) as { error?: string; message?: string };
+        } catch {
+          responsePayload = null;
+        }
+      }
 
       if (!response.ok) {
+        const fallbackMessage =
+          responsePayload?.error ??
+          responsePayload?.message ??
+          rawResponse.trim() ??
+          "";
+
+        if (fallbackMessage.toLowerCase().includes("captcha")) {
+          setTurnstileToken(null);
+          setTurnstileResetNonce((value) => value + 1);
+        }
+
         setStatusType("error");
-        setStatusMessage(payload.error ?? "Unable to send your message right now. Please try again.");
-        setIsSubmitting(false);
+        setStatusMessage(getFriendlyContactErrorMessage(fallbackMessage));
         return;
       }
 
       setStatusType("success");
-      setStatusMessage(payload.message ?? "Message sent successfully.");
+      setStatusMessage(responsePayload?.message ?? "Message sent successfully.");
       setFormState({ name: "", email: "", subject: "", message: "", website: "" });
+      setFieldErrors({});
       setTurnstileToken(null);
       setTurnstileResetNonce((value) => value + 1);
-    } catch {
+    } catch (error) {
       setStatusType("error");
-      setStatusMessage("Unable to send your message right now. Please try again.");
+      setStatusMessage(
+        getFriendlyContactErrorMessage(error instanceof Error ? error.message : "")
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   return (
@@ -129,7 +236,7 @@ export default function ContactPage() {
 
           <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
             <article className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-7 shadow-[0_0_40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:p-8">
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-5" noValidate aria-busy={isSubmitting}>
                 <div className="absolute left-[-9999px] top-[-9999px] h-0 w-0 overflow-hidden opacity-0" aria-hidden="true">
                   <label htmlFor="contact-website">Website</label>
                   <input
@@ -151,10 +258,26 @@ export default function ContactPage() {
                     type="text"
                     required
                     value={formState.name}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
+                    onChange={(event) => {
+                      setFormState((prev) => ({ ...prev, name: event.target.value }));
+                      setStatusMessage(null);
+                      setStatusType(null);
+
+                      if (fieldErrors.name) {
+                        setFieldErrors((prev) => ({ ...prev, name: undefined }));
+                      }
+                    }}
                     placeholder="Your name"
+                    disabled={isSubmitting}
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    aria-describedby={fieldErrors.name ? "contact-name-error" : undefined}
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
                   />
+                  {fieldErrors.name && (
+                    <p id="contact-name-error" className="mt-2 text-sm text-red-200" role="alert">
+                      {fieldErrors.name}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -165,10 +288,26 @@ export default function ContactPage() {
                     type="email"
                     required
                     value={formState.email}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, email: event.target.value }))}
+                    onChange={(event) => {
+                      setFormState((prev) => ({ ...prev, email: event.target.value }));
+                      setStatusMessage(null);
+                      setStatusType(null);
+
+                      if (fieldErrors.email) {
+                        setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                      }
+                    }}
                     placeholder="you@example.com"
+                    disabled={isSubmitting}
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    aria-describedby={fieldErrors.email ? "contact-email-error" : undefined}
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
                   />
+                  {fieldErrors.email && (
+                    <p id="contact-email-error" className="mt-2 text-sm text-red-200" role="alert">
+                      {fieldErrors.email}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -179,10 +318,26 @@ export default function ContactPage() {
                     type="text"
                     required
                     value={formState.subject}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, subject: event.target.value }))}
+                    onChange={(event) => {
+                      setFormState((prev) => ({ ...prev, subject: event.target.value }));
+                      setStatusMessage(null);
+                      setStatusType(null);
+
+                      if (fieldErrors.subject) {
+                        setFieldErrors((prev) => ({ ...prev, subject: undefined }));
+                      }
+                    }}
                     placeholder="What do you need help with?"
+                    disabled={isSubmitting}
+                    aria-invalid={Boolean(fieldErrors.subject)}
+                    aria-describedby={fieldErrors.subject ? "contact-subject-error" : undefined}
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
                   />
+                  {fieldErrors.subject && (
+                    <p id="contact-subject-error" className="mt-2 text-sm text-red-200" role="alert">
+                      {fieldErrors.subject}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -193,10 +348,26 @@ export default function ContactPage() {
                     required
                     rows={6}
                     value={formState.message}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, message: event.target.value }))}
+                    onChange={(event) => {
+                      setFormState((prev) => ({ ...prev, message: event.target.value }));
+                      setStatusMessage(null);
+                      setStatusType(null);
+
+                      if (fieldErrors.message) {
+                        setFieldErrors((prev) => ({ ...prev, message: undefined }));
+                      }
+                    }}
                     placeholder="Tell us what you need and we’ll get back to you."
+                    disabled={isSubmitting}
+                    aria-invalid={Boolean(fieldErrors.message)}
+                    aria-describedby={fieldErrors.message ? "contact-message-error" : undefined}
                     className="w-full resize-y rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
                   />
+                  {fieldErrors.message && (
+                    <p id="contact-message-error" className="mt-2 text-sm text-red-200" role="alert">
+                      {fieldErrors.message}
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -216,6 +387,7 @@ export default function ContactPage() {
 
                 {statusMessage && (
                   <p
+                    role={statusType === "error" ? "alert" : "status"}
                     className={[
                       "rounded-2xl px-4 py-3 text-sm",
                       statusType === "error"
