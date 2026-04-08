@@ -1,12 +1,38 @@
 import Link from "next/link";
 import { PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE } from "@/lib/billing";
 
-const plans = [
+type PricingPlanBase = {
+  name: string;
+  price: string;
+  featured: boolean;
+  comingSoon: boolean;
+  description?: string;
+  features: string[];
+};
+
+type PricingPlanWithLink = PricingPlanBase & {
+  ctaState: "link";
+  ctaHref: string;
+};
+
+type PricingPlanDisabled = PricingPlanBase & {
+  ctaState: "disabled";
+};
+
+type PricingPlanComingSoon = PricingPlanBase & {
+  ctaState: "coming-soon";
+  comingSoon: true;
+};
+
+type PricingPlan = PricingPlanWithLink | PricingPlanDisabled | PricingPlanComingSoon;
+
+const plans: PricingPlan[] = [
   {
     name: "Starter",
     price: "$0",
     featured: false,
     comingSoon: false,
+    ctaState: "link",
     ctaHref: "/signup",
     features: [
       "Calculator access only",
@@ -22,7 +48,7 @@ const plans = [
     description: "Save, track, and organize launch financial plans.",
     featured: true,
     comingSoon: false,
-    ctaDisabled: true,
+    ctaState: "disabled",
     features: [
       "Save financial projects",
       "Financial library",
@@ -37,7 +63,7 @@ const plans = [
     description: "Additional tiers are in development.",
     featured: false,
     comingSoon: true,
-    ctaDisabled: true,
+    ctaState: "coming-soon",
     features: [
       "Additional options for studios and teams",
       "Expanded project capacity",
@@ -97,7 +123,7 @@ export default function PricingPage() {
                 <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.08em] text-slate-300">
                   Not available yet
                 </div>
-              ) : plan.ctaDisabled ? (
+              ) : plan.ctaState === "disabled" ? (
                 <div className="mt-6 space-y-3">
                   <button
                     type="button"
