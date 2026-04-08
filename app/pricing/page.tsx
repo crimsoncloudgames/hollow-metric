@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE } from "@/lib/billing";
 
 const plans = [
   {
@@ -6,6 +7,7 @@ const plans = [
     price: "$0",
     featured: false,
     comingSoon: false,
+    ctaHref: "/signup",
     features: [
       "Calculator access only",
       "Basic financial inputs",
@@ -20,6 +22,7 @@ const plans = [
     description: "Save, track, and organize launch financial plans.",
     featured: true,
     comingSoon: false,
+    ctaDisabled: true,
     features: [
       "Save financial projects",
       "Financial library",
@@ -34,6 +37,7 @@ const plans = [
     description: "Additional tiers are in development.",
     featured: false,
     comingSoon: true,
+    ctaDisabled: true,
     features: [
       "Additional options for studios and teams",
       "Expanded project capacity",
@@ -93,9 +97,26 @@ export default function PricingPage() {
                 <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.08em] text-slate-300">
                   Not available yet
                 </div>
+              ) : plan.ctaDisabled ? (
+                <div className="mt-6 space-y-3">
+                  <button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    className={[
+                      "w-full cursor-not-allowed rounded-2xl px-5 py-3 text-center text-sm font-semibold opacity-80",
+                      plan.featured
+                        ? "border border-blue-900/30 bg-blue-950/20 text-blue-300/70"
+                        : "border border-slate-700 bg-slate-800/50 text-slate-400",
+                    ].join(" ")}
+                  >
+                    Get Started
+                  </button>
+                  <p className="text-xs leading-6 text-slate-400">{PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE}</p>
+                </div>
               ) : (
                 <Link
-                  href="/signup"
+                  href={plan.ctaHref}
                   className={[
                     "mt-6 rounded-2xl px-5 py-3 text-center text-sm font-semibold transition",
                     plan.featured

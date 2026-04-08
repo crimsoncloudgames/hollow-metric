@@ -7,7 +7,7 @@ import {
   type FinancialProject,
   getSavedFinancialProjects,
 } from "@/lib/financial-projects";
-import { openPaddleCheckout } from "@/lib/paddle";
+import { PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE } from "@/lib/billing";
 
 type SubscriptionTier = "starter" | "launch-planner";
 
@@ -46,8 +46,6 @@ export default function SettingsPage() {
   const [accountActionState, setAccountActionState] = useState<string>("");
   const [exportActionState, setExportActionState] = useState<string>("");
   const [privacyActionState, setPrivacyActionState] = useState<string>("");
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadUserContext = async () => {
@@ -292,34 +290,6 @@ export default function SettingsPage() {
     }
   };
 
-  const onUpgradeClick = async () => {
-    setCheckoutLoading(true);
-    setCheckoutError(null);
-    try {
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planKey: "pro" }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(data.error ?? `Checkout failed (${res.status})`);
-      }
-      const { priceId, userId, email } = (await res.json()) as {
-        priceId: string;
-        userId: string;
-        email: string;
-      };
-      await openPaddleCheckout(priceId, { userId, email });
-    } catch (err) {
-      setCheckoutError(
-        err instanceof Error ? err.message : "Something went wrong. Please try again.",
-      );
-    } finally {
-      setCheckoutLoading(false);
-    }
-  };
-
   return (
     <section className="space-y-6">
       <article className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
@@ -388,12 +358,11 @@ export default function SettingsPage() {
             {subscriptionTier === "starter" ? (
               <button
                 type="button"
-                onClick={() => void onUpgradeClick()}
-                disabled={checkoutLoading}
-                aria-disabled={checkoutLoading}
-                className="w-full rounded-xl border border-blue-700/50 bg-blue-600/20 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:border-blue-500 hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled
+                aria-disabled="true"
+                className="w-full cursor-not-allowed rounded-xl border border-blue-900/30 bg-blue-950/20 px-4 py-2 text-sm font-semibold text-blue-300/70 opacity-80"
               >
-                {checkoutLoading ? "Opening checkout…" : "Upgrade to Pro"}
+                Upgrade to Pro
               </button>
             ) : (
               <button
@@ -421,9 +390,7 @@ export default function SettingsPage() {
             >
               Cancel Subscription
             </button>
-            {checkoutError && (
-              <p className="text-xs text-red-400">{checkoutError}</p>
-            )}
+            <p className="text-xs leading-6 text-slate-500">{PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE}</p>
           </div>
         </div>
       </article>
