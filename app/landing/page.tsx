@@ -8,32 +8,32 @@ const pricingPlans = [
   {
     name: "Starter",
     price: "$0",
-    featured: false,
+    featured: true,
     comingSoon: false,
     items: [
-      "Calculator access only",
-      "Basic financial inputs",
-      "Basic break-even calculation",
-      "No saved projects",
-      "No premium dashboard features",
+      "Try the launch planner free during public testing",
+      "Estimate break-even before launch",
+      "Build a launch budget with your current spend",
+      "Check profitability before you commit more money",
+      "No paid checkout required right now",
     ],
   },
   {
     name: "Launch Planner",
-    price: "$12/mo",
-    featured: true,
-    comingSoon: false,
+    price: "Paid plans soon",
+    featured: false,
+    comingSoon: true,
     items: [
-      "Save financial projects",
-      "Financial library",
-      "Dashboard tracking",
-      "Deeper financial analysis",
-      "Better history and organization features",
+      "Saved projects and deeper workflow support",
+      "Financial library and account-level tracking",
+      "Expanded planning analysis",
+      "Billing is still being finalized",
+      "Not available during public testing",
     ],
   },
   {
     name: "MORE PLANS",
-    price: "Coming Soon",
+    price: "Later",
     featured: false,
     comingSoon: true,
     items: [
@@ -62,9 +62,9 @@ const faqs = [
       "Because most spreadsheets start useful and end outdated. Hollow Metric is built for launch decisions: price point comparison, automatic break-even updates, profitability planning, and clearer decision support without building and maintaining your own system from scratch.",
   },
   {
-    question: "Why would I stay subscribed every month?",
+    question: "Why would I keep using it as launch gets closer?",
     answer:
-      "Because the risky part is not making the first plan. It is keeping the plan true as launch gets closer. Costs change, scope grows, pricing gets revisited, and late expenses show up. The subscription keeps your launch math current so you do not make decisions off stale numbers.",
+      "Because the risky part is not making the first plan. It is keeping the plan true as launch gets closer. Costs change, scope grows, pricing gets revisited, and late expenses show up. Hollow Metric helps you keep the launch math current so you do not make decisions off stale numbers.",
   },
   {
     question: "Are the planning results guarantees?",
@@ -75,16 +75,16 @@ const faqs = [
 
 const heroCards = [
   {
-    title: "Know whether your launch budget is realistic",
-    body: "Keep planned costs in one place so budget changes are visible before they quietly raise your sales target.",
+    title: "Estimate break-even faster",
+    body: "Enter your budget and price assumptions to see how many copies you need before launch spending gets locked in.",
   },
   {
-    title: "See what one price change does to break-even",
-    body: "Compare price points before you commit and see how a small pricing move can add or remove hundreds of sales.",
+    title: "Make the budget visible",
+    body: "Keep launch costs in one place so changing scope, marketing, or services does not quietly distort your target.",
   },
   {
-    title: "Spot weak spend before it gets expensive",
-    body: "Find underfunded priorities, wasteful categories, and shaky assumptions while they are still cheap to fix.",
+    title: "Check profitability before you spend more",
+    body: "Pressure test pricing and assumptions early enough to catch weak math while the fixes are still cheap.",
   },
 ];
 
@@ -121,8 +121,8 @@ const featureCards = [
 const subscriptionReasons = [
   "Update the plan the moment your budget or scope changes.",
   "Re-check break-even whenever pricing, timing, or costs shift.",
-  "Compare multiple launch scenarios before you lock in the wrong one.",
-  "Keep the numbers current so expensive decisions are not based on stale math.",
+  "Compare launch scenarios before you lock in the wrong decision.",
+  "Keep the numbers current so expensive choices are not based on stale math.",
 ];
 
 export default function LandingPage() {
@@ -170,14 +170,14 @@ export default function LandingPage() {
             <Link href="/contact" className="transition hover:text-blue-400">Contact</Link>
             <Link href="/login" className="transition hover:text-blue-400">Login</Link>
             <Link href="/signup" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
-              Sign Up
+              Try Launch Planner
             </Link>
           </nav>
           <div className="flex items-center gap-2 md:hidden">
             <Link href="/contact" className="text-sm font-semibold text-blue-300">Contact</Link>
             <Link href="/login" className="text-sm font-semibold text-slate-200">Login</Link>
             <Link href="/signup" className="rounded-full border border-blue-500 px-4 py-2 text-sm font-semibold text-blue-300">
-              Sign Up
+              Try Planner
             </Link>
           </div>
         </header>
@@ -186,11 +186,11 @@ export default function LandingPage() {
           <p className="mx-auto inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-blue-300">
             Built for indie developers and small game teams
           </p>
-          <h1 className="hero-glow mx-auto mt-6 max-w-5xl text-4xl font-black italic leading-[1.02] text-white sm:text-5xl lg:text-7xl">
-            Do you know how many copies your game needs to sell to break even?
+          <h1 className="hero-glow mx-auto mt-6 max-w-5xl text-4xl font-black leading-[1.02] text-white sm:text-5xl lg:text-7xl">
+            Do you know how many copies you need to break even?
           </h1>
           <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-            Estimate launch costs, test price points, and catch weak spending before bad assumptions turn into real losses.
+            Hollow Metric helps indie game developers estimate break-even, launch budget, and profitability before they waste money.
           </p>
 
           <div className="mx-auto mt-10 flex max-w-2xl flex-col items-center justify-center gap-3 sm:flex-row">
@@ -198,17 +198,17 @@ export default function LandingPage() {
               href="/signup"
               className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-7 py-4 text-sm font-bold text-white transition hover:bg-blue-500 sm:w-auto"
             >
-              Build Your Launch Budget
+              Try the free launch planner
             </Link>
             <Link
-              href="#product-preview"
+              href="#example-result"
               className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-700 px-7 py-4 text-sm font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-300 sm:w-auto"
             >
-              See Your Break-Even
+              See example result
             </Link>
           </div>
           <p className="mt-4 text-center text-xs text-slate-500">
-            Know your sales target before launch costs and bad assumptions quietly reset it.
+            Currently in free public testing. Paid subscriptions are not live yet.
           </p>
 
           <div className="mx-auto mt-10 grid max-w-4xl gap-4 text-left md:grid-cols-3">
@@ -224,39 +224,46 @@ export default function LandingPage() {
             <article className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-7 shadow-[0_0_40px_rgba(15,23,42,0.45)] backdrop-blur-xl">
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Why this matters</p>
               <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">
-                Most expensive launch mistakes look harmless when you first approve them.
+                See if the launch plan still works before you spend more.
               </h2>
               <p className="mt-4 max-w-2xl leading-7 text-slate-300">
-                The danger is rarely one dramatic failure. It is a stack of small decisions: a soft price, underestimated costs,
-                late scope growth, and a budget that never got updated when reality changed.
+                Hollow Metric is built to answer the basic financial questions quickly: what is your real budget, what does your current price imply, and how many copies do you need to break even?
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Guessing</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">You approve spend without knowing what the full launch actually costs.</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Budget</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">Pull your current launch costs into one working plan instead of scattered notes.</p>
                 </div>
                 <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Pricing blind</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">You choose a price before you know how hard that price makes break-even.</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Break-even</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">See how many copies your current plan needs to sell before you commit further.</p>
                 </div>
                 <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-5">
-                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Late fixes</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">You find weak assumptions after major decisions are made and the cheap fixes are gone.</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">Profitability</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-300">Pressure test assumptions before launch costs rise and the easy fixes disappear.</p>
                 </div>
               </div>
             </article>
 
-            <article className="rounded-[2rem] border border-blue-600/30 bg-blue-600/10 p-7 shadow-[0_0_32px_rgba(37,99,235,0.1)]">
+            <article id="example-result" className="rounded-[2rem] border border-blue-600/30 bg-blue-600/10 p-7 shadow-[0_0_32px_rgba(37,99,235,0.1)]">
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Example outcome</p>
-              <h2 className="mt-3 text-2xl font-black text-white">One pricing mistake can add nearly 1,000 extra sales to break-even.</h2>
-              <div className="mt-6 space-y-4 text-sm leading-7 text-slate-200">
-                <p>Planned budget: $25,500</p>
-                <p>$12.99 price point: about 2,710 units to break even</p>
-                <p>$16.99 price point: about 2,070 units to break even</p>
-                <p>$19.99 price point: about 1,760 units to break even</p>
+              <h2 className="mt-3 text-2xl font-black text-white">A quick example of the answer people want fast.</h2>
+              <div className="mt-6 space-y-3 rounded-3xl border border-blue-500/20 bg-slate-950/50 p-5 text-sm leading-7 text-slate-100">
+                <div className="flex items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                  <span className="text-slate-400">Launch budget</span>
+                  <span className="text-lg font-black text-white">$8,000</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                  <span className="text-slate-400">Game price</span>
+                  <span className="text-lg font-black text-white">$9.99</span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-slate-400">Estimated copies to break even</span>
+                  <span className="text-2xl font-black text-blue-300">1,430</span>
+                </div>
               </div>
               <p className="mt-6 border-t border-blue-500/20 pt-5 text-sm leading-7 text-slate-200">
-                That gap is the danger. Pick the wrong price or keep stale assumptions, and the original launch math stops meaning anything.
+                This is the kind of simple planning answer the free launch planner is meant to surface before you waste money or lock in the wrong price.
               </p>
             </article>
           </div>
@@ -379,11 +386,10 @@ export default function LandingPage() {
                   Check your launch plan before the expensive decisions are already made.
                 </p>
                 <Link
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
-                  className="inline-block rounded-full bg-slate-700 px-6 py-3 text-sm font-bold text-slate-400 cursor-not-allowed transition"
+                  href="/signup"
+                  className="inline-block rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
                 >
-                  Stress-Test Your Launch Math
+                  Try the free launch planner
                 </Link>
               </div>
             </div>
@@ -392,9 +398,9 @@ export default function LandingPage() {
 
         <section className="fade-in border-t border-slate-800/60 py-10">
           <div className="mb-8">
-            <h2 className="text-3xl font-black text-white md:text-4xl">Why this is worth keeping until launch</h2>
+            <h2 className="text-3xl font-black text-white md:text-4xl">What you can use right now</h2>
             <p className="mt-3 max-w-3xl text-slate-400">
-              The point is not software access. The point is keeping your numbers real while launch costs, pricing, and scope keep shifting.
+              Start with the free planner during public testing. Paid subscriptions are still being finalized.
             </p>
           </div>
           <div>
@@ -444,7 +450,7 @@ export default function LandingPage() {
 
             <div className="mt-8 grid gap-5 lg:grid-cols-2">
               <article className="rounded-[2rem] border border-slate-800 bg-slate-900/60 p-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Why monthly makes sense</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Why teams keep using it before launch</p>
                 <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-300">
                   {subscriptionReasons.map((item) => (
                     <li key={item} className="flex items-start gap-2">
@@ -455,9 +461,9 @@ export default function LandingPage() {
                 </ul>
               </article>
               <article className="rounded-[2rem] border border-blue-600/30 bg-blue-600/10 p-6">
-                <p className="text-lg font-black text-white">One bad assumption or one soft price can cost more than months of subscription.</p>
+                <p className="text-lg font-black text-white">One bad assumption or one soft price can cost far more than the time it takes to check the math.</p>
                 <p className="mt-3 text-sm leading-7 text-slate-200">
-                  If Hollow Metric helps you fix one weak budget assumption or avoid a price that pushes break-even too high, it has already paid for itself.
+                  Public testing is focused on helping teams get to a clearer launch plan faster while billing setup is still being finalized.
                 </p>
               </article>
             </div>
@@ -491,13 +497,13 @@ export default function LandingPage() {
                 href="/signup"
                 className="rounded-full bg-blue-600 px-8 py-3 font-bold text-white transition hover:bg-blue-500"
               >
-                Build Your Launch Budget
+                Try the free launch planner
               </Link>
               <Link
-                href="/pricing"
+                href="#example-result"
                 className="rounded-full border border-slate-700 px-8 py-3 font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-300"
               >
-                View Pricing
+                See example result
               </Link>
             </div>
           </div>
