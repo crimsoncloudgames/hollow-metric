@@ -11,7 +11,9 @@ type PaddleCheckoutOptions = {
 };
 
 function getPaddleEnvironment() {
-  return process.env.NEXT_PUBLIC_PADDLE_ENV?.trim() === "production"
+  const normalizedEnvironment = process.env.NEXT_PUBLIC_PADDLE_ENV?.trim().toLowerCase();
+
+  return normalizedEnvironment === "production" || normalizedEnvironment === "live"
     ? "production"
     : "sandbox";
 }

@@ -53,7 +53,12 @@ Important setup notes:
 
 ## Billing Checkout
 
-To open the Pro upgrade flow from Settings, configure one of these environment variables with the Paddle subscription price ID:
+To open the Pro upgrade flow from Settings, configure the server-side Paddle subscription price ID for the active environment:
+
+- Production or live: `PADDLE_PRO_PRICE_ID_LIVE`
+- Sandbox: `PADDLE_PRO_PRICE_ID_SANDBOX`
+
+Legacy fallbacks still supported by the backend:
 
 - `PADDLE_PRO_PRICE_ID`
 - `PADDLE_LAUNCH_PLANNER_PRICE_ID`
@@ -62,6 +67,8 @@ Client-side Paddle checkout also requires:
 
 - `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN`
 - `NEXT_PUBLIC_PADDLE_ENV`
+
+`NEXT_PUBLIC_PADDLE_ENV` may be set to either `live` or `production` for production Paddle, and any other value falls back to sandbox.
 
 ## Deploy on Vercel
 
