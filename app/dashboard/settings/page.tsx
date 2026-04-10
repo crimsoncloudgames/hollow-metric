@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { InternalDebugPanel } from "@/components/internal-debug-panel";
+import { openPaddleCheckout } from "@/lib/paddle";
 import { createClient } from "@/utils/supabase/client";
 import {
   type FinancialProject,
@@ -20,6 +21,14 @@ type PlanningDefaults = {
 type ActionFeedback = {
   tone: "success" | "error";
   message: string;
+};
+
+type BillingCheckoutConfigResponse = {
+  priceId?: string;
+  planKey?: string;
+  userId?: string;
+  email?: string | null;
+  error?: string;
 };
 
 const DEFAULTS_STORAGE_KEY = "hm_planning_defaults";
@@ -109,6 +118,8 @@ export default function SettingsPage() {
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
   const [billingStatus, setBillingStatus] = useState("Loading...");
   const [renewalDate, setRenewalDate] = useState<string | null>(null);
+  const [subscriptionActionState, setSubscriptionActionState] = useState<ActionFeedback | null>(null);
+  const [isLaunchingUpgradeCheckout, setIsLaunchingUpgradeCheckout] = useState(false);
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [isLoadingUserContext, setIsLoadingUserContext] = useState(true);
   const [contextError, setContextError] = useState<string | null>(null);
@@ -345,6 +356,9 @@ export default function SettingsPage() {
   const accountDebugState = isAccountActionPending ? "updating" : accountActionState?.tone ?? "idle";
   const exportDebugState = isExportingData ? "exporting" : exportActionState?.tone ?? "idle";
   const privacyDebugState = isSigningOutAllSessions ? "signing-out" : privacyActionState?.tone ?? "idle";
+  const subscriptionDebugState = isLaunchingUpgradeCheckout
+    ? "checkout"
+    : subscriptionActionState?.tone ?? "idle";
   const settingsDebugAuth = useMemo(
     () => ({
       sessionExists: isLoadingUserContext
@@ -552,6 +566,44 @@ export default function SettingsPage() {
     }
   };
 
+  const onUpgradeToPro = async () => {
+    if (isLaunchingUpgradeCheckout || isLoadingUserContext) {
+      return;
+    }
+
+    setSubscriptionActionState(null);
+    setIsLaunchingUpgradeCheckout(true);
+
+    try {
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+      });
+
+      const result = (await response.json().catch(() => null)) as BillingCheckoutConfigResponse | null;
+
+      if (!response.ok || !result?.priceId || !result?.userId) {
+        setSubscriptionActionState({
+          tone: "error",
+          message: result?.error?.trim() || "We couldn't start Pro checkout right now. Please try again.",
+        });
+        return;
+      }
+
+      await openPaddleCheckout(result.priceId, {
+        userId: result.userId,
+        email: result.email ?? undefined,
+        planKey: result.planKey ?? "pro",
+      });
+    } catch (error) {
+      setSubscriptionActionState({
+        tone: "error",
+        message: getFriendlySettingsError(error, "We couldn't start Pro checkout right now."),
+      });
+    } finally {
+      setIsLaunchingUpgradeCheckout(false);
+    }
+  };
+
   const onSignOutAllSessions = async () => {
     if (isSigningOutAllSessions || isLoadingUserContext) {
       return;
@@ -690,11 +742,13 @@ export default function SettingsPage() {
             {subscriptionTier === "starter" ? (
               <button
                 type="button"
-                disabled
-                aria-disabled="true"
-                className="w-full cursor-not-allowed rounded-xl border border-blue-900/30 bg-blue-950/20 px-4 py-2 text-sm font-semibold text-blue-300/70 opacity-80"
+                onClick={() => {
+                  void onUpgradeToPro();
+                }}
+                disabled={isLoadingUserContext || isLaunchingUpgradeCheckout}
+                className="w-full rounded-xl border border-blue-600/40 bg-blue-600/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-600/20 disabled:cursor-not-allowed disabled:border-blue-900/30 disabled:bg-blue-950/20 disabled:text-blue-300/70 disabled:opacity-80"
               >
-                Upgrade to Pro
+                {isLaunchingUpgradeCheckout ? "Opening Checkout..." : "Upgrade to Pro"}
               </button>
             ) : (
               <button
@@ -722,7 +776,22 @@ export default function SettingsPage() {
             >
               Cancel Subscription
             </button>
-            <p className="text-xs leading-6 text-slate-500">{PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE}</p>
+            <p className="text-xs leading-6 text-slate-500">
+              {subscriptionTier === "starter"
+                ? "Upgrade opens secure Paddle checkout. Subscription management controls will stay disabled until self-serve management is wired up."
+                : PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE}
+            </p>
+            {subscriptionActionState && (
+              <p
+                className={[
+                  "text-xs",
+                  subscriptionActionState.tone === "error" ? "text-amber-300" : "text-emerald-300",
+                ].join(" ")}
+                role={subscriptionActionState.tone === "error" ? "alert" : "status"}
+              >
+                {subscriptionActionState.message}
+              </p>
+            )}
           </div>
         </div>
       </article>
@@ -904,6 +973,7 @@ export default function SettingsPage() {
           { label: "context error", value: contextError ?? "none" },
           { label: "subscription tier", value: subscriptionTier },
           { label: "billing status", value: billingStatus },
+          { label: "subscription action state", value: subscriptionDebugState },
           { label: "renewal date", value: formattedRenewalDate ?? "unavailable" },
           { label: "saved project count", value: savedProjectsCount },
           { label: "local data notice", value: localDataNotice ?? "none" },

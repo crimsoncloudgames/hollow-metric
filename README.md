@@ -51,6 +51,18 @@ Important setup notes:
 - In production, if `TURNSTILE_SECRET_KEY` is missing, the contact API captcha check will fail closed.
 - In local development, the contact API allows requests if `TURNSTILE_SECRET_KEY` is not set.
 
+## Billing Checkout
+
+To open the Pro upgrade flow from Settings, configure one of these environment variables with the Paddle subscription price ID:
+
+- `PADDLE_PRO_PRICE_ID`
+- `PADDLE_LAUNCH_PLANNER_PRICE_ID`
+
+Client-side Paddle checkout also requires:
+
+- `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN`
+- `NEXT_PUBLIC_PADDLE_ENV`
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
