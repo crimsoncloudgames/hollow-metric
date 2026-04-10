@@ -631,27 +631,58 @@ async function markWebhookEventProcessed(
   return { ok: true as const };
 }
 
+async function recordWebhookError(
+  supabase: SupabaseClient<Database>,
+  paddleEventId: string,
+  errorMessage: string,
+) {
+  const { error } = await supabase
+    .from("billing_webhook_events")
+    .update({ error_message: errorMessage })
+    .eq("paddle_event_id", paddleEventId);
+
+  if (error) {
+    console.error("Failed to persist Paddle webhook error message", {
+      paddleEventId,
+      errorMessage,
+      error,
+    });
+  }
+}
+
 export async function POST(request: Request) {
   const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET?.trim();
 
   if (!webhookSecret) {
+    console.error("Paddle webhook rejected: missing PADDLE_WEBHOOK_SECRET environment variable.");
     return NextResponse.json({ error: "Missing PADDLE_WEBHOOK_SECRET." }, { status: 500 });
   }
 
   const supabase = getSupabaseAdminClient();
   if (!supabase) {
+    console.error("Paddle webhook rejected: missing Supabase admin configuration.");
     return NextResponse.json({ error: "Missing Supabase admin configuration." }, { status: 500 });
   }
 
   const signatureHeader = request.headers.get("Paddle-Signature")?.trim();
   if (!signatureHeader) {
+    console.error("Paddle webhook rejected: missing Paddle-Signature header.");
     return NextResponse.json({ error: "Missing Paddle-Signature header." }, { status: 400 });
   }
 
   const rawBody = await request.text();
 
+  console.info("Paddle webhook received", {
+    contentType: request.headers.get("content-type")?.trim() ?? null,
+    signatureHeaderPresent: Boolean(signatureHeader),
+    rawBody,
+  });
+
   const isValidSignature = verifyPaddleSignature(rawBody, signatureHeader, webhookSecret);
   if (!isValidSignature) {
+    console.error("Paddle webhook rejected: invalid Paddle signature.", {
+      bodyLength: rawBody.length,
+    });
     return NextResponse.json({ error: "Invalid Paddle signature." }, { status: 400 });
   }
 
@@ -659,6 +690,9 @@ export async function POST(request: Request) {
   try {
     parsedEvent = JSON.parse(rawBody) as PaddleWebhookEvent;
   } catch {
+    console.error("Paddle webhook rejected: invalid JSON payload.", {
+      bodyLength: rawBody.length,
+    });
     return NextResponse.json({ error: "Invalid webhook JSON payload." }, { status: 400 });
   }
 
@@ -667,6 +701,9 @@ export async function POST(request: Request) {
   const { eventId, eventType } = extractEventDetails(parsedEvent);
 
   if (!eventId) {
+    console.error("Paddle webhook rejected: missing event_id in payload.", {
+      eventType,
+    });
     return NextResponse.json({ error: "Missing event_id in Paddle payload." }, { status: 400 });
   }
 
@@ -715,19 +752,8 @@ export async function POST(request: Request) {
         reason: extracted.reason,
       });
 
-      const { error: errorMessageUpdateError } = await supabase
-        .from("billing_webhook_events")
-        .update({ error_message: extracted.reason })
-        .eq("paddle_event_id", eventId);
-
-      if (errorMessageUpdateError) {
-        console.error("Failed to persist malformed Paddle webhook reason", {
-          paddleEventId: eventId,
-          eventType,
-          reason: extracted.reason,
-          error: errorMessageUpdateError,
-        });
-      }
+      await recordWebhookError(supabase, eventId, extracted.reason);
+      await markWebhookEventProcessed(supabase, eventId, new Date().toISOString());
 
       return NextResponse.json(
         {
@@ -744,12 +770,23 @@ export async function POST(request: Request) {
     const subscriptionResult = await upsertSubscription(supabase, extracted.row);
 
     if (!subscriptionResult.ok) {
+      const errorMessage = [
+        "Failed to persist subscription state.",
+        subscriptionResult.error.message,
+        subscriptionResult.error.details,
+        subscriptionResult.error.hint,
+      ]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" ");
+
       console.error("Failed to upsert billing_subscriptions from Paddle webhook", {
         paddleEventId: eventId,
         eventType,
         paddleSubscriptionId: extracted.row.paddle_subscription_id,
         error: subscriptionResult.error,
       });
+
+      await recordWebhookError(supabase, eventId, errorMessage);
 
       return NextResponse.json(
         { error: "Failed to persist subscription state." },
@@ -795,11 +832,15 @@ export async function POST(request: Request) {
     }
 
     if (!extracted.row.paddle_customer_id) {
+      const errorMessage = "Failed to sync billing customer state. Missing paddle customer id in webhook payload.";
+
       console.error("Missing paddle customer id for billing_customers sync", {
         paddleEventId: eventId,
         eventType,
         paddleSubscriptionId: extracted.row.paddle_subscription_id,
       });
+
+      await recordWebhookError(supabase, eventId, errorMessage);
 
       return NextResponse.json(
         { error: "Failed to sync billing customer state." },
@@ -816,6 +857,15 @@ export async function POST(request: Request) {
     });
 
     if (!billingCustomerResult.ok) {
+      const errorMessage = [
+        "Failed to sync billing customer state.",
+        billingCustomerResult.error.message,
+        billingCustomerResult.error.details,
+        billingCustomerResult.error.hint,
+      ]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" ");
+
       console.error("Failed to sync billing_customers from Paddle webhook", {
         paddleEventId: eventId,
         eventType,
@@ -823,6 +873,8 @@ export async function POST(request: Request) {
         paddleCustomerId: extracted.row.paddle_customer_id,
         error: billingCustomerResult.error,
       });
+
+      await recordWebhookError(supabase, eventId, errorMessage);
 
       return NextResponse.json(
         { error: "Failed to sync billing customer state." },
@@ -855,6 +907,8 @@ export async function POST(request: Request) {
     }
 
     if (!entitlementRow) {
+      const errorMessage = `Failed to sync user entitlement state. Unsupported plan/status combination: ${extracted.row.plan_key}/${extracted.row.status_normalized}.`;
+
       console.error("Unsupported subscription state for user_entitlements sync", {
         paddleEventId: eventId,
         eventType,
@@ -862,6 +916,8 @@ export async function POST(request: Request) {
         planKey: extracted.row.plan_key,
         statusNormalized: extracted.row.status_normalized,
       });
+
+      await recordWebhookError(supabase, eventId, errorMessage);
 
       return NextResponse.json(
         { error: "Failed to sync user entitlement state." },
@@ -872,6 +928,15 @@ export async function POST(request: Request) {
     const entitlementResult = await syncUserEntitlement(supabase, entitlementRow);
 
     if (!entitlementResult.ok) {
+      const errorMessage = [
+        "Failed to sync user entitlement state.",
+        entitlementResult.error.message,
+        entitlementResult.error.details,
+        entitlementResult.error.hint,
+      ]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" ");
+
       console.error("Failed to sync user_entitlements from Paddle webhook", {
         paddleEventId: eventId,
         eventType,
@@ -879,6 +944,8 @@ export async function POST(request: Request) {
         userId: extracted.row.user_id,
         error: entitlementResult.error,
       });
+
+      await recordWebhookError(supabase, eventId, errorMessage);
 
       return NextResponse.json(
         { error: "Failed to sync user entitlement state." },
@@ -889,11 +956,22 @@ export async function POST(request: Request) {
     const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, syncTimestamp);
 
     if (!markProcessedResult.ok) {
+      const errorMessage = [
+        "Failed to finalize webhook processing state.",
+        markProcessedResult.error.message,
+        markProcessedResult.error.details,
+        markProcessedResult.error.hint,
+      ]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" ");
+
       console.error("Failed to mark Paddle webhook event as processed", {
         paddleEventId: eventId,
         eventType,
         error: markProcessedResult.error,
       });
+
+      await recordWebhookError(supabase, eventId, errorMessage);
 
       return NextResponse.json(
         { error: "Failed to finalize webhook processing state." },
@@ -911,6 +989,8 @@ export async function POST(request: Request) {
       { status: 200 },
     );
   }
+
+  await markWebhookEventProcessed(supabase, eventId, new Date().toISOString());
 
   return NextResponse.json(
     {
