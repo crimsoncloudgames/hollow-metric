@@ -30,6 +30,10 @@ function applyNoIndexHeader(response: NextResponse) {
 }
 
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/api/paddle/webhook") {
+    return NextResponse.next();
+  }
+
   const { supabase, supabaseResponse } = createClient(request);
   const secureCookies = request.nextUrl.protocol === "https:" || process.env.NODE_ENV === "production";
   const pathname = request.nextUrl.pathname;
