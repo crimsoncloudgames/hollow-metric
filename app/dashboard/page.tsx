@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DollarSign, FolderOpen, ArrowRight } from "lucide-react";
+import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import {
   FINANCIAL_PROJECTS_UPDATED_EVENT,
   fetchSavedFinancialProjectsState,
@@ -142,6 +143,16 @@ export default function DashboardPage() {
         ? activeProject.name
         : "project name";
   const warningsValue = isLoading ? "Loading..." : loadError ? "Unavailable" : activeProject ? warningCount.toString() : "None yet";
+  const dashboardLoadState = isLoading ? "loading" : loadError ? "error" : "ready";
+  const dashboardDataSource = isLoading
+    ? "loading"
+    : loadError
+      ? "unavailable"
+      : activeProject
+        ? "saved"
+        : canAccessLibrary
+          ? "empty"
+          : "gated";
   const libraryDescription = isLoading
     ? "Loading your saved launch data..."
     : loadError
@@ -294,6 +305,19 @@ export default function DashboardPage() {
           </Link>
         </div>
       )}
+
+      <InternalDebugPanel
+        pageName="Dashboard Home"
+        items={[
+          { label: "load state", value: dashboardLoadState },
+          { label: "data source", value: dashboardDataSource },
+          { label: "subscription tier", value: subscriptionTier },
+          { label: "billing status", value: displayBillingStatus },
+          { label: "library access", value: canAccessLibrary },
+          { label: "saved project count", value: projects.length },
+          { label: "last error", value: loadError ?? "none" },
+        ]}
+      />
     </section>
   );
 }

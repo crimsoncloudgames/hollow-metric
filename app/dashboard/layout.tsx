@@ -8,11 +8,14 @@ import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/
 import {
   LayoutDashboard,
   Rocket,
-  Tag,
+  Search,
   FolderOpen,
   DollarSign,
+  Coins,
+  Tag,
   Settings,
   LogOut,
+  Lightbulb,
 } from "lucide-react";
 
 const navItems = [
@@ -23,8 +26,11 @@ const navItems = [
 ];
 
 const comingSoonItems = [
-  { label: "Tag Generator", icon: Tag },
+  { label: "Steam Tag Tool", icon: Tag },
+  { label: "Buy Credits", icon: Coins },
   { label: "Steam Page Analysis", icon: Rocket },
+  { label: "Creator Discovery", icon: Search },
+  { label: "Game Idea Generator", icon: Lightbulb },
 ];
 
 function getHeaderText(pathname: string) {
@@ -49,13 +55,6 @@ function getHeaderText(pathname: string) {
     };
   }
 
-  if (pathname === "/dashboard/tag-generator") {
-    return {
-      title: "Tag Generator",
-      subtitle: "Create SEO-optimized tags and keywords for your Steam store listing.",
-    };
-  }
-
   if (pathname === "/dashboard/budgeter") {
     return {
       title: "Launch Budget",
@@ -67,6 +66,20 @@ function getHeaderText(pathname: string) {
     return {
       title: "Financial Library",
       subtitle: "Save and revisit your launch budget projects.",
+    };
+  }
+
+  if (pathname === "/dashboard/steam-tag-tool") {
+    return {
+      title: "Steam Tag Tool",
+      subtitle: "A simple tool to generate the best Steam tags for a game.",
+    };
+  }
+
+  if (pathname === "/dashboard/credits") {
+    return {
+      title: "Buy Credits",
+      subtitle: "Use credits for AI-powered tools like the Steam Tag Tool. Credits are only charged when a generation succeeds.",
     };
   }
 
@@ -91,6 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const header = getHeaderText(pathname);
+  const showPageHeader = pathname !== "/dashboard" && pathname !== "/dashboard/library";
 
   useEffect(() => {
     localStorage.setItem("hm_theme", theme);
@@ -234,8 +248,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     isActive
                       ? "border-blue-600/60 text-white bg-blue-600 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40"
                       : theme === "dark"
-                        ? "border-blue-600/30 text-blue-200 bg-blue-600/10 hover:border-blue-600/50 hover:bg-blue-600/15 hover:text-blue-100"
-                        : "border-blue-300 text-blue-700 bg-blue-100 hover:border-blue-400 hover:bg-blue-200 hover:text-blue-800",
+                        ? "border-transparent text-slate-400 hover:text-slate-100 hover:bg-slate-900"
+                        : "border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-200",
                   ].join(" ")}
                 >
                   <Icon size={17} />
@@ -346,12 +360,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         "min-h-screen flex-1 overflow-y-auto p-4 sm:p-6 lg:p-12",
         theme === "dark" ? "bg-slate-950" : "bg-slate-100",
       ].join(" ")}>
-        {pathname !== "/dashboard" && pathname !== "/dashboard/library" && (
+        {showPageHeader ? (
           <header className="mb-10 border-b border-slate-900 pb-6">
-            <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{header.title}</h1>
-            <p className="text-slate-500 mt-2">{header.subtitle}</p>
+            <div>
+              <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{header.title}</h1>
+              <p className="mt-2 text-slate-500">{header.subtitle}</p>
+            </div>
           </header>
-        )}
+        ) : null}
 
         <div className="transition-all duration-300">{children}</div>
       </main>

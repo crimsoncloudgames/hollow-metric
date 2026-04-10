@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { AlertCircle, Zap, X, Plus } from "lucide-react";
+import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import { createClient } from "@/utils/supabase/client";
 import {
   normalizeFinancialProject,
@@ -938,6 +939,17 @@ export default function LaunchBudgetPage() {
     }
   };
 
+  const budgeterBillingState = isLoadingBillingContext
+    ? "loading"
+    : billingContextError
+      ? "fallback"
+      : "live";
+  const budgeterSaveState = isSavingProject
+    ? "saving"
+    : saveProjectFeedback?.tone ?? "idle";
+  const budgeterInputSource = !hasLoadedDraft ? "loading" : "local/default";
+  const budgeterCalculationState = calculationNotice ? "blocked" : "ready";
+
   return (
     <section className="space-y-8">
       {/* SECTION 1: SUBSCRIPTION TIER INFO - LIGHTWEIGHT */}
@@ -1524,6 +1536,22 @@ export default function LaunchBudgetPage() {
           </p>
         </div>
       )}
+
+      <InternalDebugPanel
+        pageName="Launch Budget"
+        items={[
+          { label: "subscription tier", value: subscriptionTier },
+          { label: "paid tier enabled", value: isPaidTier },
+          { label: "billing context state", value: budgeterBillingState },
+          { label: "billing context error", value: billingContextError ?? "none" },
+          { label: "input source", value: budgeterInputSource },
+          { label: "local data notice", value: localDataNotice ?? "none" },
+          { label: "save state", value: budgeterSaveState },
+          { label: "save feedback", value: saveProjectFeedback?.message ?? "none" },
+          { label: "calculation state", value: budgeterCalculationState },
+          { label: "save target", value: isPaidTier ? "server" : "gated" },
+        ]}
+      />
 
     </section>
   );

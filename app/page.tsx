@@ -1,5 +1,5 @@
-import { permanentRedirect } from "next/navigation";
+import LandingPage from "./landing/page";
 
 export default function HomePage() {
-  permanentRedirect("/landing");
+  return <LandingPage />;
 }

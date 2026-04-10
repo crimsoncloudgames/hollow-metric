@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import { createClient } from "@/utils/supabase/client";
 import {
   type FinancialProject,
@@ -339,6 +340,24 @@ export default function SettingsPage() {
   const activeProjectsCount = maxProjects === Infinity ? projects.length : Math.min(projects.length, maxProjects);
   const savedProjectsCount = projects.length;
   const isAccountActionPending = isUpdatingEmail || isUpdatingPassword;
+  const settingsContextState = isLoadingUserContext ? "loading" : contextError ? "fallback" : "live";
+  const defaultsActionState = isSavingDefaults ? "saving" : defaultsSavedState?.tone ?? "idle";
+  const accountDebugState = isAccountActionPending ? "updating" : accountActionState?.tone ?? "idle";
+  const exportDebugState = isExportingData ? "exporting" : exportActionState?.tone ?? "idle";
+  const privacyDebugState = isSigningOutAllSessions ? "signing-out" : privacyActionState?.tone ?? "idle";
+  const settingsDebugAuth = useMemo(
+    () => ({
+      sessionExists: isLoadingUserContext
+        ? null
+        : signedInEmail === "Not signed in"
+          ? false
+          : signedInEmail.includes("@")
+            ? true
+            : null,
+      userEmail: signedInEmail.includes("@") ? signedInEmail : null,
+    }),
+    [isLoadingUserContext, signedInEmail]
+  );
 
   const onSaveDefaults = () => {
     if (typeof window === "undefined" || isSavingDefaults) return;
@@ -876,6 +895,24 @@ export default function SettingsPage() {
           <p className="text-xs text-red-200/80">Delete account flow is not available yet.</p>
         </div>
       </article>
+
+      <InternalDebugPanel
+        pageName="Settings"
+        auth={settingsDebugAuth}
+        items={[
+          { label: "context state", value: settingsContextState },
+          { label: "context error", value: contextError ?? "none" },
+          { label: "subscription tier", value: subscriptionTier },
+          { label: "billing status", value: billingStatus },
+          { label: "renewal date", value: formattedRenewalDate ?? "unavailable" },
+          { label: "saved project count", value: savedProjectsCount },
+          { label: "local data notice", value: localDataNotice ?? "none" },
+          { label: "defaults state", value: defaultsActionState },
+          { label: "account action state", value: accountDebugState },
+          { label: "export state", value: exportDebugState },
+          { label: "privacy action state", value: privacyDebugState },
+        ]}
+      />
     </section>
   );
 }

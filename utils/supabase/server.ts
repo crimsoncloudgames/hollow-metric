@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient as createSupabaseServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -9,7 +9,12 @@ const supabaseKey = (
 
 export const hasSupabaseServerEnv = Boolean(supabaseUrl && supabaseKey);
 
-export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) => {
+type CreateSupabaseServerClientOptions = NonNullable<Parameters<typeof createSupabaseServerClient>[2]>;
+
+export const createClient = (
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+  options?: Omit<CreateSupabaseServerClientOptions, "cookies">
+) => {
   if (!hasSupabaseServerEnv) {
     return null;
   }
@@ -18,10 +23,11 @@ export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) =
   const key = supabaseKey!;
 
   try {
-    return createServerClient(
+    return createSupabaseServerClient(
       url,
       key,
       {
+        ...options,
         cookies: {
           getAll() {
             return cookieStore.getAll()

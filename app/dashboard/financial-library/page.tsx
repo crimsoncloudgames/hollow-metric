@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Lock, Plus, Trash2 } from "lucide-react";
+import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import {
   clearSavedFinancialProjects,
   fetchSavedFinancialProjectsState,
@@ -310,6 +311,17 @@ export default function FinancialLibraryPage() {
   }, [projects, subscriptionTier]);
 
   const hasSavedProject = visibleProjects.length > 0;
+  const libraryLoadState = isLoading ? "loading" : loadError ? "error" : "ready";
+  const libraryDataSource = isLoading
+    ? "loading"
+    : loadError
+      ? "unavailable"
+      : hasSavedProject
+        ? "saved"
+        : canAccessLibrary
+          ? "empty"
+          : "gated";
+  const deleteState = isDeletingProject ? "clearing" : projectActionFeedback?.tone ?? "idle";
 
   const onOpenLaunchBudget = () => {
     if (isDeletingProject) {
@@ -644,6 +656,21 @@ export default function FinancialLibraryPage() {
           )}
         </>
       )}
+
+      <InternalDebugPanel
+        pageName="Financial Library"
+        items={[
+          { label: "load state", value: libraryLoadState },
+          { label: "data source", value: libraryDataSource },
+          { label: "subscription tier", value: subscriptionTier },
+          { label: "billing status", value: billingStatus },
+          { label: "library access", value: canAccessLibrary },
+          { label: "visible project count", value: visibleProjects.length },
+          { label: "delete state", value: deleteState },
+          { label: "last action", value: projectActionFeedback?.message ?? "none" },
+          { label: "last error", value: loadError ?? "none" },
+        ]}
+      />
     </section>
   );
 }
