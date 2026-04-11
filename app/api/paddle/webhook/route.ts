@@ -817,7 +817,25 @@ export async function POST(request: Request) {
       });
 
       await recordWebhookError(supabase, eventId, extracted.reason);
-      await markWebhookEventProcessed(supabase, eventId, new Date().toISOString());
+      const malformedProcessedAt = new Date().toISOString();
+      const markProcessedResult = await markWebhookEventProcessed(
+        supabase,
+        eventId,
+        malformedProcessedAt,
+      );
+
+      if (!markProcessedResult.ok) {
+        console.error("Failed to mark malformed Paddle webhook event as processed", {
+          paddleEventId: eventId,
+          eventType,
+          error: markProcessedResult.error,
+        });
+
+        return NextResponse.json(
+          { error: "Failed to finalize webhook processing state." },
+          { status: 500 },
+        );
+      }
 
       return NextResponse.json(
         {
@@ -1084,7 +1102,25 @@ export async function POST(request: Request) {
     );
   }
 
-  await markWebhookEventProcessed(supabase, eventId, new Date().toISOString());
+  const unrelatedProcessedAt = new Date().toISOString();
+  const markProcessedResult = await markWebhookEventProcessed(
+    supabase,
+    eventId,
+    unrelatedProcessedAt,
+  );
+
+  if (!markProcessedResult.ok) {
+    console.error("Failed to mark unrelated Paddle webhook event as processed", {
+      paddleEventId: eventId,
+      eventType,
+      error: markProcessedResult.error,
+    });
+
+    return NextResponse.json(
+      { error: "Failed to finalize webhook processing state." },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json(
     {

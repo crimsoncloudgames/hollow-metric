@@ -12,7 +12,6 @@ import {
   type FinancialProject,
   getSavedFinancialProjects,
 } from "@/lib/financial-projects";
-import { PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE } from "@/lib/billing";
 
 type SubscriptionTier = "starter" | "launch-planner";
 
@@ -145,6 +144,42 @@ function getFriendlyDeleteAccountError(message: string): string {
   return message.trim() || "We couldn't delete your account right now.";
 }
 
+function formatBillingStatusLabel(status: string | null | undefined, fallback = "Unknown"): string {
+  if (typeof status !== "string" || status.trim().length === 0) {
+    return fallback;
+  }
+
+  const normalized = status.trim().replace(/_/g, " ");
+  return normalized[0].toUpperCase() + normalized.slice(1);
+}
+
+function getDisplayedBillingStatus({
+  entitlementBillingState,
+  subscriptionStatus,
+  cancelAtPeriodEnd,
+}: {
+  entitlementBillingState: string;
+  subscriptionStatus: string | null | undefined;
+  cancelAtPeriodEnd: boolean;
+}) {
+  const normalizedSubscriptionStatus =
+    typeof subscriptionStatus === "string" ? subscriptionStatus.trim().toLowerCase() : "";
+
+  if (normalizedSubscriptionStatus === "canceled" || normalizedSubscriptionStatus === "ended") {
+    return "Canceled";
+  }
+
+  if (cancelAtPeriodEnd) {
+    return "Cancels At Period End";
+  }
+
+  if (normalizedSubscriptionStatus.length > 0 && normalizedSubscriptionStatus !== "unknown") {
+    return formatBillingStatusLabel(normalizedSubscriptionStatus);
+  }
+
+  return formatBillingStatusLabel(entitlementBillingState, "Unknown");
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const [signedInEmail, setSignedInEmail] = useState("Loading...");
@@ -258,11 +293,7 @@ export default function SettingsPage() {
         const liveBillingState =
           typeof entitlement.billing_state === "string" ? entitlement.billing_state.trim() : "";
 
-        setBillingStatus(
-          liveBillingState
-            ? liveBillingState[0].toUpperCase() + liveBillingState.slice(1).replace(/_/g, " ")
-            : "Unknown",
-        );
+        setBillingStatus(formatBillingStatusLabel(liveBillingState, "Unknown"));
 
         if (typeof entitlement.active_subscription_id !== "number") {
           setRenewalDate(null);
@@ -271,7 +302,7 @@ export default function SettingsPage() {
 
         const { data: subscription, error: subscriptionError } = await supabase
           .from("billing_subscriptions")
-          .select("current_period_end")
+          .select("current_period_end, cancel_at_period_end, status_normalized")
           .eq("id", entitlement.active_subscription_id)
           .maybeSingle();
 
@@ -291,6 +322,16 @@ export default function SettingsPage() {
           return;
         }
 
+        setBillingStatus(
+          getDisplayedBillingStatus({
+            entitlementBillingState: liveBillingState,
+            subscriptionStatus:
+              typeof subscription?.status_normalized === "string"
+                ? subscription.status_normalized
+                : null,
+            cancelAtPeriodEnd: subscription?.cancel_at_period_end === true,
+          })
+        );
         setRenewalDate(subscription?.current_period_end ?? null);
       } catch (error) {
         console.error("Failed to load settings context", error);
@@ -383,6 +424,20 @@ export default function SettingsPage() {
       year: "numeric",
     }).format(parsedDate);
   }, [renewalDate]);
+
+  const subscriptionDateLabel = useMemo(() => {
+    const normalizedBillingStatus = billingStatus.trim().toLowerCase();
+
+    if (normalizedBillingStatus === "cancels at period end") {
+      return "Access until";
+    }
+
+    if (normalizedBillingStatus === "canceled") {
+      return "Ended on";
+    }
+
+    return "Renewal date";
+  }, [billingStatus]);
 
   const activeProjectsCount = maxProjects === Infinity ? projects.length : Math.min(projects.length, maxProjects);
   const savedProjectsCount = projects.length;
@@ -846,7 +901,7 @@ export default function SettingsPage() {
             <div className="mt-4 space-y-2 text-sm">
               <p className="text-slate-400">Current plan: <span className="font-semibold text-white">{PLAN_LABELS[subscriptionTier]}</span></p>
               <p className="text-slate-400">Billing status: <span className="font-semibold text-white">{billingStatus}</span></p>
-              <p className="text-slate-400">Renewal date: <span className="font-semibold text-white">{formattedRenewalDate ?? "—"}</span></p>
+              <p className="text-slate-400">{subscriptionDateLabel}: <span className="font-semibold text-white">{formattedRenewalDate ?? "—"}</span></p>
             </div>
           </div>
 
@@ -890,8 +945,8 @@ export default function SettingsPage() {
             </button>
             <p className="text-xs leading-6 text-slate-500">
               {subscriptionTier === "starter"
-                ? "Upgrade opens secure Paddle checkout. Subscription management controls will stay disabled until self-serve management is wired up."
-                : PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE}
+                ? "Upgrade opens secure Paddle checkout. In-app manage, downgrade, and cancel controls are still being wired up."
+                : "Subscription state is synced from Paddle. In-app manage, downgrade, and cancel controls are still being wired up."}
             </p>
             {subscriptionActionState && (
               <p
