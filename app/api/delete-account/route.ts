@@ -282,6 +282,83 @@ async function getActivePaddleSubscriptionIds(supabase: SupabaseClient, userId: 
   return [...subscriptionIds];
 }
 
+async function getStoredPaddleCustomerId(supabase: SupabaseClient, userId: string) {
+  const { data: billingCustomerRow, error: billingCustomerError } = await supabase
+    .from("billing_customers")
+    .select("paddle_customer_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (billingCustomerError) {
+    if (isIgnorableCleanupError(billingCustomerError)) {
+      return null;
+    }
+
+    throw new Error(
+      `Failed to load stored Paddle customer linkage: ${formatSupabaseError(billingCustomerError, "Unknown database error.")}`
+    );
+  }
+
+  return isRecord(billingCustomerRow)
+    ? readString(billingCustomerRow.paddle_customer_id)
+    : null;
+}
+
+async function listActivePaddleSubscriptionIdsForCustomer(apiKey: string, paddleCustomerId: string) {
+  const query = new URLSearchParams({
+    customer_id: paddleCustomerId,
+    per_page: "200",
+  });
+
+  const response = await fetch(`https://api.paddle.com/subscriptions?${query.toString()}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      formatPaddleApiError(
+        payload,
+        `Paddle refused the subscription lookup for customer ${paddleCustomerId}.`
+      )
+    );
+  }
+
+  const subscriptionIds = new Set<string>();
+  const subscriptionRows = isRecord(payload) && Array.isArray(payload.data) ? payload.data : [];
+
+  for (const row of subscriptionRows) {
+    if (!isRecord(row)) {
+      continue;
+    }
+
+    const subscriptionId = readString(row.id);
+    const status = readString(row.status);
+
+    if (!subscriptionId) {
+      continue;
+    }
+
+    if (isCanceledSubscriptionStatus(status)) {
+      continue;
+    }
+
+    if (readString(row.canceled_at) || readString(row.ended_at)) {
+      continue;
+    }
+
+    subscriptionIds.add(subscriptionId);
+  }
+
+  return [...subscriptionIds];
+}
+
 async function fetchPaddleSubscription(apiKey: string, subscriptionId: string) {
   const response = await fetch(`https://api.paddle.com/subscriptions/${encodeURIComponent(subscriptionId)}`, {
     method: "GET",
@@ -379,10 +456,39 @@ export async function POST(request: Request) {
       );
     }
 
-    const activePaddleSubscriptionIds = await getActivePaddleSubscriptionIds(supabaseAdmin, user.id);
+    let activePaddleSubscriptionIds = await getActivePaddleSubscriptionIds(supabaseAdmin, user.id);
+    let paddleApiKey = "";
+
+    if (activePaddleSubscriptionIds.length === 0) {
+      const storedPaddleCustomerId = await getStoredPaddleCustomerId(supabaseAdmin, user.id);
+
+      if (storedPaddleCustomerId) {
+        paddleApiKey = getPaddleApiKey();
+
+        if (!paddleApiKey) {
+          console.error("Delete account blocked: missing Paddle API key for fallback subscription lookup.", {
+            userId: user.id,
+            environment: getPaddleEnvironment(),
+            storedPaddleCustomerId,
+          });
+
+          return NextResponse.json(
+            { error: getMissingPaddleApiKeyMessage() },
+            { status: 503 }
+          );
+        }
+
+        activePaddleSubscriptionIds = await listActivePaddleSubscriptionIdsForCustomer(
+          paddleApiKey,
+          storedPaddleCustomerId,
+        );
+      }
+    }
 
     if (activePaddleSubscriptionIds.length > 0) {
-      const paddleApiKey = getPaddleApiKey();
+      if (!paddleApiKey) {
+        paddleApiKey = getPaddleApiKey();
+      }
 
       if (!paddleApiKey) {
         console.error("Delete account blocked: missing Paddle API key for active subscription cancellation.", {
