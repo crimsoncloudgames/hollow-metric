@@ -44,7 +44,7 @@ function getHeaderText(pathname: string) {
   if (pathname === "/dashboard" || pathname === "/dashboard/") {
     return {
       title: "Launch Decision Workspace",
-      subtitle: "Track your launch budget, test price points, and catch weak spending before expensive decisions are locked in.",
+      subtitle: "Track your launch budget, test price points, and spot risky spending before expensive decisions are locked in.",
     };
   }
 
@@ -92,7 +92,7 @@ function getHeaderText(pathname: string) {
 
   return {
     title: "Launch Decision Workspace",
-    subtitle: "Track your launch budget, test price points, and catch weak spending before expensive decisions are locked in.",
+    subtitle: "Track your launch budget, test price points, and spot risky spending before expensive decisions are locked in.",
   };
 }
 

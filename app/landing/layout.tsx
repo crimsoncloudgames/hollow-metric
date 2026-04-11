@@ -1,30 +1,36 @@
 import type { Metadata } from "next";
 
+const PUBLIC_TITLE = "Hollow Metric | Launch planning for indie game developers";
+const PUBLIC_DESCRIPTION =
+  "Estimate launch budget, break-even copies, and profitability before you commit more money.";
+const PUBLIC_URL = "https://www.hollowmetric.com/";
+const PUBLIC_IMAGE_URL = "https://www.hollowmetric.com/og/hollowmetric-preview.png";
+
 export const metadata: Metadata = {
-  title: "Hollow Metric",
-  description:
-    "Estimate launch costs, compare price points, and plan break-even targets before you ship.",
+  title: {
+    absolute: PUBLIC_TITLE,
+  },
+  description: PUBLIC_DESCRIPTION,
   alternates: {
     canonical: "/landing",
   },
   openGraph: {
     type: "website",
-    url: "/landing",
-    title: "Hollow Metric",
-    description:
-      "Estimate launch costs, compare price points, and plan break-even targets before you ship.",
+    url: PUBLIC_URL,
+    siteName: "Hollow Metric",
+    title: PUBLIC_TITLE,
+    description: PUBLIC_DESCRIPTION,
     images: [
       {
-        url: "/social-preview.png",
+        url: PUBLIC_IMAGE_URL,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Hollow Metric",
-    description:
-      "Estimate launch costs, compare price points, and plan break-even targets before you ship.",
-    images: ["/social-preview.png"],
+    title: PUBLIC_TITLE,
+    description: PUBLIC_DESCRIPTION,
+    images: [PUBLIC_IMAGE_URL],
   },
 };
 

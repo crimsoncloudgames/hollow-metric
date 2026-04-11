@@ -54,7 +54,7 @@ const plans: PricingPlan[] = [
       "Saved budget library",
       "Dashboard tracking",
       "Deeper launch analysis",
-      "Better history and organization features",
+      "Project history and organization tools",
     ],
   },
   {

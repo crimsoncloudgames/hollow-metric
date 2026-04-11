@@ -65,7 +65,7 @@ const faqs = [
   {
     question: "Are paid subscriptions live?",
     answer:
-      "Yes. You can use the Free Launch Planner or upgrade to Pro.",
+      "Yes. You can use the Free Launch Planner or upgrade to Launch Planner.",
   },
 ];
 
@@ -144,7 +144,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-4 text-center text-xs text-slate-500">
-            Start with the Free Launch Planner or upgrade to Pro for more planning tools.
+            Start with the Free Launch Planner or upgrade to Launch Planner for saved projects and dashboard access.
           </p>
 
           <article id="example-result" className="mx-auto mt-10 max-w-4xl rounded-[2rem] border border-blue-600/30 bg-slate-900/75 p-6 text-left shadow-[0_0_32px_rgba(37,99,235,0.12)] backdrop-blur-xl sm:p-7">
@@ -228,7 +228,7 @@ export default function LandingPage() {
               Get to a useful launch answer before you commit more money.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-slate-200">
-              Start with the Free Launch Planner, then upgrade to Pro when you want saved projects and dashboard features.
+              Start with the Free Launch Planner, then upgrade to Launch Planner when you want saved projects and dashboard features.
             </p>
             <div className="mt-8 flex justify-center">
               <Link

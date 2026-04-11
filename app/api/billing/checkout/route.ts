@@ -38,9 +38,7 @@ function getProSubscriptionPriceId() {
 }
 
 function getProCheckoutUnavailableMessage() {
-  return getPaddleEnvironment() === "production"
-    ? "Pro checkout is not configured right now. Add PADDLE_PRO_PRICE_ID_LIVE and try again."
-    : "Pro checkout is not configured right now. Add PADDLE_PRO_PRICE_ID_SANDBOX and try again.";
+  return "Launch Planner checkout is not available right now. Please try again later.";
 }
 
 export async function POST() {

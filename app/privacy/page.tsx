@@ -50,12 +50,11 @@ const sections: PrivacySection[] = [
       },
       {
         heading: "Technical Information",
-        intro: "We may collect limited technical and usage information such as:",
+        intro: "We may collect limited technical information needed to operate, secure, and troubleshoot the service, such as:",
         items: [
           "IP address",
           "browser type",
           "device information",
-          "pages visited",
           "login and session activity",
           "cookies or similar technologies used to keep you signed in and operate the service",
         ],
@@ -89,10 +88,9 @@ const sections: PrivacySection[] = [
       "keep you signed in",
       "maintain secure sessions",
       "remember preferences",
-      "understand basic usage and performance",
-      "improve the service",
+      "support core site functionality",
     ],
-    closing: "Some cookies may be essential to provide the service you request, such as login and security-related cookies.",
+    closing: "Some cookies and similar technologies are essential to provide the service you request, such as login, session, and security-related cookies.",
   },
   {
     title: "5. How We Share Information",
@@ -100,7 +98,7 @@ const sections: PrivacySection[] = [
     items: [
       "service providers that help us operate the product",
       "payment providers such as Paddle",
-      "hosting, analytics, authentication, or database providers",
+      "hosting, infrastructure, authentication, or database providers",
       "legal authorities when required by law",
       "advisers or acquirers in connection with a merger, sale, or restructuring",
     ],
@@ -194,7 +192,7 @@ export default function PrivacyPage() {
           <div className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-7 shadow-[0_0_40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:p-10">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Privacy Policy</p>
             <h1 className="mt-4 text-4xl font-black text-white sm:text-5xl">Privacy Policy</h1>
-            <p className="mt-4 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Effective Date: April 2, 2026</p>
+            <p className="mt-4 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Effective Date: April 11, 2026</p>
 
             <div className="mt-10 space-y-6 text-base leading-8 text-slate-300">
               <p>Hollow Metric (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) operates Hollow Metric, a web-based software tool for game developers available at https://hollowmetric.com.</p>

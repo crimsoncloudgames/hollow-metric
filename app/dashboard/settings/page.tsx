@@ -758,7 +758,7 @@ export default function SettingsPage() {
       if (!response.ok || !result?.priceId || !result?.userId) {
         setSubscriptionActionState({
           tone: "error",
-          message: result?.error?.trim() || "We couldn't start Pro checkout right now. Please try again.",
+          message: result?.error?.trim() || "We couldn't start Launch Planner checkout right now. Please try again.",
         });
         return;
       }
@@ -771,7 +771,7 @@ export default function SettingsPage() {
     } catch (error) {
       setSubscriptionActionState({
         tone: "error",
-        message: getFriendlySettingsError(error, "We couldn't start Pro checkout right now."),
+        message: getFriendlySettingsError(error, "We couldn't start Launch Planner checkout right now."),
       });
     } finally {
       setIsLaunchingUpgradeCheckout(false);
@@ -993,7 +993,7 @@ export default function SettingsPage() {
                 disabled={isLoadingUserContext || isLaunchingUpgradeCheckout}
                 className="w-full rounded-xl border border-blue-600/40 bg-blue-600/10 px-4 py-2 text-sm font-semibold text-blue-300 transition hover:bg-blue-600/20 disabled:cursor-not-allowed disabled:border-blue-900/30 disabled:bg-blue-950/20 disabled:text-blue-300/70 disabled:opacity-80"
               >
-                {isLaunchingUpgradeCheckout ? "Opening Checkout..." : "Upgrade to Pro"}
+                {isLaunchingUpgradeCheckout ? "Opening Checkout..." : "Upgrade to Launch Planner"}
               </button>
             ) : null}
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">

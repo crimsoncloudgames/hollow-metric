@@ -24,13 +24,13 @@ const sections: CookieSection[] = [
   },
   {
     title: "3. How Hollow Metric Uses Cookies",
-    paragraphs: ["We use cookies and similar technologies for practical product needs, including:"],
+    paragraphs: ["We use cookies and similar technologies mainly for core product operation, including:"],
     items: [
       "keeping you signed in",
       "maintaining secure sessions",
-      "remembering basic preferences",
+      "remembering cookie choices and basic preferences",
       "supporting core site and product functionality",
-      "understanding basic usage and performance",
+      "maintaining basic product state between visits",
     ],
   },
   {
@@ -106,7 +106,7 @@ export default function CookiePolicyPage() {
           <div className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-7 shadow-[0_0_40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:p-10">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Cookie Policy</p>
             <h1 className="mt-4 text-4xl font-black text-white sm:text-5xl">Cookie Policy</h1>
-            <p className="mt-4 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Effective Date: April 2, 2026</p>
+            <p className="mt-4 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Effective Date: April 11, 2026</p>
 
             <div className="mt-10 space-y-6 text-base leading-8 text-slate-300">
               <p>This Cookie Policy explains how Hollow Metric uses cookies and similar technologies on https://hollowmetric.com.</p>
