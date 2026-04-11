@@ -442,10 +442,18 @@ export default function LaunchBudgetPage() {
       }
     };
 
+    const refresh = () => {
+      void loadBillingContext();
+    };
+
     void loadBillingContext();
+    window.addEventListener("focus", refresh);
+    window.addEventListener("pageshow", refresh);
 
     return () => {
       mounted = false;
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("pageshow", refresh);
     };
   }, []);
 

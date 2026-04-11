@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { hasLaunchPlannerAccess } from "@/lib/billing";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 import {
   LayoutDashboard,
@@ -16,6 +17,7 @@ import {
   Settings,
   LogOut,
   Lightbulb,
+  ArrowUpRight,
 } from "lucide-react";
 
 const navItems = [
@@ -103,6 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userLabel, setUserLabel] = useState("Account");
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showUpgradeButton, setShowUpgradeButton] = useState(false);
   const header = getHeaderText(pathname);
   const showPageHeader = pathname !== "/dashboard" && pathname !== "/dashboard/library";
 
@@ -138,10 +141,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
 
       if (!user) {
+        setShowUpgradeButton(false);
         setIsAuthenticated(false);
         setIsAuthChecked(true);
         router.replace("/login");
         return;
+      }
+
+      const { data: entitlement, error: entitlementError } = await supabase
+        .from("user_entitlements")
+        .select("tier, premium_access, billing_state")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (entitlementError) {
+        console.error("Failed to load dashboard entitlement state for navigation", entitlementError);
+        setShowUpgradeButton(false);
+      } else {
+        setShowUpgradeButton(!hasLaunchPlannerAccess(entitlement));
       }
 
       setIsAuthenticated(true);
@@ -154,6 +173,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       if (event === "SIGNED_OUT" || !session?.user) {
         setUserLabel("Account");
+        setShowUpgradeButton(false);
         setIsAuthenticated(false);
         setIsAuthChecked(true);
         router.replace("/login");
@@ -276,6 +296,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
             );
           })}
+
+          {showUpgradeButton ? (
+            <Link
+              href="/dashboard/settings#subscription"
+              className="mt-1 flex items-center justify-center gap-2 rounded-2xl border border-blue-600/40 bg-blue-600/10 px-3 py-3 text-sm font-semibold text-blue-300 transition-all duration-200 hover:bg-blue-600/20 sm:col-span-2 lg:col-span-1"
+            >
+              <ArrowUpRight size={16} />
+              <span>Upgrade</span>
+            </Link>
+          ) : null}
         </nav>
 
         <div className="mt-5 space-y-2">

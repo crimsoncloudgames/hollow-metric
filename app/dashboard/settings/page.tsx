@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { openPaddleCheckout } from "@/lib/paddle";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -247,6 +247,9 @@ function getSubscriptionDisplayDate(
 
 export default function SettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const checkoutStatus = searchParams.get("checkout");
+  const isSuccessfulCheckoutReturn = checkoutStatus === "success";
   const [signedInEmail, setSignedInEmail] = useState("Loading...");
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
   const [billingStatus, setBillingStatus] = useState("Loading...");
@@ -275,10 +278,37 @@ export default function SettingsPage() {
 
   useEffect(() => {
     let mounted = true;
+    let isLoadingContextRequest = false;
+    let checkoutSyncIntervalId: number | null = null;
+    let checkoutSyncAttempts = 0;
 
-    const loadUserContext = async () => {
-      setContextError(null);
-      setIsLoadingUserContext(true);
+    const stopCheckoutSync = () => {
+      if (checkoutSyncIntervalId !== null) {
+        window.clearInterval(checkoutSyncIntervalId);
+        checkoutSyncIntervalId = null;
+      }
+    };
+
+    const clearCheckoutReturnState = () => {
+      if (!isSuccessfulCheckoutReturn) {
+        return;
+      }
+
+      router.replace("/dashboard/settings");
+      router.refresh();
+    };
+
+    const loadUserContext = async ({ silently = false }: { silently?: boolean } = {}): Promise<boolean> => {
+      if (isLoadingContextRequest) {
+        return false;
+      }
+
+      isLoadingContextRequest = true;
+
+      if (!silently) {
+        setContextError(null);
+        setIsLoadingUserContext(true);
+      }
 
       try {
         const supabase = createClient();
@@ -290,7 +320,7 @@ export default function SettingsPage() {
               "We couldn't connect to account services right now. Some settings may be unavailable."
             );
           }
-          return;
+          return false;
         }
 
         const {
@@ -299,7 +329,7 @@ export default function SettingsPage() {
         } = await supabase.auth.getUser();
 
         if (!mounted) {
-          return;
+          return false;
         }
 
         if (userError) {
@@ -312,25 +342,25 @@ export default function SettingsPage() {
               "We couldn't load your account details right now."
             )
           );
-          return;
+          return false;
         }
 
         if (!user) {
           setSignedInEmail("Not signed in");
           setBillingStatus("Not signed in");
-          return;
+          return false;
         }
 
         setSignedInEmail(user.email ?? "Email unavailable");
 
         const { data: entitlement, error: entitlementError } = await supabase
           .from("user_entitlements")
-          .select("tier, billing_state, active_subscription_id")
+          .select("tier, premium_access, billing_state, active_subscription_id")
           .eq("user_id", user.id)
           .maybeSingle();
 
         if (!mounted) {
-          return;
+          return false;
         }
 
         if (entitlementError) {
@@ -343,20 +373,26 @@ export default function SettingsPage() {
               "We couldn't load your billing details right now."
             )
           );
-          return;
+          return false;
         }
 
         if (!entitlement) {
           setSubscriptionTier("starter");
           setBillingStatus("No billing record");
           setRenewalDate(null);
-          return;
+          return false;
         }
+
+        const normalizedLiveBillingState =
+          typeof entitlement.billing_state === "string" ? entitlement.billing_state.trim() : "";
+        const hasPaidAccess =
+          entitlement.tier === "pro" &&
+          entitlement.premium_access === true &&
+          isActiveBillingState(normalizedLiveBillingState);
 
         setSubscriptionTier(entitlement.tier === "pro" ? "launch-planner" : "starter");
 
-        const liveBillingState =
-          typeof entitlement.billing_state === "string" ? entitlement.billing_state.trim() : "";
+        const liveBillingState = normalizedLiveBillingState;
 
         setBillingStatus(formatBillingStatusLabel(liveBillingState, "Unknown"));
 
@@ -366,7 +402,7 @@ export default function SettingsPage() {
         let subscription: BillingSubscriptionSnapshot | null = null;
         let subscriptionError: unknown = null;
 
-        const normalizedLiveBillingState = normalizeBillingState(liveBillingState);
+        const normalizedLiveBillingStateForSubscription = normalizeBillingState(liveBillingState);
 
         if (typeof entitlement.active_subscription_id === "number") {
           const { data, error } = await supabase
@@ -377,7 +413,7 @@ export default function SettingsPage() {
 
           subscription = (data as BillingSubscriptionSnapshot | null) ?? null;
           subscriptionError = error;
-        } else if (isActiveBillingState(normalizedLiveBillingState)) {
+        } else if (isActiveBillingState(normalizedLiveBillingStateForSubscription)) {
           const { data, error } = await supabase
             .from("billing_subscriptions")
             .select(subscriptionColumns)
@@ -389,7 +425,7 @@ export default function SettingsPage() {
 
           subscription = (data as BillingSubscriptionSnapshot | null) ?? null;
           subscriptionError = error;
-        } else if (isEndedBillingState(normalizedLiveBillingState)) {
+        } else if (isEndedBillingState(normalizedLiveBillingStateForSubscription)) {
           const { data, error } = await supabase
             .from("billing_subscriptions")
             .select(subscriptionColumns)
@@ -403,7 +439,7 @@ export default function SettingsPage() {
         }
 
         if (!mounted) {
-          return;
+          return false;
         }
 
         if (subscriptionError) {
@@ -415,7 +451,7 @@ export default function SettingsPage() {
               "We couldn't load your renewal date right now."
             )
           );
-          return;
+          return hasPaidAccess;
         }
 
         setBillingStatus(
@@ -429,11 +465,12 @@ export default function SettingsPage() {
           })
         );
         setRenewalDate(getSubscriptionDisplayDate(subscription, liveBillingState));
+        return hasPaidAccess;
       } catch (error) {
         console.error("Failed to load settings context", error);
 
         if (!mounted) {
-          return;
+          return false;
         }
 
         setSignedInEmail("Not available");
@@ -443,14 +480,49 @@ export default function SettingsPage() {
         setContextError(
           getFriendlySettingsError(error, "We couldn't load your settings right now.")
         );
+        return false;
       } finally {
-        if (mounted) {
+        if (mounted && !silently) {
           setIsLoadingUserContext(false);
         }
+
+        isLoadingContextRequest = false;
       }
     };
 
-    void loadUserContext();
+    const refreshUserContext = ({ silently = true }: { silently?: boolean } = {}) => {
+      void loadUserContext({ silently }).then((hasPaidAccess) => {
+        if (isSuccessfulCheckoutReturn && hasPaidAccess) {
+          stopCheckoutSync();
+          setSubscriptionActionState({
+            tone: "success",
+            message: "Launch Planner access is active.",
+          });
+          clearCheckoutReturnState();
+        }
+      });
+    };
+
+    refreshUserContext({ silently: false });
+
+    if (isSuccessfulCheckoutReturn) {
+      setSubscriptionActionState({
+        tone: "success",
+        message: "Finalizing your Launch Planner upgrade...",
+      });
+
+      checkoutSyncIntervalId = window.setInterval(() => {
+        checkoutSyncAttempts += 1;
+
+        if (checkoutSyncAttempts >= 10) {
+          stopCheckoutSync();
+          clearCheckoutReturnState();
+          return;
+        }
+
+        refreshUserContext();
+      }, 2000);
+    }
 
     try {
       const savedProjects = getSavedFinancialProjects();
@@ -471,10 +543,16 @@ export default function SettingsPage() {
       );
     }
 
+    window.addEventListener("focus", refreshUserContext);
+    window.addEventListener("pageshow", refreshUserContext);
+
     return () => {
       mounted = false;
+      stopCheckoutSync();
+      window.removeEventListener("focus", refreshUserContext);
+      window.removeEventListener("pageshow", refreshUserContext);
     };
-  }, []);
+  }, [isSuccessfulCheckoutReturn, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -763,10 +841,20 @@ export default function SettingsPage() {
         return;
       }
 
+      const successUrl =
+        typeof window === "undefined"
+          ? undefined
+          : (() => {
+              const checkoutReturnUrl = new URL(window.location.href);
+              checkoutReturnUrl.searchParams.set("checkout", "success");
+              return checkoutReturnUrl.toString();
+            })();
+
       await openPaddleCheckout(result.priceId, {
         userId: result.userId,
         email: result.email ?? undefined,
         planKey: result.planKey ?? "pro",
+        successUrl,
       });
     } catch (error) {
       setSubscriptionActionState({
@@ -972,7 +1060,7 @@ export default function SettingsPage() {
         )}
       </article>
 
-      <article className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
+      <article id="subscription" className="scroll-mt-6 rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">Subscription</p>

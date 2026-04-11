@@ -8,6 +8,7 @@ type PaddleCheckoutOptions = {
   userId?: string;
   email?: string;
   planKey?: string;
+  successUrl?: string;
 };
 
 function getPaddleEnvironment() {
@@ -81,6 +82,7 @@ export async function openPaddleCheckout(priceId: string, options: PaddleCheckou
   const normalizedPriceId = priceId.trim();
   const normalizedEmail = options.email?.trim();
   const normalizedPlanKey = options.planKey?.trim();
+  const normalizedSuccessUrl = options.successUrl?.trim();
 
   if (!paddle) {
     throw new Error("Paddle failed to initialize. Check client-side token env var.");
@@ -92,6 +94,11 @@ export async function openPaddleCheckout(priceId: string, options: PaddleCheckou
 
   paddle.Checkout.open({
     items: [{ priceId: normalizedPriceId, quantity: 1 }],
+    settings: normalizedSuccessUrl
+      ? {
+          successUrl: normalizedSuccessUrl,
+        }
+      : undefined,
     customData:
       options.userId || normalizedPlanKey
         ? {
