@@ -716,6 +716,7 @@ async function recordWebhookError(
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET?.trim();
+  const simulationWebhookSecret = process.env.PADDLE_SIMULATION_WEBHOOK_SECRET?.trim();
 
   if (!webhookSecret) {
     console.error("Paddle webhook rejected: missing PADDLE_WEBHOOK_SECRET environment variable.");
@@ -742,7 +743,11 @@ export async function POST(request: Request) {
     rawBody,
   });
 
-  const isValidSignature = verifyPaddleSignature(rawBody, signatureHeader, webhookSecret);
+  const isValidSignature =
+    verifyPaddleSignature(rawBody, signatureHeader, webhookSecret) ||
+    (simulationWebhookSecret
+      ? verifyPaddleSignature(rawBody, signatureHeader, simulationWebhookSecret)
+      : false);
   if (!isValidSignature) {
     console.error("Paddle webhook rejected: invalid Paddle signature.", {
       bodyLength: rawBody.length,
