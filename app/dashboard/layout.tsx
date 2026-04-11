@@ -222,7 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               "text-xl font-black italic tracking-tight sm:text-2xl",
               theme === "dark" ? "text-white" : "text-slate-900",
             ].join(" ")}>
-              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">0.5.7</span>
+              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">0.6.0</span>
             </div>
           </Link>
           <p className={[

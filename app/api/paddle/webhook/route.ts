@@ -58,7 +58,7 @@ type UserEntitlementSync = {
   user_id: string;
   tier: "free" | "pro";
   premium_access: boolean;
-  billing_state: "active" | "canceled";
+  billing_state: "active" | "canceled" | "past_due";
   active_subscription_id: number | null;
   source: "webhook_sync";
   effective_from: string;
@@ -992,6 +992,16 @@ export async function POST(request: Request) {
         tier: "pro",
         premium_access: true,
         billing_state: "active",
+        active_subscription_id: subscriptionResult.subscriptionId,
+        source: "webhook_sync",
+        effective_from: syncTimestamp,
+      };
+    } else if (extracted.row.plan_key === "pro" && extracted.row.status_normalized === "past_due") {
+      entitlementRow = {
+        user_id: extracted.row.user_id,
+        tier: "pro",
+        premium_access: false,
+        billing_state: "past_due",
         active_subscription_id: subscriptionResult.subscriptionId,
         source: "webhook_sync",
         effective_from: syncTimestamp,
