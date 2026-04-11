@@ -56,7 +56,7 @@ type BillingCustomerSync = {
 
 type UserEntitlementSync = {
   user_id: string;
-  tier: "pro" | "starter";
+  tier: "free" | "pro";
   premium_access: boolean;
   billing_state: "active" | "canceled";
   active_subscription_id: number | null;
