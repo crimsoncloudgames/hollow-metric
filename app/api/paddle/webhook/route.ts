@@ -999,7 +999,7 @@ export async function POST(request: Request) {
     } else if (extracted.row.plan_key === "pro" && extracted.row.status_normalized === "canceled") {
       entitlementRow = {
         user_id: extracted.row.user_id,
-        tier: "starter",
+        tier: "free",
         premium_access: false,
         billing_state: "canceled",
         active_subscription_id: null,
