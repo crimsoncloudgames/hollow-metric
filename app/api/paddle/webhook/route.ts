@@ -402,6 +402,70 @@ function isLiveSubscriptionConflict(error: {
   );
 }
 
+function isDeletedAuthUserReference(error: {
+  code?: string;
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+}) {
+  const combinedMessage = [error.message, error.details, error.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    error.code === "23503" &&
+    (
+      combinedMessage.includes("auth.users") ||
+      combinedMessage.includes("billing_subscriptions_user_id") ||
+      combinedMessage.includes("billing_customers_user_id") ||
+      combinedMessage.includes("user_entitlements_user_id")
+    )
+  );
+}
+
+async function markWebhookDeletedUserSkipped(
+  supabase: SupabaseClient<Database>,
+  paddleEventId: string,
+  eventType: string,
+  userId: string,
+  duplicate: boolean,
+) {
+  console.info("Skipping Paddle webhook sync for deleted Supabase user", {
+    paddleEventId,
+    eventType,
+    userId,
+  });
+
+  const processedAt = new Date().toISOString();
+  const markProcessedResult = await markWebhookEventProcessed(supabase, paddleEventId, processedAt);
+
+  if (!markProcessedResult.ok) {
+    console.error("Failed to mark deleted-user Paddle webhook event as processed", {
+      paddleEventId,
+      eventType,
+      userId,
+      error: markProcessedResult.error,
+    });
+
+    return NextResponse.json(
+      { error: "Failed to finalize webhook processing state." },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      paddleEventId,
+      duplicate,
+      subscriptionSynced: false,
+      skipped: "deleted_user",
+    },
+    { status: 200 },
+  );
+}
+
 function extractTrustedCustomerEmail(event: PaddleWebhookEvent) {
   const data = asRecord(event.data);
   const customer = asRecord(data?.customer);
@@ -770,6 +834,16 @@ export async function POST(request: Request) {
     const subscriptionResult = await upsertSubscription(supabase, extracted.row);
 
     if (!subscriptionResult.ok) {
+      if (isDeletedAuthUserReference(subscriptionResult.error)) {
+        return markWebhookDeletedUserSkipped(
+          supabase,
+          eventId,
+          eventType,
+          extracted.row.user_id,
+          persistResult.duplicate,
+        );
+      }
+
       const errorMessage = [
         "Failed to persist subscription state.",
         subscriptionResult.error.message,
@@ -857,6 +931,16 @@ export async function POST(request: Request) {
     });
 
     if (!billingCustomerResult.ok) {
+      if (isDeletedAuthUserReference(billingCustomerResult.error)) {
+        return markWebhookDeletedUserSkipped(
+          supabase,
+          eventId,
+          eventType,
+          extracted.row.user_id,
+          persistResult.duplicate,
+        );
+      }
+
       const errorMessage = [
         "Failed to sync billing customer state.",
         billingCustomerResult.error.message,
@@ -928,6 +1012,16 @@ export async function POST(request: Request) {
     const entitlementResult = await syncUserEntitlement(supabase, entitlementRow);
 
     if (!entitlementResult.ok) {
+      if (isDeletedAuthUserReference(entitlementResult.error)) {
+        return markWebhookDeletedUserSkipped(
+          supabase,
+          eventId,
+          eventType,
+          extracted.row.user_id,
+          persistResult.duplicate,
+        );
+      }
+
       const errorMessage = [
         "Failed to sync user entitlement state.",
         entitlementResult.error.message,

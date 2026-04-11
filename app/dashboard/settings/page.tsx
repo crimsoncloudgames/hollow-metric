@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import { openPaddleCheckout } from "@/lib/paddle";
 import { createClient } from "@/utils/supabase/client";
 import {
+  FINANCIAL_PROJECTS_STORAGE_KEY,
+  FINANCIAL_PROJECTS_UPDATED_EVENT,
   type FinancialProject,
   getSavedFinancialProjects,
 } from "@/lib/financial-projects";
@@ -31,7 +34,14 @@ type BillingCheckoutConfigResponse = {
   error?: string;
 };
 
+type DeleteAccountResponse = {
+  success?: boolean;
+  error?: string;
+};
+
 const DEFAULTS_STORAGE_KEY = "hm_planning_defaults";
+const LAUNCH_BUDGET_DRAFT_STORAGE_KEY = "hm_launch_budget_draft";
+const ACTIVE_PROJECT_STORAGE_KEY = "hm_active_project";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const PLAN_LABELS: Record<SubscriptionTier, string> = {
@@ -113,7 +123,30 @@ function getFriendlyAccountError(message: string, action: "email" | "password" |
   return message.trim() || "We couldn't complete that action right now.";
 }
 
+function getFriendlyDeleteAccountError(message: string): string {
+  const normalizedMessage = message.toLowerCase();
+
+  if (normalizedMessage.includes("unauthorized") || normalizedMessage.includes("session")) {
+    return "Please sign in again before deleting your account.";
+  }
+
+  if (normalizedMessage.includes("subscription") && normalizedMessage.includes("cancel")) {
+    return message.trim();
+  }
+
+  if (normalizedMessage.includes("confirm")) {
+    return "Please confirm account deletion before continuing.";
+  }
+
+  if (normalizedMessage.includes("network") || normalizedMessage.includes("fetch")) {
+    return "We couldn't reach account services right now. Check your connection and try again.";
+  }
+
+  return message.trim() || "We couldn't delete your account right now.";
+}
+
 export default function SettingsPage() {
+  const router = useRouter();
   const [signedInEmail, setSignedInEmail] = useState("Loading...");
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
   const [billingStatus, setBillingStatus] = useState("Loading...");
@@ -136,6 +169,9 @@ export default function SettingsPage() {
   const [isExportingData, setIsExportingData] = useState(false);
   const [privacyActionState, setPrivacyActionState] = useState<ActionFeedback | null>(null);
   const [isSigningOutAllSessions, setIsSigningOutAllSessions] = useState(false);
+  const [deleteAccountActionState, setDeleteAccountActionState] = useState<ActionFeedback | null>(null);
+  const [isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -356,6 +392,11 @@ export default function SettingsPage() {
   const accountDebugState = isAccountActionPending ? "updating" : accountActionState?.tone ?? "idle";
   const exportDebugState = isExportingData ? "exporting" : exportActionState?.tone ?? "idle";
   const privacyDebugState = isSigningOutAllSessions ? "signing-out" : privacyActionState?.tone ?? "idle";
+  const deleteAccountDebugState = isDeletingAccount
+    ? "deleting"
+    : isDeleteAccountConfirmOpen
+      ? "confirming"
+      : deleteAccountActionState?.tone ?? "idle";
   const subscriptionDebugState = isLaunchingUpgradeCheckout
     ? "checkout"
     : subscriptionActionState?.tone ?? "idle";
@@ -641,6 +682,77 @@ export default function SettingsPage() {
       });
     } finally {
       setIsSigningOutAllSessions(false);
+    }
+  };
+
+  const clearDeletedAccountLocalData = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.removeItem(DEFAULTS_STORAGE_KEY);
+    window.localStorage.removeItem(LAUNCH_BUDGET_DRAFT_STORAGE_KEY);
+    window.localStorage.removeItem(FINANCIAL_PROJECTS_STORAGE_KEY);
+    window.localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY);
+    window.dispatchEvent(new Event(FINANCIAL_PROJECTS_UPDATED_EVENT));
+  };
+
+  const onDeleteAccount = async () => {
+    if (isLoadingUserContext || isDeletingAccount) {
+      return;
+    }
+
+    setDeleteAccountActionState(null);
+    setIsDeletingAccount(true);
+
+    try {
+      const response = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ confirm: true }),
+      });
+
+      const result = (await response.json().catch(() => null)) as DeleteAccountResponse | null;
+
+      if (!response.ok || !result?.success) {
+        setDeleteAccountActionState({
+          tone: "error",
+          message: getFriendlyDeleteAccountError(
+            result?.error?.trim() || `Request failed with status ${response.status}.`
+          ),
+        });
+        return;
+      }
+
+      clearDeletedAccountLocalData();
+      setProjects([]);
+      setSignedInEmail("Not signed in");
+      setDeleteAccountActionState({
+        tone: "success",
+        message: "Your account has been deleted. Redirecting to login...",
+      });
+
+      const supabase = createClient();
+
+      if (supabase) {
+        const { error } = await supabase.auth.signOut();
+
+        if (error) {
+          console.error("Failed to clear deleted account session in browser", error);
+        }
+      }
+
+      router.replace("/login");
+      router.refresh();
+    } catch (error) {
+      setDeleteAccountActionState({
+        tone: "error",
+        message: getFriendlySettingsError(error, "We couldn't delete your account right now."),
+      });
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -953,15 +1065,63 @@ export default function SettingsPage() {
         </p>
 
         <div className="mt-5 space-y-3">
-          <button
-            type="button"
-            disabled
-            aria-disabled="true"
-            className="cursor-not-allowed rounded-xl border border-red-900/70 bg-red-950/40 px-4 py-2 text-sm font-semibold text-red-200/70 opacity-80"
-          >
-            Delete Account
-          </button>
-          <p className="text-xs text-red-200/80">Delete account flow is not available yet.</p>
+          {!isDeleteAccountConfirmOpen ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteAccountConfirmOpen(true);
+                  setDeleteAccountActionState(null);
+                }}
+                disabled={isLoadingUserContext || isDeletingAccount}
+                className="rounded-xl border border-red-700 bg-red-950/40 px-4 py-2 text-sm font-semibold text-red-100 transition hover:border-red-500/70 hover:bg-red-950/60 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Delete Account
+              </button>
+              <p className="text-xs text-red-200/80">
+                This is permanent and will immediately cancel any active subscription on this account before deletion.
+              </p>
+            </>
+          ) : (
+            <div className="rounded-2xl border border-red-900/70 bg-red-950/40 p-4">
+              <p className="text-sm font-semibold text-red-100">Delete this account permanently?</p>
+              <p className="mt-2 text-xs leading-6 text-red-200/80">
+                This removes your Hollow Metric account, deletes saved backend data tied to it, clears local planning data on this device, and signs you out.
+              </p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDeleteAccountConfirmOpen(false);
+                    setDeleteAccountActionState(null);
+                  }}
+                  disabled={isDeletingAccount}
+                  className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-red-600/40 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onDeleteAccount()}
+                  disabled={isLoadingUserContext || isDeletingAccount}
+                  className="rounded-xl border border-red-700 bg-red-700/20 px-4 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-700/30 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isDeletingAccount ? "Deleting Account..." : "Confirm Delete Account"}
+                </button>
+              </div>
+            </div>
+          )}
+          {deleteAccountActionState && (
+            <p
+              className={[
+                "text-xs",
+                deleteAccountActionState.tone === "error" ? "text-amber-300" : "text-emerald-300",
+              ].join(" ")}
+              role={deleteAccountActionState.tone === "error" ? "alert" : "status"}
+            >
+              {deleteAccountActionState.message}
+            </p>
+          )}
         </div>
       </article>
 
@@ -981,6 +1141,7 @@ export default function SettingsPage() {
           { label: "account action state", value: accountDebugState },
           { label: "export state", value: exportDebugState },
           { label: "privacy action state", value: privacyDebugState },
+          { label: "delete account state", value: deleteAccountDebugState },
         ]}
       />
     </section>
