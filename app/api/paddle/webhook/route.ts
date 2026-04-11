@@ -67,6 +67,7 @@ type UserEntitlementSync = {
 const SUBSCRIPTION_EVENT_TYPES = new Set([
   "subscription.created",
   "subscription.activated",
+  "subscription.past_due",
   "subscription.updated",
   "subscription.paused",
   "subscription.resumed",
