@@ -543,14 +543,22 @@ export default function SettingsPage() {
       );
     }
 
-    window.addEventListener("focus", refreshUserContext);
-    window.addEventListener("pageshow", refreshUserContext);
+    const handleWindowFocus = () => {
+      refreshUserContext();
+    };
+
+    const handlePageShow = () => {
+      refreshUserContext();
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("pageshow", handlePageShow);
 
     return () => {
       mounted = false;
       stopCheckoutSync();
-      window.removeEventListener("focus", refreshUserContext);
-      window.removeEventListener("pageshow", refreshUserContext);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, [isSuccessfulCheckoutReturn, router]);
 
