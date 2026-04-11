@@ -36,7 +36,7 @@ const plans: PricingPlan[] = [
     ctaHref: "/signup",
     features: [
       "Calculator access only",
-      "Basic financial inputs",
+      "Basic budget inputs",
       "Basic break-even calculation",
       "No saved projects",
       "No premium dashboard features",
@@ -45,15 +45,15 @@ const plans: PricingPlan[] = [
   {
     name: "Launch Planner",
     price: "$12/mo",
-    description: "Save, track, and organize launch financial plans.",
+    description: "Save, track, and organize your launch assumptions.",
     featured: true,
     comingSoon: false,
     ctaState: "disabled",
     features: [
-      "Save financial projects",
-      "Financial library",
+      "Save projects",
+      "Saved budget library",
       "Dashboard tracking",
-      "Deeper financial analysis",
+      "Deeper launch analysis",
       "Better history and organization features",
     ],
   },
@@ -65,10 +65,10 @@ const plans: PricingPlan[] = [
     comingSoon: true,
     ctaState: "coming-soon",
     features: [
-      "Additional options for studios and teams",
+      "Additional options for growing teams",
       "Expanded project capacity",
-      "More advanced planning workflows",
-      "Future premium features",
+      "More tools for team planning",
+      "Additional plan features",
     ],
   },
 ];

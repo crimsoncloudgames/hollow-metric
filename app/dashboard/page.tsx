@@ -1,14 +1,15 @@
 "use client";
 
+import type { Session } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DollarSign, FolderOpen, ArrowRight } from "lucide-react";
-import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import {
   FINANCIAL_PROJECTS_UPDATED_EVENT,
   fetchSavedFinancialProjectsState,
   type FinancialProject,
 } from "@/lib/financial-projects";
+import { createClient } from "@/utils/supabase/client";
 
 type SubscriptionTier = "starter" | "launch-planner";
 
@@ -35,6 +36,15 @@ function getDashboardLoadErrorMessage(error: unknown): string {
   return "We couldn't load your saved dashboard data right now. Please try again in a moment.";
 }
 
+function formatBillingStatusLabel(status: string | null | undefined, fallback = "Unknown"): string {
+  if (typeof status !== "string" || status.trim().length === 0) {
+    return fallback;
+  }
+
+  const normalized = status.trim().replace(/_/g, " ");
+  return normalized[0].toUpperCase() + normalized.slice(1);
+}
+
 export default function DashboardPage() {
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
   const [billingStatus, setBillingStatus] = useState("Loading...");
@@ -44,8 +54,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let mounted = true;
+    const supabase = createClient();
 
-    const loadProjects = async () => {
+    const applyLockedDashboardState = (nextBillingStatus = "Unavailable") => {
+      if (!mounted) {
+        return;
+      }
+
+      setSubscriptionTier("starter");
+      setBillingStatus(nextBillingStatus);
+      setProjects([]);
+      setLoadError(null);
+    };
+
+    const loadProjects = async (sessionOverride?: Session | null) => {
       if (!mounted) {
         return;
       }
@@ -54,7 +76,56 @@ export default function DashboardPage() {
       setLoadError(null);
 
       try {
-        const result = await fetchSavedFinancialProjectsState();
+        if (!supabase) {
+          throw new Error("missing dashboard auth client");
+        }
+
+        const sessionResult = sessionOverride
+          ? { data: { session: sessionOverride }, error: null }
+          : await supabase.auth.getSession();
+        const session = sessionResult.data.session;
+
+        if (sessionResult.error) {
+          throw sessionResult.error;
+        }
+
+        if (!session?.user || !session.access_token) {
+          applyLockedDashboardState();
+          return;
+        }
+
+        const { data: entitlement, error: entitlementError } = await supabase
+          .from("user_entitlements")
+          .select("tier, premium_access, billing_state")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+
+        if (!mounted) {
+          return;
+        }
+
+        if (entitlementError) {
+          throw entitlementError;
+        }
+
+        const normalizedBillingState =
+          typeof entitlement?.billing_state === "string"
+            ? entitlement.billing_state.trim().toLowerCase()
+            : "";
+        const hasPaidAccess =
+          entitlement?.tier === "pro" &&
+          entitlement.premium_access === true &&
+          normalizedBillingState === "active";
+        const derivedBillingStatus = entitlement
+          ? formatBillingStatusLabel(entitlement.billing_state, "Unknown")
+          : "No billing record";
+
+        if (!hasPaidAccess) {
+          applyLockedDashboardState(derivedBillingStatus);
+          return;
+        }
+
+        const result = await fetchSavedFinancialProjectsState(session.access_token);
 
         if (!result || !result.access || !Array.isArray(result.projects)) {
           throw new Error("invalid dashboard data");
@@ -93,6 +164,20 @@ export default function DashboardPage() {
       void loadProjects();
     };
 
+    const authSubscription = supabase?.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) {
+        return;
+      }
+
+      if (!session?.user || !session.access_token) {
+        applyLockedDashboardState();
+        setIsLoading(false);
+        return;
+      }
+
+      void loadProjects(session);
+    });
+
     void loadProjects();
     window.addEventListener("focus", refresh);
     window.addEventListener("pageshow", refresh);
@@ -100,6 +185,7 @@ export default function DashboardPage() {
 
     return () => {
       mounted = false;
+      authSubscription?.data.subscription.unsubscribe();
       window.removeEventListener("focus", refresh);
       window.removeEventListener("pageshow", refresh);
       window.removeEventListener(FINANCIAL_PROJECTS_UPDATED_EVENT, refresh);
@@ -143,23 +229,13 @@ export default function DashboardPage() {
         ? activeProject.name
         : "project name";
   const warningsValue = isLoading ? "Loading..." : loadError ? "Unavailable" : activeProject ? warningCount.toString() : "None yet";
-  const dashboardLoadState = isLoading ? "loading" : loadError ? "error" : "ready";
-  const dashboardDataSource = isLoading
-    ? "loading"
-    : loadError
-      ? "unavailable"
-      : activeProject
-        ? "saved"
-        : canAccessLibrary
-          ? "empty"
-          : "gated";
   const libraryDescription = isLoading
     ? "Loading your saved launch data..."
     : loadError
       ? "Saved launch data is temporarily unavailable. Try again in a moment."
       : canAccessLibrary
         ? "Review the saved launch budget currently available on your account."
-        : "Library access is locked on Starter and will open when billing is live.";
+        : "Library access is not included on Starter.";
 
   return (
     <section className="space-y-10">
@@ -168,7 +244,7 @@ export default function DashboardPage() {
           Launch Decision Workspace
         </h1>
         <p className="text-slate-400 max-w-2xl">
-          Track your launch budget, test price points, and catch weak spending before expensive decisions are locked in.
+          Track your launch budget, test price points, and catch weak budget assumptions before expensive decisions are locked in.
         </p>
         {isLoading && <p className="mt-3 text-sm text-slate-500">Loading your saved launch data...</p>}
       </div>
@@ -294,7 +370,7 @@ export default function DashboardPage() {
           <p className="text-slate-500 text-sm mb-6">
             {canAccessLibrary
               ? "Build or update your launch budget to save the current project into Financial Library."
-              : "Starter currently includes calculator access only. Saved projects are unavailable until billing is live."}
+              : "Starter includes calculator access only. Upgrade to Launch Planner to unlock saved projects."}
           </p>
           <Link
             href="/dashboard/budgeter"
@@ -305,19 +381,6 @@ export default function DashboardPage() {
           </Link>
         </div>
       )}
-
-      <InternalDebugPanel
-        pageName="Dashboard Home"
-        items={[
-          { label: "load state", value: dashboardLoadState },
-          { label: "data source", value: dashboardDataSource },
-          { label: "subscription tier", value: subscriptionTier },
-          { label: "billing status", value: displayBillingStatus },
-          { label: "library access", value: canAccessLibrary },
-          { label: "saved project count", value: projects.length },
-          { label: "last error", value: loadError ?? "none" },
-        ]}
-      />
     </section>
   );
 }

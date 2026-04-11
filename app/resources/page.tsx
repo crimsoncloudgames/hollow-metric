@@ -11,7 +11,7 @@ const resources = [
   },
   {
     title: "Cost Estimation Checklist",
-    body: "Use a practical checklist to pressure-test budget assumptions, identify underfunded priorities, and catch wasteful spending before launch.",
+    body: "Use a practical checklist to pressure-test budget assumptions, spot underfunded priorities, and catch wasteful spending before launch.",
   },
 ];
 
@@ -42,7 +42,7 @@ export default function ResourcesPage() {
         <div className="mb-12 max-w-3xl">
           <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Resources</p>
           <h1 className="mb-4 text-4xl font-black text-white">Guidance for better launch planning decisions.</h1>
-          <p className="text-lg leading-8 text-slate-400">Learn how to structure your launch budget, test pricing, and catch weak spending before expensive decisions are already locked in.</p>
+          <p className="text-lg leading-8 text-slate-400">Learn how to structure your launch budget, test pricing, and catch weak budget assumptions before expensive decisions are locked in.</p>
         </div>
 
         <div className="mb-12">

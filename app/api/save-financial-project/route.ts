@@ -20,6 +20,49 @@ type UserEntitlementRow = {
   billing_state?: string | null;
 };
 
+function getSupabaseAccessTokenFromAuthorizationHeader(
+  authorizationHeader: string | null
+): string | null {
+  if (!authorizationHeader) {
+    return null;
+  }
+
+  const bearerMatch = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+  const accessToken = bearerMatch?.[1]?.trim();
+
+  return accessToken ? accessToken : null;
+}
+
+async function createFinancialProjectsServerClient(accessToken?: string | null) {
+  const cookieStore = await cookies();
+  const authorizationHeader = accessToken ? `Bearer ${accessToken}` : null;
+
+  return createServerClient(
+    cookieStore,
+    authorizationHeader
+      ? {
+          global: {
+            headers: {
+              Authorization: authorizationHeader,
+            },
+          },
+        }
+      : undefined
+  );
+}
+
+async function getAuthenticatedFinancialProjectsUser({
+  supabase,
+  accessToken,
+}: {
+  supabase: NonNullable<ReturnType<typeof createServerClient>>;
+  accessToken?: string | null;
+}) {
+  return accessToken
+    ? supabase.auth.getUser(accessToken)
+    : supabase.auth.getUser();
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -160,9 +203,11 @@ function getLatestFinancialProjectRow(
   }, null);
 }
 
-export async function GET() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(cookieStore);
+export async function GET(request: Request) {
+  const accessToken = getSupabaseAccessTokenFromAuthorizationHeader(
+    request.headers.get("authorization")
+  );
+  const supabase = await createFinancialProjectsServerClient(accessToken);
 
   if (!supabase) {
     return NextResponse.json(
@@ -174,7 +219,10 @@ export async function GET() {
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getAuthenticatedFinancialProjectsUser({
+    supabase,
+    accessToken,
+  });
 
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });

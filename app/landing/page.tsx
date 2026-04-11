@@ -42,10 +42,7 @@ const bestFor = [
     label: "Small game teams planning a launch",
   },
   {
-    label: "Studios comparing budget vs expected sales",
-  },
-  {
-    label: "Publishers reviewing project risk",
+    label: "Small teams comparing budget vs expected sales",
   },
 ];
 
@@ -61,14 +58,14 @@ const faqs = [
       "No. Hollow Metric helps you estimate launch budget, break-even copies, and profitability using your own assumptions. It is a planning tool, not a sales guarantee.",
   },
   {
-    question: "Can I use it free right now?",
+    question: "Can I use it for free?",
     answer:
-      "Yes. The Free Launch Planner is currently open for testing.",
+      "Yes. You can start with the Free Launch Planner.",
   },
   {
-    question: "Are paid subscriptions live yet?",
+    question: "Are paid subscriptions live?",
     answer:
-      "No. Paid subscriptions are not live yet while billing setup is being finalized.",
+      "Yes. You can use the Free Launch Planner or upgrade to Pro.",
   },
 ];
 
@@ -147,16 +144,16 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="mt-4 text-center text-xs text-slate-500">
-            Currently open for free testing. Paid subscriptions are not live yet.
+            Start with the Free Launch Planner or upgrade to Pro for more planning tools.
           </p>
 
           <article id="example-result" className="mx-auto mt-10 max-w-4xl rounded-[2rem] border border-blue-600/30 bg-slate-900/75 p-6 text-left shadow-[0_0_32px_rgba(37,99,235,0.12)] backdrop-blur-xl sm:p-7">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Quick example result</p>
-                <h2 className="mt-3 text-2xl font-black text-white">See the kind of planning answer the tool gives you fast.</h2>
+                <h2 className="mt-3 text-2xl font-black text-white">See what your launch plan could look like in seconds.</h2>
               </div>
-              <p className="text-sm text-slate-400">What one launch plan could look like</p>
+              <p className="text-sm text-slate-400">Example launch plan</p>
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -204,10 +201,10 @@ export default function LandingPage() {
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Audience fit</p>
               <h2 className="mt-3 text-2xl font-black text-white">Built for practical launch planning, not enterprise forecasting.</h2>
               <p className="mt-4 text-sm leading-7 text-slate-200">
-                Not built for AAA forecasting or enterprise BI. Hollow Metric is designed for practical launch planning for indie and small-to-mid game teams.
+                Hollow Metric is built for indie developers and small teams planning a real launch, not enterprise BI or AAA forecasting.
               </p>
               <p className="mt-4 text-sm leading-7 text-slate-300">
-                The goal is simple: get from your current launch assumptions to a clearer budget, clearer break-even target, and a more useful next decision.
+                Use it to turn rough assumptions into a clearer budget, break-even target, and next decision.
               </p>
             </article>
           </div>
@@ -231,7 +228,7 @@ export default function LandingPage() {
               Get to a useful launch answer before you commit more money.
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-slate-200">
-              Start with the free planner, test your current assumptions, and see whether your launch plan still makes sense.
+              Start with the Free Launch Planner, then upgrade to Pro when you want saved projects and dashboard features.
             </p>
             <div className="mt-8 flex justify-center">
               <Link
@@ -244,7 +241,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <p className="fade-in mt-0 pb-6 pt-0 text-center text-xs text-slate-500">A launch planning tool for indie developers by an indie developer.</p>
+        <p className="fade-in mt-0 pb-6 pt-0 text-center text-xs text-slate-500">Hollow Metric helps indie developers and small teams plan launch budgets, break-even targets, and pricing decisions.</p>
 
         <footer className="fade-in border-t border-slate-800 py-10 text-sm text-slate-400">
           <div className="grid gap-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
@@ -256,7 +253,7 @@ export default function LandingPage() {
                 </p>
               </div>
               <p className="mt-3 max-w-md leading-7">
-                Financial planning and launch decision support for indie developers and small teams preparing for commercial release.
+                Hollow Metric helps indie developers and small teams estimate launch budgets, break-even targets, and pricing outcomes.
               </p>
             </div>
             <div>
@@ -271,14 +268,20 @@ export default function LandingPage() {
             </div>
             <div>
               <p className="mb-3 font-semibold text-white">Company</p>
-              <div className="space-y-2">
-                <p><Link href="/privacy" className="transition hover:text-blue-400">Privacy Policy</Link></p>
-                <p><Link href="/terms" className="transition hover:text-blue-400">Terms of Service</Link></p>
-                <p><Link href="/refunds" className="transition hover:text-blue-400">Refund Policy</Link></p>
-                <p><Link href="/cookies" className="transition hover:text-blue-400">Cookie Policy</Link></p>
-                <p><a href="https://www.facebook.com/hollowmetric" target="_blank" rel="noopener noreferrer" className="transition hover:text-blue-400">Facebook</a></p>
-                <p><a href="https://discord.gg/tQMqtQAsz9" target="_blank" rel="noopener noreferrer" className="transition hover:text-blue-400">Discord</a></p>
-                <p><a href="mailto:support@hollowmetric.com" className="transition hover:text-blue-400">support@hollowmetric.com</a></p>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <p><Link href="/privacy" className="transition hover:text-blue-400">Privacy Policy</Link></p>
+                  <p><Link href="/terms" className="transition hover:text-blue-400">Terms of Service</Link></p>
+                  <p><Link href="/refunds" className="transition hover:text-blue-400">Refund Policy</Link></p>
+                  <p><Link href="/cookies" className="transition hover:text-blue-400">Cookie Policy</Link></p>
+                  <p><a href="https://www.facebook.com/hollowmetric" target="_blank" rel="noopener noreferrer" className="transition hover:text-blue-400">Facebook</a></p>
+                </div>
+                <div className="space-y-2">
+                  <p><a href="https://x.com/hollowmetric" target="_blank" rel="noopener noreferrer" className="transition hover:text-blue-400">X</a></p>
+                  <p><a href="https://bsky.app/profile/hollowmetric.bsky.social" target="_blank" rel="noopener noreferrer" className="transition hover:text-blue-400">Bluesky</a></p>
+                  <p><a href="https://discord.gg/tQMqtQAsz9" target="_blank" rel="noopener noreferrer" className="transition hover:text-blue-400">Discord</a></p>
+                  <p><a href="mailto:support@hollowmetric.com" className="transition hover:text-blue-400">support@hollowmetric.com</a></p>
+                </div>
               </div>
             </div>
           </div>

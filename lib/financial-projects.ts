@@ -81,6 +81,17 @@ const EMPTY_FINANCIAL_PROJECTS: FinancialProject[] = [];
 let cachedSavedProjectsRaw: string | null | undefined;
 let cachedSavedProjectsSnapshot: FinancialProject[] = EMPTY_FINANCIAL_PROJECTS;
 
+function isAccessDeniedFinancialProjectsMessage(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+
+  return (
+    normalized.includes("unauthorized") ||
+    normalized.includes("forbidden") ||
+    normalized.includes("not authenticated") ||
+    normalized.includes("access denied")
+  );
+}
+
 const toFiniteNumber = (value: unknown, fallback = 0): number => {
   const numeric = typeof value === "number" ? value : Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
@@ -396,10 +407,19 @@ export function saveFinancialProjects(projects: FinancialProject[]) {
   window.dispatchEvent(new Event(FINANCIAL_PROJECTS_UPDATED_EVENT));
 }
 
-export async function fetchSavedFinancialProjectsState(): Promise<SavedFinancialProjectsState> {
+export async function fetchSavedFinancialProjectsState(
+  accessToken?: string | null
+): Promise<SavedFinancialProjectsState> {
   const response = await fetch("/api/save-financial-project", {
     method: "GET",
     cache: "no-store",
+    ...(accessToken
+      ? {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      : {}),
   });
 
   const rawResponse = await response.text();
@@ -426,8 +446,22 @@ export async function fetchSavedFinancialProjectsState(): Promise<SavedFinancial
   }
 
   if (!response.ok || !result?.success) {
+    const errorMessage =
+      result?.error ?? rawResponse.trim() ?? `Request failed with status ${response.status}.`;
+
+    if (
+      response.status === 401 ||
+      response.status === 403 ||
+      isAccessDeniedFinancialProjectsMessage(errorMessage)
+    ) {
+      return {
+        access: DEFAULT_FINANCIAL_PROJECT_ACCESS,
+        projects: EMPTY_FINANCIAL_PROJECTS,
+      };
+    }
+
     throw new Error(
-      result?.error ?? rawResponse.trim() ?? `Request failed with status ${response.status}.`
+      errorMessage
     );
   }
 

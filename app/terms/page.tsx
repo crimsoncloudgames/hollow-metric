@@ -39,14 +39,14 @@ const sections: TermsSection[] = [
     title: "4. Subscription Plans and Access",
     paragraphs: [
       "Hollow Metric may offer free and paid plans. Features, limits, and access may vary by plan. We may change plans, pricing, feature limits, or availability from time to time.",
-      "Where billing is handled by Paddle, Paddle may act as merchant of record for transactions.",
+      "Paddle acts as merchant of record for subscription transactions.",
     ],
   },
   {
     title: "5. Payments and Billing",
     paragraphs: [
       "If you purchase a paid plan, you agree to pay all applicable fees, taxes, and charges.",
-      "Billing, payment processing, and some refund handling may be managed by Paddle.",
+      "Billing, payment processing, and refund handling for subscription purchases are managed by Paddle.",
       "If your subscription renews automatically, you authorize recurring billing unless you cancel according to the applicable terms of your plan and payment provider.",
     ],
   },
@@ -112,7 +112,7 @@ const sections: TermsSection[] = [
   {
     title: "10. Availability and Changes",
     paragraphs: [
-      "We may modify, suspend, or discontinue parts of Hollow Metric at any time, including features marked as beta, preview, or coming soon.",
+      "We may modify, suspend, or discontinue parts of Hollow Metric at any time, including features marked as coming soon.",
       "We do not guarantee uninterrupted availability.",
     ],
   },

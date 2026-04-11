@@ -39,14 +39,14 @@ const sections: PrivacySection[] = [
           "launch budget inputs",
           "pricing assumptions",
           "break-even calculations",
-          "saved financial projects",
+          "saved launch budget projects",
           "post-launch actuals and related performance inputs",
           "settings and preferences",
         ],
       },
       {
         heading: "Payment Information",
-        intro: "Payments and subscription billing may be handled by Paddle, our payment provider and merchant of record. We do not store your full payment card details ourselves.",
+        intro: "Payments and subscription billing are handled by Paddle, our payment provider and merchant of record. We do not store your full payment card details ourselves.",
       },
       {
         heading: "Technical Information",
@@ -79,7 +79,7 @@ const sections: PrivacySection[] = [
   {
     title: "3. Payments",
     paragraphs: [
-      "Payments for Hollow Metric may be processed by Paddle. Paddle may collect and process billing and payment data in accordance with its own privacy practices and legal obligations.",
+      "Payments for Hollow Metric are processed by Paddle. Paddle may collect and process billing and payment data in accordance with its own privacy practices and legal obligations.",
     ],
   },
   {
@@ -197,7 +197,7 @@ export default function PrivacyPage() {
             <p className="mt-4 text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Effective Date: April 2, 2026</p>
 
             <div className="mt-10 space-y-6 text-base leading-8 text-slate-300">
-              <p>Hollow Metric ("we", "us", "our") operates Hollow Metric, a web-based software tool for game developers available at https://hollowmetric.com.</p>
+              <p>Hollow Metric (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) operates Hollow Metric, a web-based software tool for game developers available at https://hollowmetric.com.</p>
               <p>This Privacy Policy explains what information we collect, how we use it, and the choices you have.</p>
             </div>
 

@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
 
@@ -94,8 +93,6 @@ export default function ContactPage() {
     message: "",
     website: "",
   });
-  const contactFieldErrorCount = Object.values(fieldErrors).filter(Boolean).length;
-  const contactSubmitState = isSubmitting ? "submitting" : statusType ?? "idle";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -415,17 +412,6 @@ export default function ContactPage() {
             </aside>
           </div>
 
-          <InternalDebugPanel
-            pageName="Contact"
-            items={[
-              { label: "submit state", value: contactSubmitState },
-              { label: "status type", value: statusType ?? "idle" },
-              { label: "status message", value: statusMessage ?? "none" },
-              { label: "captcha required", value: isTurnstileEnabled },
-              { label: "captcha completed", value: Boolean(turnstileToken) },
-              { label: "field error count", value: contactFieldErrorCount },
-            ]}
-          />
         </section>
       </div>
     </main>

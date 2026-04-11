@@ -14,7 +14,7 @@ const sections: RefundSection[] = [
   {
     title: "1. Refund Window",
     paragraphs: [
-      "Refund requests may be submitted within 7 days of purchase.",
+      "Refund requests can be submitted within 7 days of purchase.",
     ],
   },
   {
@@ -41,9 +41,8 @@ const sections: RefundSection[] = [
     title: "5. Contact",
     paragraphs: ["For refund questions, contact:"],
     contactLines: [
-      "Use the Paddle receipt or support link in your purchase confirmation email.",
-      "You can also contact Paddle buyer support.",
-      "For product-side support questions, contact support@hollowmetric.com.",
+      "For refund requests, use the Paddle receipt or support link in your purchase confirmation email, or contact Paddle buyer support.",
+      "For product-related support questions, contact support@hollowmetric.com.",
     ],
   },
 ];

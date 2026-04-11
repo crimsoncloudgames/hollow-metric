@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { AlertCircle, Zap, X, Plus } from "lucide-react";
-import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import { createClient } from "@/utils/supabase/client";
 import {
   normalizeFinancialProject,
@@ -939,17 +938,6 @@ export default function LaunchBudgetPage() {
     }
   };
 
-  const budgeterBillingState = isLoadingBillingContext
-    ? "loading"
-    : billingContextError
-      ? "fallback"
-      : "live";
-  const budgeterSaveState = isSavingProject
-    ? "saving"
-    : saveProjectFeedback?.tone ?? "idle";
-  const budgeterInputSource = !hasLoadedDraft ? "loading" : "local/default";
-  const budgeterCalculationState = calculationNotice ? "blocked" : "ready";
-
   return (
     <section className="space-y-8">
       {/* SECTION 1: SUBSCRIPTION TIER INFO - LIGHTWEIGHT */}
@@ -980,7 +968,7 @@ export default function LaunchBudgetPage() {
           </div>
           <div>
             <p className="font-semibold text-slate-400">Launch Planner</p>
-            <p className="text-slate-600">Launch Planner includes 1 active project budget when billing is live</p>
+            <p className="text-slate-600">Launch Planner includes 1 active saved project budget</p>
           </div>
           <div>
             <p className="font-semibold text-slate-400">More Plans</p>
@@ -1000,8 +988,8 @@ export default function LaunchBudgetPage() {
               {isLoadingBillingContext
                 ? "Checking your plan access before project saving is enabled."
                 : isPaidTier
-                ? "Launch Planner currently includes 1 saved project. Saving here updates that saved budget with your latest inputs."
-                : "Project saving is locked on Starter while paid access is pending."}
+                ? "Launch Planner includes 1 saved project. Saving here updates that project with your latest inputs."
+                : "Project saving is not included on Starter."}
             </p>
           </div>
 
@@ -1214,15 +1202,15 @@ export default function LaunchBudgetPage() {
           <div className="rounded-2xl border border-slate-700 bg-slate-900/40 p-4 mb-4">
             <p className="text-sm font-semibold text-slate-200">Price Point 2 and 3 are locked on Starter</p>
             <p className="text-xs text-slate-400 mt-1">
-              Paid price comparison is not available yet while billing rollout is pending.
+              Multiple price points are not included on Starter.
             </p>
           </div>
         )}
 
         <p className="text-sm text-slate-400">
           {isPaidTier
-            ? "Compare up to three launch prices and see how each one changes your rough break-even target."
-            : "Starter includes one launch price with a rough break-even estimate."}
+            ? "Compare up to three launch prices and see how each one changes your break-even target."
+            : "Starter includes one launch price and a break-even estimate."}
         </p>
       </div>
 
@@ -1364,10 +1352,10 @@ export default function LaunchBudgetPage() {
         <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
           <h2 className="text-2xl font-black text-white mb-3">Planning Review</h2>
           <p className="text-slate-400 mb-4">
-            Planning Review is locked on Starter and currently unavailable until billing is live.
+            Planning Review is not included on Starter.
           </p>
           <p className="text-xs text-slate-500 mb-4">
-            This section will open after paid access is available.
+            Upgrade to Launch Planner to unlock this section.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-slate-500 text-sm">Budget Health Score</div>
@@ -1461,7 +1449,7 @@ export default function LaunchBudgetPage() {
         </div>
 
           <p className="text-xs text-slate-500 mb-6">
-            Use this section to track actual launch results. Fill in the fields that apply to your launch.
+            Use this section to track actual launch results and compare them against your plan.
           </p>
 
           <div className="rounded-2xl border border-slate-700 bg-slate-900/40 p-6">
@@ -1520,7 +1508,7 @@ export default function LaunchBudgetPage() {
               </div>
             ) : (
               <p className="text-sm text-slate-400">
-                Enter actual copies sold and choose the launch price used to generate a planning comparison.
+                Enter actual copies sold and choose the launch price used to compare your actual results against your plan.
               </p>
             )}
           </div>
@@ -1529,29 +1517,13 @@ export default function LaunchBudgetPage() {
         <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
           <h2 className="text-2xl font-black text-white mb-3">Post-Launch Actuals</h2>
           <p className="text-slate-400">
-            Post-Launch Actuals is locked on Starter and currently unavailable until billing is live.
+            Post-Launch Actuals is not included on Starter.
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            This section will open after paid access is available.
+            Upgrade to Launch Planner to unlock this section.
           </p>
         </div>
       )}
-
-      <InternalDebugPanel
-        pageName="Launch Budget"
-        items={[
-          { label: "subscription tier", value: subscriptionTier },
-          { label: "paid tier enabled", value: isPaidTier },
-          { label: "billing context state", value: budgeterBillingState },
-          { label: "billing context error", value: billingContextError ?? "none" },
-          { label: "input source", value: budgeterInputSource },
-          { label: "local data notice", value: localDataNotice ?? "none" },
-          { label: "save state", value: budgeterSaveState },
-          { label: "save feedback", value: saveProjectFeedback?.message ?? "none" },
-          { label: "calculation state", value: budgeterCalculationState },
-          { label: "save target", value: isPaidTier ? "server" : "gated" },
-        ]}
-      />
 
     </section>
   );

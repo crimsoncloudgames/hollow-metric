@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Lock, Plus, Trash2 } from "lucide-react";
-import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import {
   clearSavedFinancialProjects,
   fetchSavedFinancialProjectsState,
@@ -311,17 +310,6 @@ export default function FinancialLibraryPage() {
   }, [projects, subscriptionTier]);
 
   const hasSavedProject = visibleProjects.length > 0;
-  const libraryLoadState = isLoading ? "loading" : loadError ? "error" : "ready";
-  const libraryDataSource = isLoading
-    ? "loading"
-    : loadError
-      ? "unavailable"
-      : hasSavedProject
-        ? "saved"
-        : canAccessLibrary
-          ? "empty"
-          : "gated";
-  const deleteState = isDeletingProject ? "clearing" : projectActionFeedback?.tone ?? "idle";
 
   const onOpenLaunchBudget = () => {
     if (isDeletingProject) {
@@ -331,7 +319,7 @@ export default function FinancialLibraryPage() {
     setLimitMessage(null);
 
     if (subscriptionTier === "starter") {
-      setLimitMessage("Saving projects is locked on Starter and not available until billing goes live.");
+      setLimitMessage("Upgrade to Launch Planner to unlock saved projects and Financial Library access.");
       return;
     }
 
@@ -419,7 +407,7 @@ export default function FinancialLibraryPage() {
           <p className="text-xs text-slate-500">
             {canAccessLibrary
               ? "Project saving is unlocked for your active Launch Planner access."
-              : "Project saving and paid access unlock with an active Launch Planner subscription."}
+              : "An active Launch Planner subscription unlocks saved projects and Financial Library access."}
           </p>
         </div>
       </div>
@@ -448,10 +436,10 @@ export default function FinancialLibraryPage() {
           </div>
           <h3 className="text-2xl font-black text-white">Financial Library</h3>
           <p className="mt-2 max-w-2xl text-slate-400">
-            Saving and revisiting financial projects is locked on Starter.
+            Saving and revisiting projects is not included on Starter.
           </p>
           <p className="mt-3 text-xs text-slate-500">
-            Paid access is not available yet while billing is pending.
+            Upgrade to Launch Planner to unlock this feature.
           </p>
         </div>
       ) : (
@@ -656,21 +644,6 @@ export default function FinancialLibraryPage() {
           )}
         </>
       )}
-
-      <InternalDebugPanel
-        pageName="Financial Library"
-        items={[
-          { label: "load state", value: libraryLoadState },
-          { label: "data source", value: libraryDataSource },
-          { label: "subscription tier", value: subscriptionTier },
-          { label: "billing status", value: billingStatus },
-          { label: "library access", value: canAccessLibrary },
-          { label: "visible project count", value: visibleProjects.length },
-          { label: "delete state", value: deleteState },
-          { label: "last action", value: projectActionFeedback?.message ?? "none" },
-          { label: "last error", value: loadError ?? "none" },
-        ]}
-      />
     </section>
   );
 }

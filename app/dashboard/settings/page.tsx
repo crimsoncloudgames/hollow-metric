@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { InternalDebugPanel } from "@/components/internal-debug-panel";
 import { openPaddleCheckout } from "@/lib/paddle";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -38,9 +37,18 @@ type DeleteAccountResponse = {
   error?: string;
 };
 
+type BillingSubscriptionSnapshot = {
+  current_period_end?: string | null;
+  cancel_at_period_end?: boolean | null;
+  status_normalized?: string | null;
+  canceled_at?: string | null;
+  ended_at?: string | null;
+};
+
 const DEFAULTS_STORAGE_KEY = "hm_planning_defaults";
 const LAUNCH_BUDGET_DRAFT_STORAGE_KEY = "hm_launch_budget_draft";
 const ACTIVE_PROJECT_STORAGE_KEY = "hm_active_project";
+const BILLING_SUPPORT_EMAIL = "support@hollowmetric.com";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const PLAN_LABELS: Record<SubscriptionTier, string> = {
@@ -49,7 +57,7 @@ const PLAN_LABELS: Record<SubscriptionTier, string> = {
 };
 
 const PLAN_LIMIT_SUMMARY: Record<SubscriptionTier, string> = {
-  starter: "Launch Planner: not unlocked on Starter",
+  starter: "Launch Planner features are not included on Starter.",
   "launch-planner": "Launch Planner: 1 active project",
 };
 
@@ -153,6 +161,20 @@ function formatBillingStatusLabel(status: string | null | undefined, fallback = 
   return normalized[0].toUpperCase() + normalized.slice(1);
 }
 
+function normalizeBillingState(status: string | null | undefined): string {
+  return typeof status === "string" ? status.trim().toLowerCase() : "";
+}
+
+function isEndedBillingState(status: string | null | undefined): boolean {
+  const normalizedStatus = normalizeBillingState(status);
+  return normalizedStatus === "canceled" || normalizedStatus === "ended";
+}
+
+function isActiveBillingState(status: string | null | undefined): boolean {
+  const normalizedStatus = normalizeBillingState(status);
+  return normalizedStatus === "active" || normalizedStatus === "past_due";
+}
+
 function getDisplayedBillingStatus({
   entitlementBillingState,
   subscriptionStatus,
@@ -162,15 +184,20 @@ function getDisplayedBillingStatus({
   subscriptionStatus: string | null | undefined;
   cancelAtPeriodEnd: boolean;
 }) {
+  const normalizedEntitlementBillingState = normalizeBillingState(entitlementBillingState);
   const normalizedSubscriptionStatus =
     typeof subscriptionStatus === "string" ? subscriptionStatus.trim().toLowerCase() : "";
 
-  if (normalizedSubscriptionStatus === "canceled" || normalizedSubscriptionStatus === "ended") {
-    return "Canceled";
+  if (cancelAtPeriodEnd && normalizedEntitlementBillingState === "active") {
+    return "Cancels At Period End";
   }
 
-  if (cancelAtPeriodEnd) {
-    return "Cancels At Period End";
+  if (normalizedEntitlementBillingState.length > 0 && normalizedEntitlementBillingState !== "unknown") {
+    return formatBillingStatusLabel(entitlementBillingState, "Unknown");
+  }
+
+  if (normalizedSubscriptionStatus === "canceled" || normalizedSubscriptionStatus === "ended") {
+    return "Canceled";
   }
 
   if (normalizedSubscriptionStatus.length > 0 && normalizedSubscriptionStatus !== "unknown") {
@@ -178,6 +205,44 @@ function getDisplayedBillingStatus({
   }
 
   return formatBillingStatusLabel(entitlementBillingState, "Unknown");
+}
+
+function getSubscriptionDisplayDate(
+  subscription: BillingSubscriptionSnapshot | null | undefined,
+  entitlementBillingState: string | null | undefined
+) {
+  if (!subscription) {
+    return null;
+  }
+
+  const normalizedEntitlementBillingState = normalizeBillingState(entitlementBillingState);
+  const subscriptionStatus =
+    typeof subscription.status_normalized === "string"
+      ? subscription.status_normalized.trim().toLowerCase()
+      : "";
+  const currentPeriodEnd =
+    typeof subscription.current_period_end === "string" ? subscription.current_period_end : null;
+  const canceledAt =
+    typeof subscription.canceled_at === "string" ? subscription.canceled_at : null;
+  const endedAt =
+    typeof subscription.ended_at === "string" ? subscription.ended_at : null;
+
+  if (
+    (subscriptionStatus === "canceled" || subscriptionStatus === "ended") &&
+    isEndedBillingState(normalizedEntitlementBillingState)
+  ) {
+    return canceledAt ?? endedAt ?? currentPeriodEnd;
+  }
+
+  if (subscription.cancel_at_period_end === true && normalizedEntitlementBillingState === "active") {
+    return currentPeriodEnd ?? canceledAt ?? endedAt;
+  }
+
+  if (isActiveBillingState(normalizedEntitlementBillingState) && isActiveBillingState(subscriptionStatus)) {
+    return currentPeriodEnd;
+  }
+
+  return null;
 }
 
 export default function SettingsPage() {
@@ -222,7 +287,7 @@ export default function SettingsPage() {
             setSignedInEmail("Not available");
             setBillingStatus("Unavailable");
             setContextError(
-              "We couldn't connect to account services right now. Settings are available in limited mode."
+              "We couldn't connect to account services right now. Some settings may be unavailable."
             );
           }
           return;
@@ -295,16 +360,47 @@ export default function SettingsPage() {
 
         setBillingStatus(formatBillingStatusLabel(liveBillingState, "Unknown"));
 
-        if (typeof entitlement.active_subscription_id !== "number") {
-          setRenewalDate(null);
-          return;
-        }
+        const subscriptionColumns =
+          "current_period_end, cancel_at_period_end, status_normalized, canceled_at, ended_at";
 
-        const { data: subscription, error: subscriptionError } = await supabase
-          .from("billing_subscriptions")
-          .select("current_period_end, cancel_at_period_end, status_normalized")
-          .eq("id", entitlement.active_subscription_id)
-          .maybeSingle();
+        let subscription: BillingSubscriptionSnapshot | null = null;
+        let subscriptionError: unknown = null;
+
+        const normalizedLiveBillingState = normalizeBillingState(liveBillingState);
+
+        if (typeof entitlement.active_subscription_id === "number") {
+          const { data, error } = await supabase
+            .from("billing_subscriptions")
+            .select(subscriptionColumns)
+            .eq("id", entitlement.active_subscription_id)
+            .maybeSingle();
+
+          subscription = (data as BillingSubscriptionSnapshot | null) ?? null;
+          subscriptionError = error;
+        } else if (isActiveBillingState(normalizedLiveBillingState)) {
+          const { data, error } = await supabase
+            .from("billing_subscriptions")
+            .select(subscriptionColumns)
+            .eq("user_id", user.id)
+            .in("status_normalized", ["active", "past_due"])
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          subscription = (data as BillingSubscriptionSnapshot | null) ?? null;
+          subscriptionError = error;
+        } else if (isEndedBillingState(normalizedLiveBillingState)) {
+          const { data, error } = await supabase
+            .from("billing_subscriptions")
+            .select(subscriptionColumns)
+            .eq("user_id", user.id)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          subscription = (data as BillingSubscriptionSnapshot | null) ?? null;
+          subscriptionError = error;
+        }
 
         if (!mounted) {
           return;
@@ -332,7 +428,7 @@ export default function SettingsPage() {
             cancelAtPeriodEnd: subscription?.cancel_at_period_end === true,
           })
         );
-        setRenewalDate(subscription?.current_period_end ?? null);
+        setRenewalDate(getSubscriptionDisplayDate(subscription, liveBillingState));
       } catch (error) {
         console.error("Failed to load settings context", error);
 
@@ -439,35 +535,17 @@ export default function SettingsPage() {
     return "Renewal date";
   }, [billingStatus]);
 
+  const billingSupportMessage =
+    "For billing questions, downgrades, or cancellations, contact support at support@hollowmetric.com.";
+
   const activeProjectsCount = maxProjects === Infinity ? projects.length : Math.min(projects.length, maxProjects);
   const savedProjectsCount = projects.length;
   const isAccountActionPending = isUpdatingEmail || isUpdatingPassword;
-  const settingsContextState = isLoadingUserContext ? "loading" : contextError ? "fallback" : "live";
-  const defaultsActionState = isSavingDefaults ? "saving" : defaultsSavedState?.tone ?? "idle";
-  const accountDebugState = isAccountActionPending ? "updating" : accountActionState?.tone ?? "idle";
-  const exportDebugState = isExportingData ? "exporting" : exportActionState?.tone ?? "idle";
-  const privacyDebugState = isSigningOutAllSessions ? "signing-out" : privacyActionState?.tone ?? "idle";
-  const deleteAccountDebugState = isDeletingAccount
-    ? "deleting"
-    : isDeleteAccountConfirmOpen
-      ? "confirming"
-      : deleteAccountActionState?.tone ?? "idle";
-  const subscriptionDebugState = isLaunchingUpgradeCheckout
-    ? "checkout"
-    : subscriptionActionState?.tone ?? "idle";
-  const settingsDebugAuth = useMemo(
-    () => ({
-      sessionExists: isLoadingUserContext
-        ? null
-        : signedInEmail === "Not signed in"
-          ? false
-          : signedInEmail.includes("@")
-            ? true
-            : null,
-      userEmail: signedInEmail.includes("@") ? signedInEmail : null,
-    }),
-    [isLoadingUserContext, signedInEmail]
-  );
+  const subscriptionAccessSummary = isLoadingUserContext
+    ? "Checking access..."
+    : subscriptionTier === "launch-planner"
+      ? "Launch Planner access"
+      : "Starter access only";
 
   const onSaveDefaults = () => {
     if (typeof window === "undefined" || isSavingDefaults) return;
@@ -901,11 +979,11 @@ export default function SettingsPage() {
             <div className="mt-4 space-y-2 text-sm">
               <p className="text-slate-400">Current plan: <span className="font-semibold text-white">{PLAN_LABELS[subscriptionTier]}</span></p>
               <p className="text-slate-400">Billing status: <span className="font-semibold text-white">{billingStatus}</span></p>
-              <p className="text-slate-400">{subscriptionDateLabel}: <span className="font-semibold text-white">{formattedRenewalDate ?? "—"}</span></p>
+              <p className="text-slate-400">{subscriptionDateLabel}{subscriptionDateLabel === "Ended on" ? " " : ": "}<span className="font-semibold text-white">{formattedRenewalDate ?? "—"}</span></p>
             </div>
           </div>
 
-          <div className="w-full max-w-sm space-y-2">
+          <div className="w-full max-w-sm space-y-3">
             {subscriptionTier === "starter" ? (
               <button
                 type="button"
@@ -917,37 +995,25 @@ export default function SettingsPage() {
               >
                 {isLaunchingUpgradeCheckout ? "Opening Checkout..." : "Upgrade to Pro"}
               </button>
-            ) : (
-              <button
-                type="button"
-                disabled
-                aria-disabled="true"
-                className="w-full cursor-not-allowed rounded-xl border border-blue-900/30 bg-blue-950/20 px-4 py-2 text-sm font-semibold text-blue-400/70"
+            ) : null}
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Billing Support
+              </p>
+              <a
+                href={`mailto:${BILLING_SUPPORT_EMAIL}`}
+                className="mt-3 block text-sm font-semibold text-blue-300 transition hover:text-blue-200"
               >
-                Manage Subscription
-              </button>
-            )}
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              className="w-full cursor-not-allowed rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-500 opacity-70"
-            >
-              Downgrade Subscription
-            </button>
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              className="w-full cursor-not-allowed rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-500 opacity-70"
-            >
-              Cancel Subscription
-            </button>
-            <p className="text-xs leading-6 text-slate-500">
-              {subscriptionTier === "starter"
-                ? "Upgrade opens secure Paddle checkout. In-app manage, downgrade, and cancel controls are still being wired up."
-                : "Subscription state is synced from Paddle. In-app manage, downgrade, and cancel controls are still being wired up."}
-            </p>
+                {BILLING_SUPPORT_EMAIL}
+              </a>
+              <p className="mt-3 text-xs leading-6 text-slate-400">{billingSupportMessage}</p>
+              <Link
+                href="/contact"
+                className="mt-3 inline-flex rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300"
+              >
+                Contact Support
+              </Link>
+            </div>
             {subscriptionActionState && (
               <p
                 className={[
@@ -1045,21 +1111,21 @@ export default function SettingsPage() {
             <p className="mt-2 text-2xl font-black text-white">{savedProjectsCount}</p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
-            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Billing Entitlements</p>
-            <p className="mt-2 text-sm font-semibold text-slate-300">Not connected yet</p>
+            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Subscription Access</p>
+            <p className="mt-2 text-sm font-semibold text-slate-300">{subscriptionAccessSummary}</p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
             <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Plan Limits</p>
             <p className="mt-2 text-sm font-semibold text-slate-300">{PLAN_LIMIT_SUMMARY[subscriptionTier]}</p>
           </div>
         </div>
-        <p className="mt-4 text-xs text-slate-500">Usage cards reflect currently available local financial-tool data and current plan lock state.</p>
+        <p className="mt-4 text-xs text-slate-500">Usage reflects your current plan and available saved data.</p>
       </article>
 
       <article className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
         <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">Data & Privacy</p>
         <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Current planning data in this release is stored on this device. Export tools and full account-level privacy controls will expand as backend support is completed.
+          Some planning data is currently stored on this device. Export and additional account data controls will expand over time.
         </p>
 
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1081,7 +1147,7 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        <p className="mt-4 text-xs text-slate-500">Export includes local planning defaults and local financial project data.</p>
+        <p className="mt-4 text-xs text-slate-500">Export includes local planning defaults and saved project data.</p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs">
           <Link href="/privacy" className="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300">Privacy Policy</Link>
           <Link href="/terms" className="rounded-full border border-slate-700 px-3 py-1.5 text-slate-300 transition hover:border-blue-600/40 hover:text-blue-300">Terms of Service</Link>
@@ -1179,26 +1245,6 @@ export default function SettingsPage() {
           )}
         </div>
       </article>
-
-      <InternalDebugPanel
-        pageName="Settings"
-        auth={settingsDebugAuth}
-        items={[
-          { label: "context state", value: settingsContextState },
-          { label: "context error", value: contextError ?? "none" },
-          { label: "subscription tier", value: subscriptionTier },
-          { label: "billing status", value: billingStatus },
-          { label: "subscription action state", value: subscriptionDebugState },
-          { label: "renewal date", value: formattedRenewalDate ?? "unavailable" },
-          { label: "saved project count", value: savedProjectsCount },
-          { label: "local data notice", value: localDataNotice ?? "none" },
-          { label: "defaults state", value: defaultsActionState },
-          { label: "account action state", value: accountDebugState },
-          { label: "export state", value: exportDebugState },
-          { label: "privacy action state", value: privacyDebugState },
-          { label: "delete account state", value: deleteAccountDebugState },
-        ]}
-      />
     </section>
   );
 }
