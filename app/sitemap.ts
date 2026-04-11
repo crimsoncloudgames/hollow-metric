@@ -1,11 +1,11 @@
 import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://hollowmetric.com";
+  const baseUrl = "https://www.hollowmetric.com";
   const lastModified = new Date();
 
   return [
-    { url: `${baseUrl}/landing`, lastModified, changeFrequency: "weekly", priority: 1 },
+    { url: `${baseUrl}/`, lastModified, changeFrequency: "weekly", priority: 1 },
     { url: `${baseUrl}/pricing`, lastModified, changeFrequency: "weekly", priority: 0.8 },
     { url: `${baseUrl}/resources`, lastModified, changeFrequency: "weekly", priority: 0.7 },
     { url: `${baseUrl}/contact`, lastModified, changeFrequency: "monthly", priority: 0.6 },

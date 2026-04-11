@@ -12,6 +12,9 @@ export const metadata: Metadata = {
     absolute: PUBLIC_TITLE,
   },
   description: PUBLIC_DESCRIPTION,
+  alternates: {
+    canonical: PUBLIC_URL,
+  },
   openGraph: {
     title: PUBLIC_TITLE,
     description: PUBLIC_DESCRIPTION,

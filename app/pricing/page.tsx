@@ -7,6 +7,7 @@ type PricingPlanBase = {
   featured: boolean;
   comingSoon: boolean;
   description?: string;
+  ctaSupportingText?: string;
   features: string[];
 };
 
@@ -15,16 +16,12 @@ type PricingPlanWithLink = PricingPlanBase & {
   ctaHref: string;
 };
 
-type PricingPlanDisabled = PricingPlanBase & {
-  ctaState: "disabled";
-};
-
 type PricingPlanComingSoon = PricingPlanBase & {
   ctaState: "coming-soon";
   comingSoon: true;
 };
 
-type PricingPlan = PricingPlanWithLink | PricingPlanDisabled | PricingPlanComingSoon;
+type PricingPlan = PricingPlanWithLink | PricingPlanComingSoon;
 
 const plans: PricingPlan[] = [
   {
@@ -48,7 +45,9 @@ const plans: PricingPlan[] = [
     description: "Save, track, and organize your launch assumptions.",
     featured: true,
     comingSoon: false,
-    ctaState: "disabled",
+    ctaState: "link",
+    ctaHref: "/signup",
+    ctaSupportingText: PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE,
     features: [
       "Save projects",
       "Saved budget library",
@@ -123,35 +122,23 @@ export default function PricingPage() {
                 <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-800/50 px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.08em] text-slate-300">
                   Not available yet
                 </div>
-              ) : plan.ctaState === "disabled" ? (
+              ) : (
                 <div className="mt-6 space-y-3">
-                  <button
-                    type="button"
-                    disabled
-                    aria-disabled="true"
+                  <Link
+                    href={plan.ctaHref}
                     className={[
-                      "w-full cursor-not-allowed rounded-2xl px-5 py-3 text-center text-sm font-semibold opacity-80",
+                      "block rounded-2xl px-5 py-3 text-center text-sm font-semibold transition",
                       plan.featured
-                        ? "border border-blue-900/30 bg-blue-950/20 text-blue-300/70"
-                        : "border border-slate-700 bg-slate-800/50 text-slate-400",
+                        ? "bg-blue-600 text-white hover:bg-blue-500"
+                        : "border border-slate-700 text-slate-200 hover:border-blue-500 hover:text-blue-300",
                     ].join(" ")}
                   >
                     Get Started
-                  </button>
-                  <p className="text-xs leading-6 text-slate-400">{PAID_SUBSCRIPTIONS_UNAVAILABLE_MESSAGE}</p>
+                  </Link>
+                  {plan.ctaSupportingText ? (
+                    <p className="text-xs leading-6 text-slate-400">{plan.ctaSupportingText}</p>
+                  ) : null}
                 </div>
-              ) : (
-                <Link
-                  href={plan.ctaHref}
-                  className={[
-                    "mt-6 rounded-2xl px-5 py-3 text-center text-sm font-semibold transition",
-                    plan.featured
-                      ? "bg-blue-600 text-white hover:bg-blue-500"
-                      : "border border-slate-700 text-slate-200 hover:border-blue-500 hover:text-blue-300",
-                  ].join(" ")}
-                >
-                  Get Started
-                </Link>
               )}
             </article>
           ))}

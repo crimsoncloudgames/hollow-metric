@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://hollowmetric.com"),
+  metadataBase: new URL("https://www.hollowmetric.com"),
   title: {
     default: "Hollow Metric",
     template: "%s | Hollow Metric",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
       "Launch budget and break-even planning for indie game developers and small teams.",
     images: [
       {
-        url: "/social-preview.png",
+        url: "/og/hollowmetric-preview.png",
       },
     ],
   },
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     title: "Hollow Metric",
     description:
       "Launch budget and break-even planning for indie game developers and small teams.",
-    images: ["/social-preview.png"],
+    images: ["/og/hollowmetric-preview.png"],
   },
   robots: {
     index: true,

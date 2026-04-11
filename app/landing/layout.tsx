@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   },
   description: PUBLIC_DESCRIPTION,
   alternates: {
-    canonical: "/landing",
+    canonical: PUBLIC_URL,
   },
   openGraph: {
     type: "website",
