@@ -6,19 +6,26 @@ import { createClient } from "@/utils/supabase/client";
 
 type StarterCreditPackCheckoutButtonProps = {
   priceId: string;
+  buttonLabel?: string;
+  disabled?: boolean;
 };
 
 const MISSING_PRICE_ID_MESSAGE = "Credits checkout is not configured right now. Please try again later.";
 const CHECKOUT_FAILED_MESSAGE = "We couldn't open Paddle checkout right now. Please try again.";
 
-export function StarterCreditPackCheckoutButton({ priceId }: StarterCreditPackCheckoutButtonProps) {
+export function StarterCreditPackCheckoutButton({
+  priceId,
+  buttonLabel = "Buy 3 Credits",
+  disabled = false,
+}: StarterCreditPackCheckoutButtonProps) {
   const [isLaunchingCheckout, setIsLaunchingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const isButtonDisabled = disabled || isLaunchingCheckout;
 
   const handleCheckout = async () => {
     const normalizedPriceId = priceId.trim();
 
-    if (isLaunchingCheckout) {
+    if (isButtonDisabled) {
       return;
     }
 
@@ -54,16 +61,16 @@ export function StarterCreditPackCheckoutButton({ priceId }: StarterCreditPackCh
   };
 
   return (
-    <div className="mt-6">
+    <div className="mt-4">
       <button
         type="button"
         onClick={() => {
           void handleCheckout();
         }}
-        disabled={isLaunchingCheckout}
+        disabled={isButtonDisabled}
         className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900"
       >
-        {isLaunchingCheckout ? "Opening Checkout..." : "Buy 3 Credits"}
+        {isLaunchingCheckout ? "Opening Checkout..." : buttonLabel}
       </button>
 
       {checkoutError ? (

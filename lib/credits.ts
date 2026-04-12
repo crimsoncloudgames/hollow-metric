@@ -5,8 +5,12 @@ import { createClient as createServerClient, hasSupabaseServerEnv } from "@/util
 export const STEAM_TAG_TOOL_CREDIT_COST = 1;
 export const STEAM_TAG_TOOL_CREDIT_REQUIRED_MESSAGE = "At least 1 credit is required to use the Steam Tag Tool.";
 export const STEAM_TAG_TOOL_CREDIT_DEDUCTION_FAILED_MESSAGE = "Tag generation succeeded, but credit deduction failed.";
+export const GAME_IDEA_GENERATOR_CREDIT_COST = 1;
+export const GAME_IDEA_GENERATOR_CREDIT_REQUIRED_MESSAGE = "1 credit or more needed for generation";
+export const GAME_IDEA_GENERATOR_CREDIT_DEDUCTION_FAILED_MESSAGE =
+  "Game idea generation succeeded, but credit deduction failed.";
 
-type SteamTagToolCreditsGateResult =
+type CreditsGateResult =
   | {
       ok: true;
       userId: string;
@@ -18,7 +22,7 @@ type SteamTagToolCreditsGateResult =
       error: string;
     };
 
-type SteamTagToolCreditDeductionResult =
+type CreditDeductionResult =
   | {
       ok: true;
       remainingBalance: number;
@@ -29,12 +33,12 @@ type SteamTagToolCreditDeductionResult =
       error: string;
     };
 
-type SteamTagToolAuthContext = {
+type CreditsAuthContext = {
   source: string;
   accessToken?: string | null;
 };
 
-function logSteamTagToolCreditsDebug(message: string, payload: Record<string, unknown>) {
+function logCreditsDebug(message: string, payload: Record<string, unknown>) {
   if (process.env.NODE_ENV === "production") {
     return;
   }
@@ -71,9 +75,11 @@ async function createCreditsServerClient(accessToken?: string | null) {
   );
 }
 
-export async function requireSteamTagToolCredits(
-  authContext?: SteamTagToolAuthContext
-): Promise<SteamTagToolCreditsGateResult> {
+async function requireCredits(
+  requiredCost: number,
+  insufficientCreditsMessage: string,
+  authContext?: CreditsAuthContext
+): Promise<CreditsGateResult> {
   if (!hasSupabaseServerEnv) {
     return {
       ok: false,
@@ -100,7 +106,7 @@ export async function requireSteamTagToolCredits(
     : await supabase.auth.getUser();
 
   if (authError || !user) {
-    logSteamTagToolCreditsDebug("Steam Tag Tool credits gate auth", {
+    logCreditsDebug("Credits gate auth", {
       source: authContext?.source ?? "unknown",
       authSource: authContext?.accessToken ? "authorization-header" : "cookies",
       userId: user?.id ?? null,
@@ -121,7 +127,7 @@ export async function requireSteamTagToolCredits(
     .maybeSingle();
 
   if (error) {
-    console.error("Failed to load user credits for Steam Tag Tool gate", {
+    console.error("Failed to load user credits for credits gate", {
       error,
       userId: user.id,
     });
@@ -135,7 +141,7 @@ export async function requireSteamTagToolCredits(
 
   const balance = normalizeCreditsBalance(data?.balance);
 
-  logSteamTagToolCreditsDebug("Steam Tag Tool credits gate lookup", {
+  logCreditsDebug("Credits gate lookup", {
     source: authContext?.source ?? "unknown",
     authSource: authContext?.accessToken ? "authorization-header" : "cookies",
     userId: user.id,
@@ -143,11 +149,11 @@ export async function requireSteamTagToolCredits(
     balance,
   });
 
-  if (balance < STEAM_TAG_TOOL_CREDIT_COST) {
+  if (balance < requiredCost) {
     return {
       ok: false,
       status: 403,
-      error: STEAM_TAG_TOOL_CREDIT_REQUIRED_MESSAGE,
+      error: insufficientCreditsMessage,
     };
   }
 
@@ -158,11 +164,13 @@ export async function requireSteamTagToolCredits(
   };
 }
 
-export async function deductSteamTagToolCredit(
+async function deductCredit(
   userId: string,
   currentBalance: number,
-  authContext?: SteamTagToolAuthContext
-): Promise<SteamTagToolCreditDeductionResult> {
+  creditCost: number,
+  deductionFailedMessage: string,
+  authContext?: CreditsAuthContext
+): Promise<CreditDeductionResult> {
   if (!hasSupabaseServerEnv) {
     return {
       ok: false,
@@ -181,7 +189,7 @@ export async function deductSteamTagToolCredit(
     };
   }
 
-  const nextBalance = Math.max(0, normalizeCreditsBalance(currentBalance) - STEAM_TAG_TOOL_CREDIT_COST);
+  const nextBalance = Math.max(0, normalizeCreditsBalance(currentBalance) - creditCost);
   const { data, error } = await supabase
     .from("user_credits")
     .update({
@@ -189,12 +197,12 @@ export async function deductSteamTagToolCredit(
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", userId)
-    .gte("balance", STEAM_TAG_TOOL_CREDIT_COST)
+    .gte("balance", creditCost)
     .select("balance")
     .maybeSingle();
 
   if (error) {
-    console.error("Failed to deduct Steam Tag Tool credit", {
+    console.error("Failed to deduct credit", {
       error,
       source: authContext?.source ?? "unknown",
       userId,
@@ -203,7 +211,7 @@ export async function deductSteamTagToolCredit(
     return {
       ok: false,
       status: 500,
-      error: STEAM_TAG_TOOL_CREDIT_DEDUCTION_FAILED_MESSAGE,
+      error: deductionFailedMessage,
     };
   }
 
@@ -211,7 +219,7 @@ export async function deductSteamTagToolCredit(
     return {
       ok: false,
       status: 500,
-      error: STEAM_TAG_TOOL_CREDIT_DEDUCTION_FAILED_MESSAGE,
+      error: deductionFailedMessage,
     };
   }
 
@@ -219,4 +227,52 @@ export async function deductSteamTagToolCredit(
     ok: true,
     remainingBalance: normalizeCreditsBalance(data.balance),
   };
+}
+
+export async function requireSteamTagToolCredits(
+  authContext?: CreditsAuthContext
+): Promise<CreditsGateResult> {
+  return requireCredits(
+    STEAM_TAG_TOOL_CREDIT_COST,
+    STEAM_TAG_TOOL_CREDIT_REQUIRED_MESSAGE,
+    authContext
+  );
+}
+
+export async function deductSteamTagToolCredit(
+  userId: string,
+  currentBalance: number,
+  authContext?: CreditsAuthContext
+): Promise<CreditDeductionResult> {
+  return deductCredit(
+    userId,
+    currentBalance,
+    STEAM_TAG_TOOL_CREDIT_COST,
+    STEAM_TAG_TOOL_CREDIT_DEDUCTION_FAILED_MESSAGE,
+    authContext
+  );
+}
+
+export async function requireGameIdeaGeneratorCredits(
+  authContext?: CreditsAuthContext
+): Promise<CreditsGateResult> {
+  return requireCredits(
+    GAME_IDEA_GENERATOR_CREDIT_COST,
+    GAME_IDEA_GENERATOR_CREDIT_REQUIRED_MESSAGE,
+    authContext
+  );
+}
+
+export async function deductGameIdeaGeneratorCredit(
+  userId: string,
+  currentBalance: number,
+  authContext?: CreditsAuthContext
+): Promise<CreditDeductionResult> {
+  return deductCredit(
+    userId,
+    currentBalance,
+    GAME_IDEA_GENERATOR_CREDIT_COST,
+    GAME_IDEA_GENERATOR_CREDIT_DEDUCTION_FAILED_MESSAGE,
+    authContext
+  );
 }

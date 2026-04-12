@@ -4,7 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { CreditsBalanceLabel } from "@/components/credits-balance-label";
+import { TestingAdminAccessProvider } from "@/components/testing-admin-access-provider";
 import { hasLaunchPlannerAccess } from "@/lib/billing";
+import { isTestingAdminEmail } from "@/lib/testing-access";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 import {
   LayoutDashboard,
@@ -24,15 +27,15 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, isPrimary: false },
   { href: "/dashboard/budgeter", label: "Launch Budget", icon: DollarSign, isPrimary: true },
   { href: "/dashboard/financial-library", label: "Financial Library", icon: FolderOpen, isPrimary: false },
+  { href: "/dashboard/game-idea-generator", label: "Game Idea Generator", icon: Lightbulb, isPrimary: false },
+  { href: "/dashboard/credits", label: "Buy Credits", icon: Coins, isPrimary: false },
   { href: "/dashboard/settings", label: "Settings", icon: Settings, isPrimary: false },
 ];
 
 const comingSoonItems = [
   { label: "Steam Tag Tool", icon: Tag },
-  { label: "Buy Credits", icon: Coins },
   { label: "Steam Page Analysis", icon: Rocket },
   { label: "Creator Discovery", icon: Search },
-  { label: "Game Idea Generator", icon: Lightbulb },
 ];
 
 function getHeaderText(pathname: string) {
@@ -71,6 +74,13 @@ function getHeaderText(pathname: string) {
     };
   }
 
+  if (pathname === "/dashboard/game-idea-generator") {
+    return {
+      title: "Game Idea Generator",
+      subtitle: "Shape a game concept from genre, mechanics, features, setting, mood, and your own idea notes.",
+    };
+  }
+
   if (pathname === "/dashboard/steam-tag-tool") {
     return {
       title: "Steam Tag Tool",
@@ -81,7 +91,7 @@ function getHeaderText(pathname: string) {
   if (pathname === "/dashboard/credits") {
     return {
       title: "Buy Credits",
-      subtitle: "Use credits for AI-powered tools like the Steam Tag Tool. Credits are only charged when a generation succeeds.",
+      subtitle: "Use credits for AI-powered tools that are listed below. Credits are only charged when a generation succeeds.",
     };
   }
 
@@ -103,11 +113,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const theme = "dark" as const;
   const [userLabel, setUserLabel] = useState("Account");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showUpgradeButton, setShowUpgradeButton] = useState(false);
   const header = getHeaderText(pathname);
   const showPageHeader = pathname !== "/dashboard" && pathname !== "/dashboard/library";
+  const isTestingAdmin = isTestingAdminEmail(userEmail);
+  const creditsBadgeClassName = [
+    "inline-flex items-center gap-3 self-start rounded-2xl border px-4 py-3 text-sm font-semibold text-white transition",
+    isTestingAdmin
+      ? "border-blue-500/25 bg-blue-500/10 hover:border-blue-400/40 hover:bg-blue-500/15"
+      : "cursor-not-allowed border-slate-800 bg-slate-900/80 opacity-60",
+  ].join(" ");
+  const creditsBalanceBadgeContent = (
+    <>
+      <Coins size={17} className="text-blue-300" />
+      <CreditsBalanceLabel className="text-sm font-black tracking-[0.02em] text-white" />
+    </>
+  );
+  const creditsBalanceBadge = isTestingAdmin ? (
+    <Link href="/dashboard/credits" className={creditsBadgeClassName}>
+      {creditsBalanceBadgeContent}
+    </Link>
+  ) : (
+    <div aria-disabled="true" className={creditsBadgeClassName}>
+      {creditsBalanceBadgeContent}
+    </div>
+  );
 
   useEffect(() => {
     localStorage.setItem("hm_theme", theme);
@@ -117,54 +150,76 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     let mounted = true;
 
-    const loadUser = async () => {
-      const supabase = createClient();
-      if (!supabase) {
-        if (!mounted) return;
-        setUserLabel("Account");
-        setIsAuthenticated(false);
-        setIsAuthChecked(true);
-        router.replace("/login");
+    const handleAuthFailure = (error: unknown) => {
+      console.error("Failed to verify dashboard auth state", error);
+
+      if (!mounted) {
         return;
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!mounted) return;
-
-      if (user?.email) {
-        setUserLabel(user.email);
-      } else {
-        setUserLabel("Account");
-      }
-
-      if (!user) {
-        setShowUpgradeButton(false);
-        setIsAuthenticated(false);
-        setIsAuthChecked(true);
-        router.replace("/login");
-        return;
-      }
-
-      const { data: entitlement, error: entitlementError } = await supabase
-        .from("user_entitlements")
-        .select("tier, premium_access, billing_state")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (!mounted) return;
-
-      if (entitlementError) {
-        console.error("Failed to load dashboard entitlement state for navigation", entitlementError);
-        setShowUpgradeButton(false);
-      } else {
-        setShowUpgradeButton(!hasLaunchPlannerAccess(entitlement));
-      }
-
-      setIsAuthenticated(true);
+      setUserLabel("Account");
+      setUserEmail(null);
+      setShowUpgradeButton(false);
+      setIsAuthenticated(false);
       setIsAuthChecked(true);
+      router.replace("/login");
+    };
+
+    const loadUser = async () => {
+      try {
+        const supabase = createClient();
+        if (!supabase) {
+          if (!mounted) return;
+          setUserLabel("Account");
+          setUserEmail(null);
+          setIsAuthenticated(false);
+          setIsAuthChecked(true);
+          router.replace("/login");
+          return;
+        }
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!mounted) return;
+
+        if (user?.email) {
+          setUserLabel(user.email);
+          setUserEmail(user.email);
+        } else {
+          setUserLabel("Account");
+          setUserEmail(null);
+        }
+
+        if (!user) {
+          setShowUpgradeButton(false);
+          setIsAuthenticated(false);
+          setIsAuthChecked(true);
+          router.replace("/login");
+          return;
+        }
+
+        const { data: entitlement, error: entitlementError } = await supabase
+          .from("user_entitlements")
+          .select("tier, premium_access, billing_state")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!mounted) return;
+
+        if (entitlementError) {
+          console.error("Failed to load dashboard entitlement state for navigation", entitlementError);
+          setShowUpgradeButton(false);
+        } else {
+          setShowUpgradeButton(!hasLaunchPlannerAccess(entitlement));
+        }
+
+        setIsAuthenticated(true);
+        setIsAuthChecked(true);
+      } catch (error) {
+        handleAuthFailure(error);
+      }
     };
 
     const supabase = createClient();
@@ -173,6 +228,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       if (event === "SIGNED_OUT" || !session?.user) {
         setUserLabel("Account");
+        setUserEmail(null);
         setShowUpgradeButton(false);
         setIsAuthenticated(false);
         setIsAuthChecked(true);
@@ -183,6 +239,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       if (session.user.email) {
         setUserLabel(session.user.email);
+        setUserEmail(session.user.email);
+      } else {
+        setUserEmail(null);
       }
       setIsAuthenticated(true);
       setIsAuthChecked(true);
@@ -218,10 +277,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className={[
-      "dashboard-shell flex min-h-screen flex-col lg:flex-row",
-      theme === "dark" ? "bg-slate-950 text-slate-200" : "bg-slate-100 text-slate-900",
-    ].join(" ")}>
+    <TestingAdminAccessProvider userEmail={userEmail}>
+      <div className={[
+        "dashboard-shell flex min-h-screen flex-col lg:flex-row",
+        theme === "dark" ? "bg-slate-950 text-slate-200" : "bg-slate-100 text-slate-900",
+      ].join(" ")}>
       <aside className={[
         "w-full px-4 py-4 sm:px-5 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:py-6",
         theme === "dark"
@@ -257,6 +317,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
+            const isCreditsItemLocked = item.href === "/dashboard/credits" && !isTestingAdmin;
 
             if (item.isPrimary) {
               return (
@@ -275,6 +336,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Icon size={17} />
                   <span className="text-sm">{item.label}</span>
                 </Link>
+              );
+            }
+
+            if (isCreditsItemLocked) {
+              return (
+                <div
+                  key={item.href}
+                  aria-disabled="true"
+                  className="flex cursor-not-allowed items-center gap-3 rounded-2xl border border-slate-800 px-3 py-2.5 text-slate-500 opacity-60"
+                >
+                  <Icon size={17} />
+                  <span className="text-sm font-semibold">{item.label}</span>
+                </div>
               );
             }
 
@@ -392,15 +466,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       ].join(" ")}>
         {showPageHeader ? (
           <header className="mb-10 border-b border-slate-900 pb-6">
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{header.title}</h1>
-              <p className="mt-2 text-slate-500">{header.subtitle}</p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{header.title}</h1>
+                <p className="mt-2 text-slate-500">{header.subtitle}</p>
+              </div>
+              {creditsBalanceBadge}
             </div>
           </header>
-        ) : null}
+        ) : (
+          <div className="mb-6 flex justify-end">{creditsBalanceBadge}</div>
+        )}
 
         <div className="transition-all duration-300">{children}</div>
       </main>
-    </div>
+      </div>
+    </TestingAdminAccessProvider>
   );
 }

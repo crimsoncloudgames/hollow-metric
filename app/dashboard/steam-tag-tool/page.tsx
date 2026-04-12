@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { dispatchCreditsBalanceUpdated } from "@/lib/credits-ui";
 import { createClient } from "@/utils/supabase/client";
 
 type InputMode = "steam-page" | "manual";
@@ -28,6 +29,7 @@ type ManualModeResponse = {
   gameTitle?: string;
   tags: string[];
   recommendation: string;
+  remainingCredits?: number;
 };
 
 type SteamPageModeResponse = {
@@ -260,7 +262,8 @@ function isManualModeResponse(value: unknown): value is ManualModeResponse {
     (record.gameTitle === undefined || typeof record.gameTitle === "string") &&
     Array.isArray(record.tags) &&
     record.tags.every((tag) => typeof tag === "string") &&
-    typeof record.recommendation === "string"
+    typeof record.recommendation === "string" &&
+    (record.remainingCredits === undefined || typeof record.remainingCredits === "number")
   );
 }
 
@@ -560,6 +563,8 @@ export default function SteamTagToolPage() {
           setSteamError(steamPageDeductionFailedMessage);
           return;
         }
+
+        dispatchCreditsBalanceUpdated({ balance: deductionBody.remainingCredits });
       } catch {
         setSteamError(steamPageDeductionFailedMessage);
         return;
@@ -618,6 +623,11 @@ export default function SteamTagToolPage() {
         tags: responseBody.tags,
         recommendation: responseBody.recommendation.trim(),
       });
+
+      if (typeof responseBody.remainingCredits === "number") {
+        dispatchCreditsBalanceUpdated({ balance: responseBody.remainingCredits });
+      }
+
       setHasFreshManualSuccess(true);
       setResultTab("tags");
     } catch (error) {
