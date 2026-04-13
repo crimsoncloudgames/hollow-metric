@@ -1421,7 +1421,7 @@ export async function POST(request: Request) {
       );
     }
 
-    let bonusCreditResult: { ok: true; duplicate: boolean } | null = null;
+    let bonusCreditResult: Awaited<ReturnType<typeof fulfillCreditPurchase>> | null = null;
 
     if (extracted.row.plan_key === "pro" && extracted.row.status_normalized === "active") {
       bonusCreditResult = await fulfillCreditPurchase(
