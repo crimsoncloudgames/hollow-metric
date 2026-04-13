@@ -1,32 +1,32 @@
 import Link from "next/link";
 
-const resources = [
+const resourceThemes = [
   {
-    title: "Launch Budget Fundamentals",
-    body: "Understand how to structure your launch budget, define your own cost assumptions, and calculate break-even targets for different price points.",
+    title: "Launch budget before launch spend",
+    body: "Map contractors, marketing, QA, art, audio, and other real costs before they quietly turn into a bigger break-even problem.",
   },
   {
-    title: "Break-Even Analysis Guide",
-    body: "Learn how to read break-even numbers, compare multiple pricing scenarios, and spot when scope or spend changes reset your launch math.",
+    title: "Break-even clarity, not guesswork",
+    body: "Compare pricing scenarios and see how scope or spend changes reset the number of copies you need to sell.",
   },
   {
-    title: "Cost Estimation Checklist",
-    body: "Use a practical checklist to pressure-test budget assumptions, spot underfunded priorities, and catch wasteful spending before launch.",
+    title: "Shape ideas before scope hardens",
+    body: "Use the Game Idea Generator when a concept is still loose, then bring the stronger direction back into launch planning and pricing decisions.",
   },
 ];
 
 const guides = [
   {
-    title: "Why Pricing Sensitivity Matters",
-    body: "A small price change can add hundreds of sales to your break-even target. Learn why price decisions need to get tested before they are locked in.",
+    title: "Pressure-test the downside first",
+    body: "Indie plans usually break when costs drift, prices slip, or scope expands. Check the weaker scenario before you trust the optimistic one.",
   },
   {
-    title: "Scope Creep and Budget Drift",
-    body: "How to spot when scope changes, feature delays, and late expenses quietly push your break-even target higher without obvious warning signs.",
+    title: "Compare multiple paths, not one guess",
+    body: "Good planning comes from testing more than one price, budget, or concept direction before you lock a path.",
   },
   {
-    title: "Decision-Making with Uncertainty",
-    body: "Your launch plan will be wrong. Learn how to build estimates that are realistic about that, and how to catch the parts that are most likely to break.",
+    title: "Build around indie reality",
+    body: "Hollow Metric is built for indie developers and small teams making constrained decisions, not enterprise forecasting decks.",
   },
 ];
 
@@ -36,19 +36,22 @@ export default function ResourcesPage() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-12 flex items-center justify-between">
           <Link href="/landing" className="text-2xl font-black italic text-blue-500">Hollow Metric</Link>
-          <Link href="/signup" className="rounded-full border border-blue-500 px-5 py-2 font-semibold text-blue-300 transition hover:bg-blue-600 hover:text-white">Create Account</Link>
+          <div className="flex items-center gap-3">
+            <Link href="/landing" className="rounded-full border border-slate-700 px-5 py-2 font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-300">Home</Link>
+            <Link href="/signup" className="rounded-full border border-blue-500 px-5 py-2 font-semibold text-blue-300 transition hover:bg-blue-600 hover:text-white">Start Planning Smarter</Link>
+          </div>
         </div>
 
         <div className="mb-12 max-w-3xl">
           <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Resources</p>
-          <h1 className="mb-4 text-4xl font-black text-white">Guidance for better launch planning decisions.</h1>
-          <p className="text-lg leading-8 text-slate-400">Learn how to structure your launch budget, test pricing, and catch weak budget assumptions before expensive decisions are locked in.</p>
+          <h1 className="mb-4 text-4xl font-black text-white">Practical guidance for indie developers making launch and concept decisions.</h1>
+          <p className="text-lg leading-8 text-slate-400">Use this page to think more clearly about launch budget, break-even pressure, pricing tradeoffs, and when a rough game idea needs more shape before you keep building.</p>
         </div>
 
         <div className="mb-12">
-          <h2 className="mb-6 text-2xl font-black text-white">Core Concepts</h2>
+          <h2 className="mb-6 text-2xl font-black text-white">What Hollow Metric helps you think through</h2>
           <div className="grid gap-6 md:grid-cols-3">
-            {resources.map((resource) => (
+            {resourceThemes.map((resource) => (
               <article key={resource.title} className="rounded-[2rem] border border-slate-800 bg-slate-900/60 p-6">
                 <h3 className="text-lg font-black text-white">{resource.title}</h3>
                 <p className="mt-4 text-sm leading-7 text-slate-400">{resource.body}</p>
@@ -57,8 +60,8 @@ export default function ResourcesPage() {
           </div>
         </div>
 
-        <div>
-          <h2 className="mb-6 text-2xl font-black text-white">Decision Frameworks</h2>
+        <div className="mb-12">
+          <h2 className="mb-6 text-2xl font-black text-white">Useful decision frameworks</h2>
           <div className="grid gap-6 md:grid-cols-3">
             {guides.map((guide) => (
               <article key={guide.title} className="rounded-[2rem] border border-blue-600/30 bg-blue-600/5 p-6">
@@ -68,6 +71,19 @@ export default function ResourcesPage() {
             ))}
           </div>
         </div>
+
+        <section className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.18),rgba(15,23,42,0.92))] p-8 text-center shadow-[0_0_32px_rgba(37,99,235,0.12)]">
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Use The Product</p>
+          <h2 className="mt-3 text-3xl font-black text-white">Move from reading about launch decisions to testing your own.</h2>
+          <p className="mx-auto mt-4 max-w-3xl text-sm leading-7 text-slate-200 sm:text-base">
+            Use Hollow Metric to model budget, pressure-test break-even, and shape clearer game directions in one place. Launch Planner also includes 1 credit so you can test the Game Idea Generator flow.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <Link href="/signup" className="rounded-full bg-blue-600 px-8 py-3 font-bold text-white transition hover:bg-blue-500">
+              Start Planning Smarter
+            </Link>
+          </div>
+        </section>
       </div>
     </main>
   );
