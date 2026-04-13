@@ -10,19 +10,33 @@ export type CreditPackOption = {
   credits: number;
   priceLabel: string;
   priceId: string;
+  isDefault?: boolean;
 };
 
 type CreditPackSelectorProps = {
   packOptions: CreditPackOption[];
 };
 
+function getDefaultSelectedPackId(packOptions: CreditPackOption[]) {
+  return (
+    packOptions.find((packOption) => packOption.isDefault)?.id ??
+    packOptions.find((packOption) => packOption.credits === 3)?.id ??
+    packOptions[0]?.id ??
+    ""
+  );
+}
+
 export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
   const { isTestingAdmin } = useTestingAdminAccess();
-  const [selectedPackId, setSelectedPackId] = useState(packOptions[0]?.id ?? "");
+  const [selectedPackId, setSelectedPackId] = useState(() => getDefaultSelectedPackId(packOptions));
   const isPurchaseLocked = !isTestingAdmin;
 
   const selectedPack =
-    packOptions.find((packOption) => packOption.id === selectedPackId) ?? packOptions[0] ?? null;
+    packOptions.find((packOption) => packOption.id === selectedPackId) ??
+    packOptions.find((packOption) => packOption.isDefault) ??
+    packOptions.find((packOption) => packOption.credits === 3) ??
+    packOptions[0] ??
+    null;
 
   if (!selectedPack) {
     return null;
@@ -41,8 +55,8 @@ export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
               <button
                 key={packOption.id}
                 type="button"
-                disabled={isPurchaseLocked}
                 onClick={() => setSelectedPackId(packOption.id)}
+                aria-pressed={isSelected}
                 className={[
                   "rounded-2xl border px-5 py-4 text-left transition",
                   isSelected
@@ -74,6 +88,7 @@ export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
 
         <StarterCreditPackCheckoutButton
           priceId={selectedPack.priceId}
+          packLabel={`${selectedPack.credits} Credits`}
           buttonLabel="Buy Credits"
           disabled={isPurchaseLocked}
         />

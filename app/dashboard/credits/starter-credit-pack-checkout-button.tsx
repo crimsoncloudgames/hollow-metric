@@ -1,26 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { openPaddleCheckout } from "@/lib/paddle";
 import { createClient } from "@/utils/supabase/client";
 
 type StarterCreditPackCheckoutButtonProps = {
   priceId: string;
+  packLabel?: string;
   buttonLabel?: string;
   disabled?: boolean;
 };
 
-const MISSING_PRICE_ID_MESSAGE = "Credits checkout is not configured right now. Please try again later.";
 const CHECKOUT_FAILED_MESSAGE = "We couldn't open Paddle checkout right now. Please try again.";
+
+function getMissingPriceIdMessage(packLabel: string) {
+  return `${packLabel} checkout is not configured right now. Please choose another pack or try again later.`;
+}
 
 export function StarterCreditPackCheckoutButton({
   priceId,
+  packLabel = "This credit pack",
   buttonLabel = "Buy 3 Credits",
   disabled = false,
 }: StarterCreditPackCheckoutButtonProps) {
   const [isLaunchingCheckout, setIsLaunchingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const isButtonDisabled = disabled || isLaunchingCheckout;
+
+  useEffect(() => {
+    setCheckoutError(null);
+  }, [packLabel, priceId]);
 
   const handleCheckout = async () => {
     const normalizedPriceId = priceId.trim();
@@ -30,7 +39,7 @@ export function StarterCreditPackCheckoutButton({
     }
 
     if (!normalizedPriceId) {
-      setCheckoutError(MISSING_PRICE_ID_MESSAGE);
+      setCheckoutError(getMissingPriceIdMessage(packLabel));
       return;
     }
 

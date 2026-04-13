@@ -1,7 +1,7 @@
 import { Coins, Lightbulb, Sparkles, Store, Users } from "lucide-react";
 import { CreditsBalanceLabel } from "@/components/credits-balance-label";
 import { TemporaryAdminOnlyFeatureGate } from "@/components/temporary-admin-only-feature-gate";
-import { CreditPackSelector } from "./credit-pack-selector";
+import { CreditPackSelector, type CreditPackOption } from "./credit-pack-selector";
 
 const creditUsageItems = [
   {
@@ -27,34 +27,35 @@ const creditUsageItems = [
   },
 ];
 
-export default function BuyCreditsPage() {
-  const creditPackOptions = [
-    {
-      id: "starter-1",
-      credits: 1,
-      priceLabel: "$3",
-      priceId: process.env.PADDLE_CREDITS_STARTER_1_PRICE_ID?.trim() ?? "",
-    },
-    {
-      id: "starter-3",
-      credits: 3,
-      priceLabel: "$5",
-      priceId: process.env.PADDLE_CREDITS_STARTER_3_PRICE_ID?.trim() ?? "",
-    },
-    {
-      id: "starter-6",
-      credits: 6,
-      priceLabel: "$9",
-      priceId: process.env.PADDLE_CREDITS_STARTER_6_PRICE_ID?.trim() ?? "",
-    },
-    {
-      id: "starter-10",
-      credits: 10,
-      priceLabel: "$13",
-      priceId: process.env.PADDLE_CREDITS_STARTER_10_PRICE_ID?.trim() ?? "",
-    },
-  ];
+const creditPackOptions: CreditPackOption[] = [
+  {
+    id: "starter-1",
+    credits: 1,
+    priceLabel: "$3",
+    priceId: process.env.PADDLE_CREDITS_1_PRICE_ID?.trim() ?? "",
+  },
+  {
+    id: "starter-3",
+    credits: 3,
+    priceLabel: "$5",
+    priceId: process.env.PADDLE_CREDITS_3_PRICE_ID?.trim() ?? "",
+    isDefault: true,
+  },
+  {
+    id: "starter-6",
+    credits: 6,
+    priceLabel: "$9",
+    priceId: process.env.PADDLE_CREDITS_6_PRICE_ID?.trim() ?? "",
+  },
+  {
+    id: "starter-10",
+    credits: 10,
+    priceLabel: "$13",
+    priceId: process.env.PADDLE_CREDITS_10_PRICE_ID?.trim() ?? "",
+  },
+];
 
+export default function BuyCreditsPage() {
   return (
     <TemporaryAdminOnlyFeatureGate>
       <section className="space-y-8">

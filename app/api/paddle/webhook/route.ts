@@ -64,6 +64,13 @@ type UserEntitlementSync = {
   effective_from: string;
 };
 
+type CreditPurchaseFulfillment = {
+  user_id: string;
+  paddle_transaction_id: string;
+  price_ids: string[];
+  credits_added: number;
+};
+
 const SUBSCRIPTION_EVENT_TYPES = new Set([
   "subscription.created",
   "subscription.activated",
@@ -73,6 +80,8 @@ const SUBSCRIPTION_EVENT_TYPES = new Set([
   "subscription.resumed",
   "subscription.canceled",
 ]);
+
+const CREDIT_PACK_TRANSACTION_COMPLETED_EVENT_TYPE = "transaction.completed";
 
 type Database = {
   public: {
@@ -113,6 +122,53 @@ type Database = {
           paddle_customer_id?: string;
           customer_email?: string | null;
           last_synced_at?: string;
+        };
+        Relationships: [];
+      };
+      user_credits: {
+        Row: {
+          user_id: string;
+          balance: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          balance?: number;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          balance?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      credit_transactions: {
+        Row: {
+          id: number;
+          user_id: string;
+          paddle_event_id: string | null;
+          paddle_transaction_id: string;
+          price_ids: string[];
+          credits_added: number;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          paddle_event_id?: string | null;
+          paddle_transaction_id: string;
+          price_ids?: string[];
+          credits_added: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          paddle_event_id?: string | null;
+          paddle_transaction_id?: string;
+          price_ids?: string[];
+          credits_added?: number;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -205,7 +261,18 @@ type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      fulfill_paddle_credit_purchase: {
+        Args: {
+          target_user_id: string;
+          paddle_event_id: string;
+          paddle_transaction_id: string;
+          price_ids: string[];
+          credits_to_add: number;
+        };
+        Returns: JsonValue;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -336,6 +403,55 @@ function extractFirstSubscriptionItemPriceId(data: Record<string, unknown>) {
   return readString(firstPrice?.id);
 }
 
+function extractTransactionItemPriceIds(data: Record<string, unknown>) {
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  return items
+    .map((item) => {
+      const itemRecord = asRecord(item);
+      const price = asRecord(itemRecord?.price);
+
+      return readString(price?.id);
+    })
+    .filter((priceId): priceId is string => Boolean(priceId));
+}
+
+function resolveCreditPackCredits(priceIds: string[]) {
+  const creditsByPriceId = new Map<string, number>();
+  const configuredCreditPackPrices = [
+    { priceId: process.env.PADDLE_CREDITS_1_PRICE_ID?.trim(), credits: 1 },
+    { priceId: process.env.PADDLE_CREDITS_3_PRICE_ID?.trim(), credits: 3 },
+    { priceId: process.env.PADDLE_CREDITS_6_PRICE_ID?.trim(), credits: 6 },
+    { priceId: process.env.PADDLE_CREDITS_10_PRICE_ID?.trim(), credits: 10 },
+  ];
+
+  for (const configuredPrice of configuredCreditPackPrices) {
+    if (!configuredPrice.priceId) {
+      continue;
+    }
+
+    creditsByPriceId.set(configuredPrice.priceId, configuredPrice.credits);
+  }
+
+  if (priceIds.length === 0) {
+    return { ok: false as const };
+  }
+
+  let creditsAdded = 0;
+
+  for (const priceId of priceIds) {
+    const credits = creditsByPriceId.get(priceId);
+
+    if (!credits) {
+      return { ok: false as const };
+    }
+
+    creditsAdded += credits;
+  }
+
+  return { ok: true as const, creditsAdded };
+}
+
 async function resolveSubscriptionPlanKey(
   supabase: SupabaseClient<Database>,
   data: Record<string, unknown>,
@@ -420,7 +536,9 @@ function isDeletedAuthUserReference(error: {
       combinedMessage.includes("auth.users") ||
       combinedMessage.includes("billing_subscriptions_user_id") ||
       combinedMessage.includes("billing_customers_user_id") ||
-      combinedMessage.includes("user_entitlements_user_id")
+      combinedMessage.includes("user_entitlements_user_id") ||
+      combinedMessage.includes("user_credits_user_id") ||
+      combinedMessage.includes("credit_transactions_user_id")
     )
   );
 }
@@ -537,6 +655,52 @@ async function extractSubscriptionUpsert(
   };
 
   return { ok: true, row };
+}
+
+function extractCreditPurchaseFulfillment(
+  event: PaddleWebhookEvent,
+):
+  | { ok: true; row: CreditPurchaseFulfillment }
+  | { ok: false; reason: string; skip: boolean } {
+  const data = asRecord(event.data);
+  if (!data) {
+    return { ok: false, reason: "missing transaction data object", skip: false };
+  }
+
+  const priceIds = extractTransactionItemPriceIds(data);
+  if (priceIds.length === 0) {
+    return { ok: false, reason: "missing transaction item price id", skip: false };
+  }
+
+  const resolvedCredits = resolveCreditPackCredits(priceIds);
+  if (!resolvedCredits.ok) {
+    return {
+      ok: false,
+      reason: "transaction does not contain a configured credit-pack price id",
+      skip: true,
+    };
+  }
+
+  const transactionId = readString(data.id);
+  if (!transactionId) {
+    return { ok: false, reason: "missing transaction id", skip: false };
+  }
+
+  const customData = asRecord(data.custom_data);
+  const userId = readString(customData?.supabase_user_id);
+  if (!userId) {
+    return { ok: false, reason: "missing custom_data.supabase_user_id", skip: false };
+  }
+
+  return {
+    ok: true,
+    row: {
+      user_id: userId,
+      paddle_transaction_id: transactionId,
+      price_ids: priceIds,
+      credits_added: resolvedCredits.creditsAdded,
+    },
+  };
 }
 
 async function insertVerifiedWebhookEvent(
@@ -676,6 +840,31 @@ async function syncUserEntitlement(
   return { ok: true as const };
 }
 
+async function fulfillCreditPurchase(
+  supabase: SupabaseClient<Database>,
+  paddleEventId: string,
+  row: CreditPurchaseFulfillment,
+) {
+  const { data, error } = await supabase.rpc("fulfill_paddle_credit_purchase", {
+    target_user_id: row.user_id,
+    paddle_event_id: paddleEventId,
+    paddle_transaction_id: row.paddle_transaction_id,
+    price_ids: row.price_ids,
+    credits_to_add: row.credits_added,
+  });
+
+  if (error) {
+    return { ok: false as const, error };
+  }
+
+  const result = asRecord(data);
+
+  return {
+    ok: true as const,
+    duplicate: readBoolean(result?.duplicate) ?? false,
+  };
+}
+
 async function markWebhookEventProcessed(
   supabase: SupabaseClient<Database>,
   paddleEventId: string,
@@ -807,6 +996,142 @@ export async function POST(request: Request) {
         duplicate: true,
         subscriptionSynced: false,
         skipped: "duplicate_event_delivery",
+      },
+      { status: 200 },
+    );
+  }
+
+  if (eventType === CREDIT_PACK_TRANSACTION_COMPLETED_EVENT_TYPE) {
+    const extracted = extractCreditPurchaseFulfillment(parsedEvent);
+
+    if (!extracted.ok) {
+      const processedAt = new Date().toISOString();
+
+      if (extracted.skip) {
+        const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, processedAt);
+
+        if (!markProcessedResult.ok) {
+          console.error("Failed to mark unmatched Paddle transaction webhook event as processed", {
+            paddleEventId: eventId,
+            eventType,
+            error: markProcessedResult.error,
+          });
+
+          return NextResponse.json(
+            { error: "Failed to finalize webhook processing state." },
+            { status: 500 },
+          );
+        }
+
+        return NextResponse.json(
+          {
+            ok: true,
+            paddleEventId: eventId,
+            duplicate: persistResult.duplicate,
+            creditPurchaseFulfilled: false,
+            skipped: "unmatched_credit_pack_price_id",
+          },
+          { status: 200 },
+        );
+      }
+
+      console.error("Malformed Paddle completed transaction payload", {
+        paddleEventId: eventId,
+        eventType,
+        reason: extracted.reason,
+      });
+
+      await recordWebhookError(supabase, eventId, extracted.reason);
+
+      const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, processedAt);
+
+      if (!markProcessedResult.ok) {
+        console.error("Failed to mark malformed Paddle transaction webhook event as processed", {
+          paddleEventId: eventId,
+          eventType,
+          error: markProcessedResult.error,
+        });
+
+        return NextResponse.json(
+          { error: "Failed to finalize webhook processing state." },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          paddleEventId: eventId,
+          duplicate: persistResult.duplicate,
+          creditPurchaseFulfilled: false,
+          skipped: "malformed_credit_transaction_payload",
+        },
+        { status: 200 },
+      );
+    }
+
+    const fulfillmentResult = await fulfillCreditPurchase(supabase, eventId, extracted.row);
+
+    if (!fulfillmentResult.ok) {
+      const errorMessage = [
+        "Failed to fulfill credit purchase.",
+        fulfillmentResult.error.message,
+        fulfillmentResult.error.details,
+        fulfillmentResult.error.hint,
+      ]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" ");
+
+      console.error("Failed to fulfill Paddle credit purchase", {
+        paddleEventId: eventId,
+        eventType,
+        paddleTransactionId: extracted.row.paddle_transaction_id,
+        userId: extracted.row.user_id,
+        error: fulfillmentResult.error,
+      });
+
+      await recordWebhookError(supabase, eventId, errorMessage);
+
+      return NextResponse.json(
+        { error: "Failed to fulfill credit purchase." },
+        { status: 500 },
+      );
+    }
+
+    const processedAt = new Date().toISOString();
+    const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, processedAt);
+
+    if (!markProcessedResult.ok) {
+      const errorMessage = [
+        "Failed to finalize webhook processing state.",
+        markProcessedResult.error.message,
+        markProcessedResult.error.details,
+        markProcessedResult.error.hint,
+      ]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" ");
+
+      console.error("Failed to mark Paddle credit purchase webhook event as processed", {
+        paddleEventId: eventId,
+        eventType,
+        error: markProcessedResult.error,
+      });
+
+      await recordWebhookError(supabase, eventId, errorMessage);
+
+      return NextResponse.json(
+        { error: "Failed to finalize webhook processing state." },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        ok: true,
+        paddleEventId: eventId,
+        duplicate: persistResult.duplicate,
+        creditPurchaseFulfilled: !fulfillmentResult.duplicate,
+        skipped: fulfillmentResult.duplicate ? "duplicate_credit_transaction" : undefined,
       },
       { status: 200 },
     );
