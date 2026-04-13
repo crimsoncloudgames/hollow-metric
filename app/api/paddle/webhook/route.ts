@@ -82,6 +82,8 @@ const SUBSCRIPTION_EVENT_TYPES = new Set([
 ]);
 
 const CREDIT_PACK_TRANSACTION_COMPLETED_EVENT_TYPE = "transaction.completed";
+const PRO_UPGRADE_BONUS_CREDITS = 1;
+const PRO_UPGRADE_BONUS_TRANSACTION_PREFIX = "bonus_pro_upgrade";
 
 type Database = {
   public: {
@@ -450,6 +452,19 @@ function resolveCreditPackCredits(priceIds: string[]) {
   }
 
   return { ok: true as const, creditsAdded };
+}
+
+function buildProUpgradeBonusTransactionId(userId: string) {
+  return `${PRO_UPGRADE_BONUS_TRANSACTION_PREFIX}:${userId}`;
+}
+
+function buildProUpgradeBonusCreditGrant(userId: string): CreditPurchaseFulfillment {
+  return {
+    user_id: userId,
+    paddle_transaction_id: buildProUpgradeBonusTransactionId(userId),
+    price_ids: [],
+    credits_added: PRO_UPGRADE_BONUS_CREDITS,
+  };
 }
 
 async function resolveSubscriptionPlanKey(
@@ -1406,6 +1421,52 @@ export async function POST(request: Request) {
       );
     }
 
+    let bonusCreditResult: { ok: true; duplicate: boolean } | null = null;
+
+    if (extracted.row.plan_key === "pro" && extracted.row.status_normalized === "active") {
+      bonusCreditResult = await fulfillCreditPurchase(
+        supabase,
+        eventId,
+        buildProUpgradeBonusCreditGrant(extracted.row.user_id),
+      );
+
+      if (!bonusCreditResult.ok) {
+        if (isDeletedAuthUserReference(bonusCreditResult.error)) {
+          return markWebhookDeletedUserSkipped(
+            supabase,
+            eventId,
+            eventType,
+            extracted.row.user_id,
+            persistResult.duplicate,
+          );
+        }
+
+        const errorMessage = [
+          "Failed to grant pro upgrade bonus credit.",
+          bonusCreditResult.error.message,
+          bonusCreditResult.error.details,
+          bonusCreditResult.error.hint,
+        ]
+          .filter((value): value is string => Boolean(value && value.trim()))
+          .join(" ");
+
+        console.error("Failed to grant pro upgrade bonus credit", {
+          paddleEventId: eventId,
+          eventType,
+          paddleSubscriptionId: extracted.row.paddle_subscription_id,
+          userId: extracted.row.user_id,
+          error: bonusCreditResult.error,
+        });
+
+        await recordWebhookError(supabase, eventId, errorMessage);
+
+        return NextResponse.json(
+          { error: "Failed to grant pro upgrade bonus credit." },
+          { status: 500 },
+        );
+      }
+    }
+
     const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, syncTimestamp);
 
     if (!markProcessedResult.ok) {
@@ -1438,6 +1499,7 @@ export async function POST(request: Request) {
         paddleEventId: eventId,
         duplicate: persistResult.duplicate,
         subscriptionSynced: true,
+        bonusCreditGranted: bonusCreditResult ? !bonusCreditResult.duplicate : false,
       },
       { status: 200 },
     );

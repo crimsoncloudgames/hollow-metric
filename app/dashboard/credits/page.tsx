@@ -1,6 +1,5 @@
 import { Coins, Lightbulb, Sparkles, Store, Users } from "lucide-react";
 import { CreditsBalanceLabel } from "@/components/credits-balance-label";
-import { TemporaryAdminOnlyFeatureGate } from "@/components/temporary-admin-only-feature-gate";
 import { CreditPackSelector, type CreditPackOption } from "./credit-pack-selector";
 
 const creditUsageItems = [
@@ -57,8 +56,7 @@ const creditPackOptions: CreditPackOption[] = [
 
 export default function BuyCreditsPage() {
   return (
-    <TemporaryAdminOnlyFeatureGate>
-      <section className="space-y-8">
+    <section className="space-y-8">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] xl:items-stretch">
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8">
@@ -113,7 +111,6 @@ export default function BuyCreditsPage() {
           Credits are intended for successful AI actions only, so users can test tools without worrying about failed generations.
         </p>
       </div>
-      </section>
-    </TemporaryAdminOnlyFeatureGate>
+    </section>
   );
 }

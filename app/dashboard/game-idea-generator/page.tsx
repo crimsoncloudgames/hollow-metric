@@ -3,13 +3,10 @@
 import { useState } from "react";
 import { Lightbulb, RefreshCw, Sparkles } from "lucide-react";
 
-import { TemporaryAdminOnlyFeatureGate } from "@/components/temporary-admin-only-feature-gate";
-import { useTestingAdminAccess } from "@/components/testing-admin-access-provider";
 import {
   dispatchCreditsBalanceUpdated,
   normalizeCreditsBalance,
 } from "@/lib/credits-ui";
-import { TEMPORARY_TESTING_LOCK_MESSAGE } from "@/lib/testing-access";
 import { createClient } from "@/utils/supabase/client";
 
 type IdeaFieldKey =
@@ -1794,10 +1791,6 @@ function getGenerationErrorMessage(responseBody: unknown, fallbackMessage: strin
     return GAME_IDEA_GENERATION_CREDIT_REQUIRED_MESSAGE;
   }
 
-  if (candidate.errorCode === "GAME_IDEA_GENERATION_TESTING_LOCKED") {
-    return TEMPORARY_TESTING_LOCK_MESSAGE;
-  }
-
   if (typeof candidate.error === "string" && candidate.error.trim().length > 0) {
     return candidate.error;
   }
@@ -1857,7 +1850,6 @@ async function getGameIdeaGenerationAuthState() {
 }
 
 export default function GameIdeaGeneratorPage() {
-  const { isTestingAdmin } = useTestingAdminAccess();
   const [formValues, setFormValues] = useState<IdeaFormState>(emptyFormState);
   const [generatedIdeas, setGeneratedIdeas] = useState<GeneratedIdea[]>(() =>
     buildGeneratedIdeas(emptyFormState)
@@ -2098,11 +2090,6 @@ export default function GameIdeaGeneratorPage() {
   };
 
   const handleGenerateIdeas = async () => {
-    if (!isTestingAdmin) {
-      setGenerationError(TEMPORARY_TESTING_LOCK_MESSAGE);
-      return;
-    }
-
     let nextGenreValue = formValues.genre;
 
     if (genreInputValue.trim()) {
@@ -2180,8 +2167,7 @@ export default function GameIdeaGeneratorPage() {
   };
 
   return (
-    <TemporaryAdminOnlyFeatureGate>
-      <section className="space-y-8">
+    <section className="space-y-8">
       <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8">
         <div className="flex items-start gap-4">
           <div className="rounded-2xl border border-blue-500/25 bg-blue-500/10 p-3 text-blue-300">
@@ -2351,7 +2337,7 @@ export default function GameIdeaGeneratorPage() {
         <button
           type="button"
           onClick={handleGenerateIdeas}
-          disabled={isGeneratingIdeas || !isTestingAdmin}
+          disabled={isGeneratingIdeas}
           aria-busy={isGeneratingIdeas}
           className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-blue-600 px-6 py-4 text-sm font-black uppercase tracking-[0.16em] text-white transition hover:bg-blue-500 disabled:cursor-wait disabled:bg-blue-500/80"
         >
@@ -2384,7 +2370,6 @@ export default function GameIdeaGeneratorPage() {
           </article>
         ))}
       </div>
-      </section>
-    </TemporaryAdminOnlyFeatureGate>
+    </section>
   );
 }

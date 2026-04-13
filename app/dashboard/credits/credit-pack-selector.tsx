@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-import { useTestingAdminAccess } from "@/components/testing-admin-access-provider";
 import { StarterCreditPackCheckoutButton } from "./starter-credit-pack-checkout-button";
 
 export type CreditPackOption = {
@@ -27,9 +26,7 @@ function getDefaultSelectedPackId(packOptions: CreditPackOption[]) {
 }
 
 export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
-  const { isTestingAdmin } = useTestingAdminAccess();
   const [selectedPackId, setSelectedPackId] = useState(() => getDefaultSelectedPackId(packOptions));
-  const isPurchaseLocked = !isTestingAdmin;
 
   const selectedPack =
     packOptions.find((packOption) => packOption.id === selectedPackId) ??
@@ -62,7 +59,6 @@ export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
                   isSelected
                     ? "border-blue-500/40 bg-blue-500/10 shadow-[0_0_24px_rgba(59,130,246,0.18)]"
                     : "border-slate-800 bg-slate-950/70 hover:border-blue-500/30 hover:bg-slate-950",
-                  isPurchaseLocked ? "cursor-not-allowed opacity-60" : undefined,
                 ].join(" ")}
               >
                 <div className="flex items-end justify-between gap-4">
@@ -90,7 +86,6 @@ export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
           priceId={selectedPack.priceId}
           packLabel={`${selectedPack.credits} Credits`}
           buttonLabel="Buy Credits"
-          disabled={isPurchaseLocked}
         />
 
         <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">

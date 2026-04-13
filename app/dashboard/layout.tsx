@@ -7,7 +7,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { CreditsBalanceLabel } from "@/components/credits-balance-label";
 import { TestingAdminAccessProvider } from "@/components/testing-admin-access-provider";
 import { hasLaunchPlannerAccess } from "@/lib/billing";
-import { isTestingAdminEmail } from "@/lib/testing-access";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 import {
   LayoutDashboard,
@@ -119,27 +118,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showUpgradeButton, setShowUpgradeButton] = useState(false);
   const header = getHeaderText(pathname);
   const showPageHeader = pathname !== "/dashboard" && pathname !== "/dashboard/library";
-  const isTestingAdmin = isTestingAdminEmail(userEmail);
-  const creditsBadgeClassName = [
-    "inline-flex items-center gap-3 self-start rounded-2xl border px-4 py-3 text-sm font-semibold text-white transition",
-    isTestingAdmin
-      ? "border-blue-500/25 bg-blue-500/10 hover:border-blue-400/40 hover:bg-blue-500/15"
-      : "cursor-not-allowed border-slate-800 bg-slate-900/80 opacity-60",
-  ].join(" ");
+  const creditsBadgeClassName =
+    "inline-flex items-center gap-3 self-start rounded-2xl border border-blue-500/25 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-blue-400/40 hover:bg-blue-500/15";
   const creditsBalanceBadgeContent = (
     <>
       <Coins size={17} className="text-blue-300" />
       <CreditsBalanceLabel className="text-sm font-black tracking-[0.02em] text-white" />
     </>
   );
-  const creditsBalanceBadge = isTestingAdmin ? (
+  const creditsBalanceBadge = (
     <Link href="/dashboard/credits" className={creditsBadgeClassName}>
       {creditsBalanceBadgeContent}
     </Link>
-  ) : (
-    <div aria-disabled="true" className={creditsBadgeClassName}>
-      {creditsBalanceBadgeContent}
-    </div>
   );
 
   useEffect(() => {
@@ -302,7 +292,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               "text-xl font-black italic tracking-tight sm:text-2xl",
               theme === "dark" ? "text-white" : "text-slate-900",
             ].join(" ")}>
-              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">v0.6.6</span>
+              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">v0.6.7</span>
             </div>
           </Link>
           <p className={[
@@ -317,7 +307,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
-            const isCreditsItemLocked = item.href === "/dashboard/credits" && !isTestingAdmin;
 
             if (item.isPrimary) {
               return (
@@ -336,19 +325,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Icon size={17} />
                   <span className="text-sm">{item.label}</span>
                 </Link>
-              );
-            }
-
-            if (isCreditsItemLocked) {
-              return (
-                <div
-                  key={item.href}
-                  aria-disabled="true"
-                  className="flex cursor-not-allowed items-center gap-3 rounded-2xl border border-slate-800 px-3 py-2.5 text-slate-500 opacity-60"
-                >
-                  <Icon size={17} />
-                  <span className="text-sm font-semibold">{item.label}</span>
-                </div>
               );
             }
 

@@ -8,10 +8,6 @@ import {
 } from "@/lib/credits";
 import { getOpenAIClient } from "@/lib/openai";
 import {
-  isTestingAdminEmail,
-  TEMPORARY_TESTING_LOCK_MESSAGE,
-} from "@/lib/testing-access";
-import {
   createClient as createSupabaseServerClient,
   hasSupabaseServerEnv,
 } from "@/utils/supabase/server";
@@ -159,7 +155,7 @@ async function createGameIdeaRouteClient(accessToken?: string | null) {
   );
 }
 
-async function requireGameIdeaGeneratorTestingAccess(accessToken?: string | null) {
+async function requireGameIdeaGeneratorAccess(accessToken?: string | null) {
   if (!hasSupabaseServerEnv) {
     return {
       ok: false as const,
@@ -191,15 +187,6 @@ async function requireGameIdeaGeneratorTestingAccess(accessToken?: string | null
       status: 401,
       error: "Unauthorized.",
       errorCode: "GAME_IDEA_GENERATION_ACCESS_FAILED",
-    };
-  }
-
-  if (!isTestingAdminEmail(user.email)) {
-    return {
-      ok: false as const,
-      status: 403,
-      error: TEMPORARY_TESTING_LOCK_MESSAGE,
-      errorCode: "GAME_IDEA_GENERATION_TESTING_LOCKED",
     };
   }
 
@@ -327,15 +314,15 @@ export async function POST(request: Request) {
   );
 
   try {
-    const testingAccess = await requireGameIdeaGeneratorTestingAccess(accessToken);
+    const access = await requireGameIdeaGeneratorAccess(accessToken);
 
-    if (!testingAccess.ok) {
+    if (!access.ok) {
       return NextResponse.json(
         {
-          error: testingAccess.error,
-          errorCode: testingAccess.errorCode,
+          error: access.error,
+          errorCode: access.errorCode,
         },
-        { status: testingAccess.status }
+        { status: access.status }
       );
     }
 
