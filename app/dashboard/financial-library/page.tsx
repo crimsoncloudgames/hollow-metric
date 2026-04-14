@@ -38,6 +38,7 @@ type DisplayFinancialProject = {
         healthScore: number;
         salesTargetPressure: string;
         costStructureSignal: string;
+        insights: string[];
       }
     | null;
   postLaunchActuals:
@@ -110,6 +111,67 @@ function getClearProjectErrorMessage(status: number | null, message: string): st
   return message.trim() || "We couldn't clear the saved project right now. Please try again.";
 }
 
+const PLANNING_REVIEW_IMPROVEMENT_REGEX = /roughly (\d+)% improvement/i;
+
+function getPlanningReviewImprovementPercent(insights: string[]): number | null {
+  const matchingInsight = insights.find((insight) => PLANNING_REVIEW_IMPROVEMENT_REGEX.test(insight));
+
+  if (!matchingInsight) {
+    return null;
+  }
+
+  const match = matchingInsight.match(PLANNING_REVIEW_IMPROVEMENT_REGEX);
+  return match?.[1] ? Number.parseInt(match[1], 10) : null;
+}
+
+function getBudgetHealthSummary(review: NonNullable<DisplayFinancialProject["planningReview"]>): string {
+  const improvementPercent = getPlanningReviewImprovementPercent(review.insights);
+
+  if (improvementPercent !== null) {
+    return `Adjust your pricing to improve budget health and reduce the break-even target by approximately ${improvementPercent}%.`;
+  }
+
+  if (review.healthScore < 60) {
+    return "Review pricing and costs to improve budget consistency before launch.";
+  }
+
+  if (review.healthScore < 75) {
+    return "Your plan is workable, but tighter pricing or cost discipline could improve consistency.";
+  }
+
+  return "Your pricing and cost assumptions are supporting a relatively stable launch plan.";
+}
+
+function getSalesTargetPressureSummary(review: NonNullable<DisplayFinancialProject["planningReview"]>): string {
+  switch (review.salesTargetPressure) {
+    case "Lighter":
+      return "Your sales target looks relatively manageable on paper.";
+    case "Moderate":
+      return "Your sales target is achievable but demands careful planning.";
+    case "Heavy":
+      return "Your current target will require strong sales execution to stay on track.";
+    case "Very Heavy":
+      return "Your current target creates significant sales pressure and increases launch risk.";
+    default:
+      return "Review the break-even target closely before committing to this plan.";
+  }
+}
+
+function getCostStructureSummary(review: NonNullable<DisplayFinancialProject["planningReview"]>): string {
+  switch (review.costStructureSignal) {
+    case "Balanced":
+      return "Your budget is distributed well across key categories.";
+    case "Needs Review":
+      return "Review the largest categories to improve overall budget efficiency.";
+    case "Aggressive":
+      return "A few categories are carrying too much of the budget and should be rebalanced.";
+    case "Uneven":
+      return "Distribute your budget more evenly across key categories to improve efficiency.";
+    default:
+      return "Review how your budget is distributed across the main cost categories.";
+  }
+}
+
 function normalizeProjectForDisplay(project: FinancialProject): DisplayFinancialProject {
   const expenses = Array.isArray(project.expenses)
     ? project.expenses
@@ -146,6 +208,12 @@ function normalizeProjectForDisplay(project: FinancialProject): DisplayFinancial
           project.planningReview.costStructureSignal.trim()
             ? project.planningReview.costStructureSignal
             : "Unavailable",
+        insights: Array.isArray(project.planningReview.insights)
+          ? project.planningReview.insights
+              .filter((insight): insight is string => typeof insight === "string")
+              .map((insight) => insight.trim())
+              .filter(Boolean)
+          : [],
       }
     : null;
 
@@ -610,9 +678,15 @@ export default function FinancialLibraryPage() {
                       {project.planningReview && (
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
                           <p className="text-[11px] text-slate-500">Planning review summary</p>
-                          <p className="mt-2 text-sm text-slate-300">Budget health score: {project.planningReview.healthScore}/100</p>
-                          <p className="text-sm text-slate-300">Sales target pressure: {project.planningReview.salesTargetPressure}</p>
-                          <p className="text-sm text-slate-300">Cost structure signal: {project.planningReview.costStructureSignal}</p>
+                          <p className="mt-2 text-sm text-slate-300">
+                            Budget health score: {project.planningReview.healthScore}/100 - {getBudgetHealthSummary(project.planningReview)}
+                          </p>
+                          <p className="text-sm text-slate-300">
+                            Sales target pressure: {project.planningReview.salesTargetPressure} - {getSalesTargetPressureSummary(project.planningReview)}
+                          </p>
+                          <p className="text-sm text-slate-300">
+                            Cost structure signal: {project.planningReview.costStructureSignal} - {getCostStructureSummary(project.planningReview)}
+                          </p>
                         </div>
                       )}
 

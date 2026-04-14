@@ -3,7 +3,7 @@ import LandingPage from "./landing/page";
 
 const PUBLIC_TITLE = "Hollow Metric | Launch planning for indie game developers";
 const PUBLIC_DESCRIPTION =
-  "Launch planning, break-even modeling, and AI-assisted game concept shaping for indie developers making launch and product decisions.";
+  "Launch planning, break-even modeling, and pricing analysis for indie developers making launch decisions.";
 const PUBLIC_URL = "https://www.hollowmetric.com/";
 const PUBLIC_IMAGE_URL = "https://www.hollowmetric.com/og/hollowmetric-preview.png";
 

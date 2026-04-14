@@ -143,6 +143,71 @@ const deriveBudgetStatus = (review: PlanningReview): string => {
   return "Needs review";
 };
 
+const PLANNING_REVIEW_IMPROVEMENT_REGEX = /roughly (\d+)% improvement/i;
+
+const getPlanningReviewImprovementPercent = (
+  review: PlanningReview
+): number | null => {
+  const matchingInsight = review.insights.find((insight) =>
+    PLANNING_REVIEW_IMPROVEMENT_REGEX.test(insight)
+  );
+
+  if (!matchingInsight) {
+    return null;
+  }
+
+  const match = matchingInsight.match(PLANNING_REVIEW_IMPROVEMENT_REGEX);
+  return match?.[1] ? Number.parseInt(match[1], 10) : null;
+};
+
+const getBudgetHealthSummary = (review: PlanningReview): string => {
+  const improvementPercent = getPlanningReviewImprovementPercent(review);
+
+  if (improvementPercent !== null) {
+    return `Adjust your pricing to improve budget health and reduce the break-even target by approximately ${improvementPercent}%.`;
+  }
+
+  if (review.healthScore < 60) {
+    return "Review pricing and costs to improve budget consistency before launch.";
+  }
+
+  if (review.healthScore < 75) {
+    return "Your plan is workable, but tighter pricing or cost discipline could improve consistency.";
+  }
+
+  return "Your pricing and cost assumptions are supporting a relatively stable launch plan.";
+};
+
+const getSalesTargetPressureSummary = (review: PlanningReview): string => {
+  switch (review.targetPressure) {
+    case "Lighter":
+      return "Your sales target looks relatively manageable on paper.";
+    case "Moderate":
+      return "Your sales target is achievable but demands careful planning.";
+    case "Heavy":
+      return "Your current target will require strong sales execution to stay on track.";
+    case "Very Heavy":
+      return "Your current target creates significant sales pressure and increases launch risk.";
+    default:
+      return "Review the break-even target closely before committing to this plan.";
+  }
+};
+
+const getCostStructureSummary = (review: PlanningReview): string => {
+  switch (review.costSignal) {
+    case "Balanced":
+      return "Your budget is distributed well across key categories.";
+    case "Needs Review":
+      return "Review the largest categories to improve overall budget efficiency.";
+    case "Aggressive":
+      return "A few categories are carrying too much of the budget and should be rebalanced.";
+    case "Uneven":
+      return "Distribute your budget more evenly across key categories to improve efficiency.";
+    default:
+      return "Review how your budget is distributed across the main cost categories.";
+  }
+};
+
 const sanitizeStoredText = (value: unknown, fallback: string): string =>
   typeof value === "string" ? value : fallback;
 
@@ -1306,8 +1371,8 @@ export default function LaunchBudgetPage() {
               {calculations.planningReview.healthScore}
             </p>
             <p className="text-xs text-emerald-200/60 mt-2">out of 100</p>
-            <p className="text-xs text-emerald-200/40 mt-3">
-              Internal consistency of budget and price targets
+            <p className="mt-3 text-xs leading-5 text-emerald-200/60">
+              {getBudgetHealthSummary(calculations.planningReview)}
             </p>
           </div>
 
@@ -1318,8 +1383,8 @@ export default function LaunchBudgetPage() {
             <p className="text-3xl font-black text-amber-400">
               {calculations.planningReview.targetPressure}
             </p>
-            <p className="text-xs text-amber-200/60 mt-3">
-              How demanding the break-even target looks on paper
+            <p className="mt-3 text-xs leading-5 text-amber-200/60">
+              {getSalesTargetPressureSummary(calculations.planningReview)}
             </p>
           </div>
 
@@ -1330,8 +1395,8 @@ export default function LaunchBudgetPage() {
             <p className="text-2xl font-black text-blue-400">
               {calculations.planningReview.costSignal}
             </p>
-            <p className="text-xs text-blue-200/60 mt-3">
-              Budget distribution across categories
+            <p className="mt-3 text-xs leading-5 text-blue-200/60">
+              {getCostStructureSummary(calculations.planningReview)}
             </p>
           </div>
         </div>

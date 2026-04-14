@@ -5,53 +5,47 @@ import Link from "next/link";
 import { useEffect } from "react";
 
 const landingScreenshots = {
-  gameIdeaGeneratorInputs: {
-    src: "/images/landing/game-idea-generator-inputs.png",
-    alt: "Hollow Metric Game Idea Generator inputs screen showing structured fields for genre, mechanics, setting, mood, twist, hook, and other concept inputs.",
-    width: 2091,
-    height: 1282,
-  },
-  gameIdeaGeneratorResults: {
-    src: "/images/landing/game-idea-generator-results.png",
-    alt: "Hollow Metric Game Idea Generator results screen showing two generated game ideas with positioning summaries.",
-    width: 2127,
-    height: 551,
+  breakEvenCost: {
+    src: "/images/break-even-cost.png",
+    alt: "Hollow Metric break-even cost inputs showing planned launch costs and pricing assumptions.",
+    width: 2106,
+    height: 625,
   },
   breakEvenResults: {
-    src: "/images/landing/break-even-results.png",
-    alt: "Hollow Metric break-even results screen comparing launch price points, estimated net revenue per copy, and rough break-even copies needed.",
-    width: 2131,
-    height: 543,
+    src: "/images/break-even-results.png",
+    alt: "Hollow Metric break-even results screen comparing price points, net revenue per copy, and rough break-even copies needed.",
+    width: 2065,
+    height: 518,
+  },
+  breakEvenReview: {
+    src: "/images/break-even-review.png",
+    alt: "Hollow Metric break-even planning review showing budget health score, sales target pressure, and cost structure signal.",
+    width: 2066,
+    height: 496,
   },
 };
 
-const valueBlocks = [
+const launchPlanningCards = [
   {
-    title: "Model your launch budget",
-    body: "Plan art, audio, contractors, marketing, QA, and other costs in one place.",
+    eyebrow: "Break-Even Cost",
+    title: "Add Your Own Inputs to See How Much It Costs to Make Your Game",
+    body: "Enter your expenses below to calculate your total planned spend and understand how it affects your break-even target.",
+    cta: "Add Your Expenses",
+    screenshot: landingScreenshots.breakEvenCost,
   },
   {
-    title: "Stress-test break-even",
-    body: "Test different price points and see how many copies you need to sell.",
+    eyebrow: "Price Point Selection",
+    title: "Choose Your Price Points and See How Many Copies You Need to Sell to Break Even",
+    body: "Set your desired price points and see the estimated number of copies needed to break even for each price point.",
+    cta: "Start Setting Price Points",
+    screenshot: landingScreenshots.breakEvenResults,
   },
   {
-    title: "Catch risky decisions earlier",
-    body: "Find out where your budget or pricing may be setting you up to fail.",
-  },
-];
-
-const ideaGeneratorBenefits = [
-  {
-    title: "Start from a rough idea",
-    body: "Bring a mechanic, hook, genre, setting, or mood and turn it into something more usable.",
-  },
-  {
-    title: "Generate distinct directions",
-    body: "Create multiple concept angles from one starting point so you can compare what feels stronger.",
-  },
-  {
-    title: "Keep decisions in one workflow",
-    body: "Take the stronger idea straight into the same product where you model price, budget, and break-even risk.",
+    eyebrow: "Planning Review",
+    title: "Gain Insight on Your Current Budget",
+    body: "Review budget health, sales target pressure, and cost structure signals to improve your planning decisions.",
+    cta: "Review My Budget",
+    screenshot: landingScreenshots.breakEvenReview,
   },
 ];
 
@@ -88,15 +82,9 @@ const faqs = [
     answer:
       "Yes. You can start free or upgrade to Launch Planner when you want saved projects, dashboard access, and a more serious planning workflow.",
   },
-  {
-    question: "Why charge credits for something and a subscription?",
-    answer:
-      "Launch Planner covers Hollow Metric's core planning workflow. AI features like the Game Idea Generator use credits because each run has a real per-use API cost. Launch Planner also includes 1 credit so you can test the flow.",
-  },
 ];
 
-const primaryFaqs = faqs.slice(0, 4);
-const pricingFaq = faqs[4] ?? null;
+const primaryFaqs = faqs;
 
 export default function LandingPage() {
   useEffect(() => {
@@ -159,13 +147,13 @@ export default function LandingPage() {
           <div className="mx-auto max-w-[100rem]">
             <div className="mx-auto max-w-[92rem]">
             <p className="mx-auto inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-blue-300">
-              Launch planning and concept shaping for indie game developers
+              Launch planning and break-even modeling for indie game developers
             </p>
             <h1 className="hero-glow mx-auto mt-5 max-w-[84rem] text-4xl font-black leading-[1.04] tracking-[-0.02em] text-white sm:text-5xl lg:text-[4rem] xl:text-[4.7rem] 2xl:text-[5.15rem]">
-              Plan your launch, test your break-even, and shape a stronger game idea.
+              Know Exactly How Many Copies You Need to Sell to Break Even
             </h1>
             <p className="mx-auto mt-5 max-w-[68rem] text-base leading-8 text-slate-300 sm:text-lg">
-              Model launch costs, compare break-even scenarios, and turn a rough concept into a clearer game direction before you spend more money.
+              Plan your launch, model pricing, and avoid costly financial mistakes.
             </p>
 
             <div className="mt-8 flex items-center justify-center">
@@ -173,35 +161,13 @@ export default function LandingPage() {
                 href="/signup"
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-7 py-4 text-sm font-bold text-white transition hover:bg-blue-500 sm:w-auto"
               >
-                Start Free
+                Get Your Free Break-Even Model
               </Link>
             </div>
             <p className="mt-3 text-center text-xs text-slate-500">
               Start free. Upgrade later for saved projects and dashboard access.
             </p>
           </div>
-
-          <article className="mx-auto mt-10 max-w-[90rem] rounded-[2rem] border border-slate-800 bg-slate-900/70 p-3 text-left shadow-[0_0_36px_rgba(15,23,42,0.35)] backdrop-blur-xl sm:p-4">
-            <div className="px-2 pb-4 pt-2 sm:px-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Real Product View</p>
-              <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">Build a game idea from real inputs, not a vague prompt box.</h2>
-              <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300 sm:text-base">
-                Shape a direction with structured inputs for genre, player action, mechanics, features, setting, mood, twist, hook, audience angle, and perspective.
-              </p>
-            </div>
-
-            <div className="overflow-hidden rounded-[1.5rem] border border-slate-800 bg-slate-950">
-              <Image
-                src={landingScreenshots.gameIdeaGeneratorInputs.src}
-                alt={landingScreenshots.gameIdeaGeneratorInputs.alt}
-                width={landingScreenshots.gameIdeaGeneratorInputs.width}
-                height={landingScreenshots.gameIdeaGeneratorInputs.height}
-                priority
-                sizes="(min-width: 1280px) 1152px, (min-width: 768px) 92vw, 96vw"
-                className="h-auto w-full"
-              />
-            </div>
-          </article>
 
           </div>
 
@@ -212,65 +178,42 @@ export default function LandingPage() {
         <section className="fade-in relative left-1/2 w-screen max-w-[96rem] -translate-x-1/2 border-t border-slate-800/60 px-4 py-10 sm:px-6 lg:px-8 xl:px-10">
           <div className="mx-auto max-w-[88rem] text-left">
             <div className="max-w-4xl">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">AI Game Idea Generator</p>
-              <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl lg:text-[2.85rem]">See the output quality before you even sign up.</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Launch Planning Workflow</p>
+              <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl lg:text-[2.85rem]">Work through costs, price points, and planning review in one flow.</h2>
               <p className="mt-4 max-w-[62rem] text-sm leading-7 text-slate-300 sm:text-base lg:text-[1.05rem]">
-                Generate two distinct concept directions from one starting point, compare what feels stronger, and use that direction inside the same product you use for launch planning.
+                Move from expense inputs to price-point testing to planning review so you can see how each decision shapes your break-even target.
               </p>
             </div>
 
-            <article className="mt-6 rounded-[2rem] border border-blue-600/25 bg-slate-900/70 p-3 shadow-[0_0_36px_rgba(37,99,235,0.12)] backdrop-blur-xl sm:p-4 lg:p-5">
-              <div className="overflow-hidden rounded-[1.5rem] border border-slate-800 bg-slate-950">
-                <Image
-                  src={landingScreenshots.gameIdeaGeneratorResults.src}
-                  alt={landingScreenshots.gameIdeaGeneratorResults.alt}
-                  width={landingScreenshots.gameIdeaGeneratorResults.width}
-                  height={landingScreenshots.gameIdeaGeneratorResults.height}
-                  sizes="(min-width: 1536px) 1408px, (min-width: 1280px) 1344px, (min-width: 768px) 92vw, 96vw"
-                  className="h-auto w-full"
-                />
-              </div>
-            </article>
+            <div className="mt-6 space-y-6">
+              {launchPlanningCards.map((card) => (
+                <article key={card.title} className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6 shadow-[0_0_36px_rgba(15,23,42,0.24)] backdrop-blur-xl lg:p-7">
+                  <div className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)] lg:items-center">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">{card.eyebrow}</p>
+                      <h3 className="mt-3 text-2xl font-black text-white sm:text-3xl">{card.title}</h3>
+                      <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">{card.body}</p>
+                      <div className="mt-6 flex items-center">
+                        <Link
+                          href="/signup"
+                          className="inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
+                        >
+                          {card.cta}
+                        </Link>
+                      </div>
+                    </div>
 
-            <div className="mt-6 grid gap-4 text-left md:grid-cols-3">
-              {ideaGeneratorBenefits.map((item) => (
-                <article key={item.title} className="rounded-3xl border border-slate-800 bg-slate-900/60 p-5 lg:p-6">
-                  <h3 className="text-lg font-black text-white lg:text-[1.7rem] lg:leading-[1.15]">{item.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-slate-300 lg:text-[1.02rem]">{item.body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="fade-in relative left-1/2 w-screen max-w-[96rem] -translate-x-1/2 border-t border-slate-800/60 px-4 py-10 sm:px-6 lg:px-8 xl:px-10">
-          <div className="mx-auto max-w-[88rem] text-left">
-            <div className="max-w-4xl">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Launch Planning Proof</p>
-              <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl lg:text-[2.85rem]">See break-even results you can actually use.</h2>
-              <p className="mt-4 max-w-[62rem] text-sm leading-7 text-slate-300 sm:text-base lg:text-[1.05rem]">
-                Compare price points, estimated revenue per copy, and break-even targets before weak assumptions turn into expensive decisions.
-              </p>
-            </div>
-
-            <article className="mt-6 rounded-[2rem] border border-blue-600/25 bg-slate-900/70 p-3 shadow-[0_0_36px_rgba(37,99,235,0.12)] backdrop-blur-xl sm:p-4 lg:p-5">
-              <div className="overflow-hidden rounded-[1.5rem] border border-slate-800 bg-slate-950">
-                <Image
-                  src={landingScreenshots.breakEvenResults.src}
-                  alt={landingScreenshots.breakEvenResults.alt}
-                  width={landingScreenshots.breakEvenResults.width}
-                  height={landingScreenshots.breakEvenResults.height}
-                  sizes="(min-width: 1536px) 1408px, (min-width: 1280px) 1344px, (min-width: 768px) 92vw, 96vw"
-                  className="h-auto w-full"
-                />
-              </div>
-            </article>
-
-            <div className="mt-6 grid gap-4 text-left md:grid-cols-3">
-              {valueBlocks.map((item) => (
-                <article key={item.title} className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-                  <p className="text-lg font-black text-white">{item.title}</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-300">{item.body}</p>
+                    <div className="overflow-hidden rounded-[1.5rem] border border-slate-800 bg-slate-950">
+                      <Image
+                        src={card.screenshot.src}
+                        alt={card.screenshot.alt}
+                        width={card.screenshot.width}
+                        height={card.screenshot.height}
+                        sizes="(min-width: 1280px) 46vw, (min-width: 768px) 92vw, 96vw"
+                        className="h-auto w-full"
+                      />
+                    </div>
+                  </div>
                 </article>
               ))}
             </div>
@@ -319,38 +262,38 @@ export default function LandingPage() {
               ))}
             </div>
 
-            {pricingFaq ? (
-              <article className="mt-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-                <h3 className="text-base font-black text-white">{pricingFaq.question}</h3>
-                <p className="mt-2 text-sm leading-7 text-slate-400">{pricingFaq.answer}</p>
-              </article>
-            ) : null}
           </div>
         </section>
 
         <section className="fade-in py-10">
           <div className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.22),rgba(15,23,42,0.92))] p-10 text-center shadow-2xl">
             <h2 className="mx-auto max-w-2xl text-3xl font-black text-white sm:text-4xl">
-              Create your account and start making clearer launch decisions.
+              Get Started for Free
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-slate-200">
-              Test your break-even, shape a stronger game idea, and move forward with a plan you can actually use.
+              Test your break-even model before upgrading. No risk, just insights.
             </p>
-            <div className="mt-8 flex justify-center">
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link
                 href="/signup"
                 className="rounded-full bg-blue-600 px-8 py-3 font-bold text-white transition hover:bg-blue-500"
               >
-                Create Free Account
+                Start Planning Your Launch Now
+              </Link>
+              <Link
+                href="/signup"
+                className="rounded-full border border-blue-500 px-8 py-3 font-bold text-blue-200 transition hover:border-blue-400 hover:text-white"
+              >
+                Test Your Game&apos;s Profitability for Free
               </Link>
             </div>
             <p className="mx-auto mt-4 max-w-2xl text-xs leading-6 text-slate-300">
-              Launch Planner includes 1 credit so you can test the Game Idea Generator flow.
+              Sign up for free and upgrade when you want saved projects and a more serious planning workflow.
             </p>
           </div>
         </section>
 
-        <p className="fade-in mt-0 pb-6 pt-0 text-center text-xs text-slate-500">Hollow Metric helps indie developers and small teams plan launch budgets, pressure-test break-even risk, and shape clearer game concepts.</p>
+        <p className="fade-in mt-0 pb-6 pt-0 text-center text-xs text-slate-500">Hollow Metric helps indie developers and small teams plan launch budgets and pressure-test break-even risk.</p>
 
         <footer className="fade-in border-t border-slate-800 py-10 text-sm text-slate-400">
           <div className="grid gap-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
@@ -362,7 +305,7 @@ export default function LandingPage() {
                 </p>
               </div>
               <p className="mt-3 max-w-md leading-7">
-                Hollow Metric helps indie developers and small teams plan launch budgets, test break-even decisions, and shape clearer game concepts.
+                Hollow Metric helps indie developers and small teams plan launch budgets and test break-even decisions.
               </p>
             </div>
             <div>
@@ -421,4 +364,3 @@ export default function LandingPage() {
     </main>
   );
 }
-
