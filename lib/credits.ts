@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { normalizeCreditsBalance } from "@/lib/credits-ui";
+import { requireVerifiedUser } from "@/lib/verified-user";
 import { createClient as createServerClient, hasSupabaseServerEnv } from "@/utils/supabase/server";
 
 export const STEAM_TAG_TOOL_CREDIT_COST = 1;
@@ -98,27 +99,24 @@ async function requireCredits(
     };
   }
 
-  const {
-    data: { user },
-    error: authError,
-  } = authContext?.accessToken
-    ? await supabase.auth.getUser(authContext.accessToken)
-    : await supabase.auth.getUser();
+  const authResult = await requireVerifiedUser(supabase, authContext?.accessToken);
 
-  if (authError || !user) {
+  if (!authResult.ok) {
     logCreditsDebug("Credits gate auth", {
       source: authContext?.source ?? "unknown",
       authSource: authContext?.accessToken ? "authorization-header" : "cookies",
-      userId: user?.id ?? null,
-      authError: authError?.message ?? null,
+      authError: authResult.authErrorMessage ?? null,
+      status: authResult.status,
     });
 
     return {
       ok: false,
-      status: 401,
-      error: "Unauthorized.",
+      status: authResult.status,
+      error: authResult.error,
     };
   }
+
+  const { user } = authResult;
 
   const { data, error } = await supabase
     .from("user_credits")

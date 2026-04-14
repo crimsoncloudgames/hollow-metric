@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/middleware";
 import { COOKIE_NAMES } from "@/lib/cookie-consent";
+import { isSupabaseUserEmailVerified } from "@/lib/verified-user";
 
 const NOINDEX_HEADER_VALUE = "noindex, nofollow";
 
@@ -64,8 +65,9 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const hasVerifiedDashboardAccess = Boolean(user && isSupabaseUserEmailVerified(user));
 
-  if (!user && isDashboardRoute) {
+  if (!hasVerifiedDashboardAccess && isDashboardRoute) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", getSafeRedirectPath(`${pathname}${request.nextUrl.search}`));
     return applyNoIndexHeader(NextResponse.redirect(loginUrl));

@@ -16,20 +16,20 @@ const plans: PricingPlan[] = [
     name: "Starter",
     price: "$0",
     featured: false,
-    description: "Start planning your launch and pressure-test the basics before you commit more money.",
+    description: "Test your launch budget, price points, and break-even basics before you commit more money.",
     ctaHref: "/signup",
     ctaLabel: "Start Free",
     features: [
       "Core budget and break-even tools",
       "Quick way to test a price point",
-      "A simple starting point for first-pass planning",
-      "No saved projects or dashboard history yet",
+      "Good for first-pass launch planning",
+      "No saved projects or dashboard history",
     ],
   },
   {
     name: "Launch Planner",
     price: "$12/mo",
-    description: "Save work, track assumptions, and make clearer launch decisions in one place.",
+    description: "Save your work, compare planning scenarios, and make clearer launch decisions in one place.",
     featured: true,
     ctaHref: "/signup",
     ctaLabel: "Choose Launch Planner",
@@ -37,25 +37,25 @@ const plans: PricingPlan[] = [
       "Extra AI-powered usage uses credits only when you choose to use it.",
     features: [
       "Save and revisit launch plans",
-      "Keep budget, pricing, and project assumptions organized",
+      "Keep budget, pricing, and assumptions organized",
       "Use dashboard tools for a more serious planning workflow",
-      "1 included credit to test the AI Game Idea Generator",
+      "Includes 1 credit to try the Game Idea Generator",
     ],
   },
 ];
 
 const upgradeReasons = [
   {
-    title: "Save the work worth revisiting",
-    body: "Keep launch assumptions, pricing ideas, and project planning in one place instead of rebuilding them every time.",
+    title: "Save work worth revisiting",
+    body: "Keep launch assumptions, price tests, and budget plans in one place instead of rebuilding them every time.",
   },
   {
-    title: "Compare decisions more seriously",
-    body: "Use Hollow Metric when you are moving past rough estimates and need clearer tradeoffs around budget, pricing, and launch risk.",
+    title: "Compare launch decisions more seriously",
+    body: "Track tradeoffs across budget, pricing, and break-even so you can make stronger launch decisions with less guesswork.",
   },
   {
-    title: "Keep planning and idea work connected",
-    body: "Launch planning and the Game Idea Generator live inside the same product, so your concept direction does not drift away from your launch reality.",
+    title: "Keep planning organized as your project grows",
+    body: "Use Launch Planner when your launch plan is becoming more real and you need better structure than a one-off estimate.",
   },
 ];
 
@@ -72,9 +72,9 @@ export default function PricingPage() {
         </div>
 
         <div className="mb-12 max-w-4xl">
-          <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Pricing</p>
-          <h1 className="mb-4 text-4xl font-black text-white">Start free, then upgrade when you want clearer launch and concept decisions.</h1>
-          <p className="text-lg leading-8 text-slate-400">Hollow Metric helps indie developers model launch budget, pressure-test break-even numbers, and shape rough ideas into clearer directions. Start with Starter, then move to Launch Planner when you want saved work, better tracking, and a more serious workflow.</p>
+          <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">PRICING</p>
+          <h1 className="mb-4 text-4xl font-black text-white">Start free, then upgrade when you need a more serious launch planning workflow.</h1>
+          <p className="text-lg leading-8 text-slate-400">Use Starter to test budget, pricing, and break-even basics. Upgrade to Launch Planner when you want saved projects, clearer tracking, and stronger launch decisions in one place.</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
@@ -127,10 +127,10 @@ export default function PricingPage() {
         </div>
 
         <section className="mt-10 rounded-[2rem] border border-slate-800 bg-slate-900/60 p-8">
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Why Upgrade</p>
-          <h2 className="mt-3 text-3xl font-black text-white">Launch Planner is for developers who want to keep moving after the first rough estimate.</h2>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">WHY UPGRADE</p>
+          <h2 className="mt-3 text-3xl font-black text-white">Launch Planner is for developers who want to move beyond rough estimates and plan with more confidence.</h2>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
-            Starter is the easiest way to get your first numbers. Launch Planner is for the moment you want saved work, a clearer dashboard workflow, and stronger decision-making around launch and concept direction.
+            Starter helps you get your first numbers. Launch Planner is for saving work, comparing scenarios more seriously, and making clearer decisions around budget, pricing, and launch risk.
           </p>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">

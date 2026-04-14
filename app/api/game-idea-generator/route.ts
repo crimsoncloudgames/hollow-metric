@@ -7,6 +7,7 @@ import {
   requireGameIdeaGeneratorCredits,
 } from "@/lib/credits";
 import { getOpenAIClient } from "@/lib/openai";
+import { requireVerifiedUser } from "@/lib/verified-user";
 import {
   createClient as createSupabaseServerClient,
   hasSupabaseServerEnv,
@@ -176,16 +177,13 @@ async function requireGameIdeaGeneratorAccess(accessToken?: string | null) {
     };
   }
 
-  const {
-    data: { user },
-    error: authError,
-  } = accessToken ? await supabase.auth.getUser(accessToken) : await supabase.auth.getUser();
+  const authResult = await requireVerifiedUser(supabase, accessToken);
 
-  if (authError || !user) {
+  if (!authResult.ok) {
     return {
       ok: false as const,
-      status: 401,
-      error: "Unauthorized.",
+      status: authResult.status,
+      error: authResult.error,
       errorCode: "GAME_IDEA_GENERATION_ACCESS_FAILED",
     };
   }

@@ -44,10 +44,7 @@ type SteamPageModeResponse = {
   weakTags: string[];
   reviewTags: string[];
   recommendation: string;
-};
-
-type SteamPageDeductionResponse = {
-  remainingCredits: number;
+  remainingCredits?: number;
 };
 
 type SteamTagBucketKey = "goodTags" | "suggestedTags" | "weakTags" | "reviewTags";
@@ -160,7 +157,6 @@ const placeholderRecommendation =
   "The recommendation tab will summarize the strongest genre, mechanic, and setting signals, and call out any extra details worth confirming once a result is generated.";
 const placeholderSteamDescription =
   "This card will show the detected Steam page title, capsule image, and short description.";
-const steamPageDeductionFailedMessage = "Tag generation succeeded, but credit deduction failed.";
 
 const steamPreviewBuckets: Record<SteamTagBucketKey, string[]> = {
   goodTags: ["Action", "Adventure", "Puzzle"],
@@ -286,15 +282,8 @@ function isSteamPageModeResponse(value: unknown): value is SteamPageModeResponse
     areStringArrays(record.suggestedTags) &&
     areStringArrays(record.weakTags) &&
     areStringArrays(record.reviewTags) &&
-    typeof record.recommendation === "string"
-  );
-}
-
-function isSteamPageDeductionResponse(value: unknown): value is SteamPageDeductionResponse {
-  return (
-    Boolean(value) &&
-    typeof value === "object" &&
-    typeof (value as { remainingCredits?: unknown }).remainingCredits === "number"
+    typeof record.recommendation === "string" &&
+    (record.remainingCredits === undefined || typeof record.remainingCredits === "number")
   );
 }
 
@@ -528,6 +517,10 @@ export default function SteamTagToolPage() {
         weakTags: responseBody.weakTags,
         reviewTags: responseBody.reviewTags,
         recommendation: responseBody.recommendation.trim(),
+        remainingCredits:
+          typeof responseBody.remainingCredits === "number"
+            ? responseBody.remainingCredits
+            : undefined,
       };
 
       if (!hasCompleteSteamPageModeResult(completeSteamResult)) {
@@ -538,36 +531,8 @@ export default function SteamTagToolPage() {
       setHasFreshSteamSuccess(true);
       setResultTab("tags");
 
-      try {
-        const deductionResponse = await fetch("/api/steam-tag-tool/steam-page/deduct", {
-          method: "POST",
-          credentials: "include",
-          headers,
-        });
-
-        const deductionBody = (await deductionResponse.json()) as unknown;
-
-        if (!deductionResponse.ok) {
-          const message =
-            deductionBody &&
-            typeof deductionBody === "object" &&
-            typeof (deductionBody as { error?: unknown }).error === "string"
-              ? (deductionBody as { error: string }).error
-              : steamPageDeductionFailedMessage;
-
-          setSteamError(message);
-          return;
-        }
-
-        if (!isSteamPageDeductionResponse(deductionBody)) {
-          setSteamError(steamPageDeductionFailedMessage);
-          return;
-        }
-
-        dispatchCreditsBalanceUpdated({ balance: deductionBody.remainingCredits });
-      } catch {
-        setSteamError(steamPageDeductionFailedMessage);
-        return;
+      if (typeof completeSteamResult.remainingCredits === "number") {
+        dispatchCreditsBalanceUpdated({ balance: completeSteamResult.remainingCredits });
       }
     } catch (error) {
       setSteamError(getErrorMessage(error));

@@ -35,8 +35,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO(security): RLS policies must enforce per-user report access in the database.
-    // TODO(security): Never rely on client-provided project names without user-bound filtering.
     // First, try to delete with project_name filter
     let deleteQuery = supabase
       .from("reports")

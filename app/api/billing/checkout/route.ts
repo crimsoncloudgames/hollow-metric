@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { requireVerifiedUser } from "@/lib/verified-user";
 import { createClient as createServerClient } from "@/utils/supabase/server";
 
 export const runtime = "nodejs";
@@ -49,14 +50,13 @@ export async function POST() {
     return NextResponse.json({ error: "Supabase configuration error." }, { status: 500 });
   }
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const authResult = await requireVerifiedUser(supabase);
 
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status });
   }
+
+  const { user } = authResult;
 
   const priceId = getProSubscriptionPriceId();
   if (!priceId) {

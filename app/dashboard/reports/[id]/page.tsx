@@ -54,10 +54,25 @@ export default function ReportDetailPage() {
         return;
       }
 
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (!mounted) return;
+
+      if (authError || !user) {
+        setError(authError?.message ?? "Unauthorized");
+        setReport(null);
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error: queryError } = await supabase
         .from("reports")
         .select("id, game_name, vaporscore, report_json, created_at")
         .eq("id", reportId)
+        .eq("user_id", user.id)
         .single();
 
       if (!mounted) return;

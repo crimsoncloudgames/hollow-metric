@@ -10,8 +10,8 @@ const resourceThemes = [
     body: "Compare pricing scenarios and see how scope or spend changes reset the number of copies you need to sell.",
   },
   {
-    title: "Shape ideas before scope hardens",
-    body: "Use the Game Idea Generator when a concept is still loose, then bring the stronger direction back into launch planning and pricing decisions.",
+    title: "Spot launch risk before it gets expensive",
+    body: "Use Hollow Metric to catch weak assumptions early so budget, pricing, and scope do not quietly push your break-even target higher.",
   },
 ];
 
@@ -22,7 +22,7 @@ const guides = [
   },
   {
     title: "Compare multiple paths, not one guess",
-    body: "Good planning comes from testing more than one price, budget, or concept direction before you lock a path.",
+    body: "Good planning comes from testing more than one price point, budget scenario, or launch path before you lock one in.",
   },
   {
     title: "Build around indie reality",
@@ -43,9 +43,9 @@ export default function ResourcesPage() {
         </div>
 
         <div className="mb-12 max-w-3xl">
-          <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Resources</p>
-          <h1 className="mb-4 text-4xl font-black text-white">Practical guidance for indie developers making launch and concept decisions.</h1>
-          <p className="text-lg leading-8 text-slate-400">Use this page to think more clearly about launch budget, break-even pressure, pricing tradeoffs, and when a rough game idea needs more shape before you keep building.</p>
+          <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">RESOURCES</p>
+          <h1 className="mb-4 text-4xl font-black text-white">Practical guidance for indie developers making launch planning decisions.</h1>
+          <p className="text-lg leading-8 text-slate-400">Use this page to think more clearly about launch budget, break-even pressure, pricing tradeoffs, and the risks that shape a real launch plan.</p>
         </div>
 
         <div className="mb-12">
@@ -73,10 +73,10 @@ export default function ResourcesPage() {
         </div>
 
         <section className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.18),rgba(15,23,42,0.92))] p-8 text-center shadow-[0_0_32px_rgba(37,99,235,0.12)]">
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Use The Product</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">USE THE PRODUCT</p>
           <h2 className="mt-3 text-3xl font-black text-white">Move from reading about launch decisions to testing your own.</h2>
           <p className="mx-auto mt-4 max-w-3xl text-sm leading-7 text-slate-200 sm:text-base">
-            Use Hollow Metric to model budget, pressure-test break-even, and shape clearer game directions in one place. Launch Planner also includes 1 credit so you can test the Game Idea Generator flow.
+            Use Hollow Metric to model budget, pressure-test break-even, and compare launch scenarios in one place. Launch Planner also includes 1 credit to try the Game Idea Generator if you want it.
           </p>
           <div className="mt-8 flex justify-center">
             <Link href="/signup" className="rounded-full bg-blue-600 px-8 py-3 font-bold text-white transition hover:bg-blue-500">

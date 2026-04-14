@@ -46,9 +46,26 @@ export default function DashboardLibraryPage() {
         return;
       }
 
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (!mounted) return;
+
+      if (authError || !user) {
+        setError(authError?.message ?? "Unauthorized");
+        setAudits([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const userId = user.id;
+
       const { data, error: queryError } = await supabase
         .from("reports")
         .select("id, game_name, project_name, vaporscore, created_at")
+        .eq("user_id", userId)
         .order("created_at", { ascending: false });
 
       if (!mounted) return;
@@ -58,6 +75,7 @@ export default function DashboardLibraryPage() {
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("reports")
           .select("id, game_name, vaporscore, created_at")
+          .eq("user_id", userId)
           .order("created_at", { ascending: false });
 
         if (!mounted) return;

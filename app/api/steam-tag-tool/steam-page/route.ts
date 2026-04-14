@@ -2,6 +2,7 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import { NextRequest, NextResponse } from "next/server";
 import {
+  deductSteamTagToolCredit,
   getSupabaseAccessTokenFromAuthorizationHeader,
   requireSteamTagToolCredits,
 } from "@/lib/credits";
@@ -59,6 +60,7 @@ type SteamPageModeSuccessPayload = {
   weakTags: string[];
   reviewTags: string[];
   recommendation: string;
+  remainingCredits?: number;
 };
 
 type SuggestedTagPromotionRule = {
@@ -686,7 +688,19 @@ export async function POST(request: NextRequest) {
       return jsonError(INCOMPLETE_STEAM_PAGE_RESULT_MESSAGE, 500);
     }
 
-    return NextResponse.json(successPayload);
+    const deductionResult = await deductSteamTagToolCredit(creditsGate.userId, creditsGate.balance, {
+      source: "steam-tag-tool/steam-page",
+      accessToken,
+    });
+
+    if (!deductionResult.ok) {
+      return jsonError(deductionResult.error, deductionResult.status);
+    }
+
+    return NextResponse.json({
+      ...successPayload,
+      remainingCredits: deductionResult.remainingBalance,
+    });
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status && error.response.status < 500) {
       return jsonError("Failed to load the Steam page.", 500);

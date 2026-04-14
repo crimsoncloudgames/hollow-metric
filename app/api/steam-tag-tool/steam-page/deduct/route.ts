@@ -6,6 +6,7 @@ import {
   STEAM_TAG_TOOL_CREDIT_REQUIRED_MESSAGE,
 } from "@/lib/credits";
 import { normalizeCreditsBalance } from "@/lib/credits-ui";
+import { requireVerifiedUser } from "@/lib/verified-user";
 import { createClient as createSupabaseServerClient, hasSupabaseServerEnv } from "@/utils/supabase/server";
 
 export const runtime = "nodejs";
@@ -13,6 +14,7 @@ export const runtime = "nodejs";
 type JsonErrorCode =
   | "supabase_config_error"
   | "unauthenticated"
+  | "unverified_email"
   | "credits_lookup_failed"
   | "credits_row_not_found"
   | "insufficient_credits"
@@ -75,6 +77,9 @@ async function createDeductRouteClient(accessToken?: string | null) {
   );
 }
 
+// Legacy endpoint kept for backwards compatibility while older clients roll off.
+// The active Steam Page flow now deducts credits inside the main analysis request
+// before any successful result is returned.
 export async function POST(request: NextRequest) {
   const accessToken = getSupabaseAccessTokenFromAuthorizationHeader(request.headers.get("authorization"));
 
@@ -97,22 +102,24 @@ export async function POST(request: NextRequest) {
       return jsonError("Supabase configuration error.", 500, "supabase_config_error");
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = accessToken ? await supabase.auth.getUser(accessToken) : await supabase.auth.getUser();
+    const authResult = await requireVerifiedUser(supabase, accessToken);
 
     logDeductCheckpoint("auth", {
-      authenticated: Boolean(user) && !authError,
-      userId: user?.id ?? null,
-      authError: authError?.message ?? null,
+      authenticated: authResult.ok,
+      userId: authResult.ok ? authResult.user.id : null,
+      authError: authResult.ok ? null : authResult.authErrorMessage ?? authResult.error,
+      status: authResult.ok ? 200 : authResult.status,
     });
 
-    if (authError || !user) {
-      return jsonError("Unauthorized.", 401, "unauthenticated");
+    if (!authResult.ok) {
+      return jsonError(
+        authResult.error,
+        authResult.status,
+        authResult.status === 401 ? "unauthenticated" : "unverified_email"
+      );
     }
 
-    const userId = user.id;
+    const userId = authResult.user.id;
     const creditsLookupResult = await supabase
       .from("user_credits")
       .select("balance")

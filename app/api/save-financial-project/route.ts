@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient as createServerClient } from "@/utils/supabase/server";
+import { requireVerifiedUser } from "@/lib/verified-user";
 import {
   type FinancialProjectAccessState,
   normalizeFinancialProject,
@@ -49,18 +50,6 @@ async function createFinancialProjectsServerClient(accessToken?: string | null) 
         }
       : undefined
   );
-}
-
-async function getAuthenticatedFinancialProjectsUser({
-  supabase,
-  accessToken,
-}: {
-  supabase: NonNullable<ReturnType<typeof createServerClient>>;
-  accessToken?: string | null;
-}) {
-  return accessToken
-    ? supabase.auth.getUser(accessToken)
-    : supabase.auth.getUser();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -216,17 +205,13 @@ export async function GET(request: Request) {
     );
   }
 
-  const {
-    data: { user },
-    error: authError,
-  } = await getAuthenticatedFinancialProjectsUser({
-    supabase,
-    accessToken,
-  });
+  const authResult = await requireVerifiedUser(supabase, accessToken);
 
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status });
   }
+
+  const { user } = authResult;
 
   const { access, error: accessError } = await loadFinancialProjectAccess({
     supabase,
@@ -341,14 +326,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const authResult = await requireVerifiedUser(supabase);
 
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status });
   }
+
+  const { user } = authResult;
 
   let body: unknown;
   try {
@@ -504,14 +488,13 @@ export async function DELETE() {
     );
   }
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const authResult = await requireVerifiedUser(supabase);
 
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  if (!authResult.ok) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status });
   }
+
+  const { user } = authResult;
 
   const { error } = await supabase
     .from("financial_projects")
