@@ -40,7 +40,7 @@ export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
   }
 
   return (
-    <div className="flex flex-col rounded-3xl border border-blue-500/25 bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(15,23,42,0.92)_35%,rgba(15,23,42,0.98)_100%)] p-6 shadow-[0_0_38px_rgba(37,99,235,0.15)] sm:p-8 xl:h-full">
+    <div className="flex flex-col rounded-3xl border border-blue-500/25 bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(15,23,42,0.92)_35%,rgba(15,23,42,0.98)_100%)] p-5 shadow-[0_0_38px_rgba(37,99,235,0.15)] sm:p-8 xl:h-full">
       <div>
         <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300/80">Credit Pack</p>
 
@@ -61,12 +61,12 @@ export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
                     : "border-slate-800 bg-slate-950/70 hover:border-blue-500/30 hover:bg-slate-950",
                 ].join(" ")}
               >
-                <div className="flex items-end justify-between gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-slate-400">Quantity</p>
                     <p className="mt-1 text-2xl font-black text-white">{packOption.credits} Credits</p>
                   </div>
-                  <div className="text-right">
+                  <div className="sm:text-right">
                     <p className="text-sm font-semibold text-slate-400">Price</p>
                     <p className="mt-1 text-3xl font-black text-blue-400">{packOption.priceLabel}</p>
                   </div>

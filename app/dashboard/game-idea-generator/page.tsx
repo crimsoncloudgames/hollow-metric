@@ -2181,9 +2181,9 @@ export default function GameIdeaGeneratorPage() {
           </div>
         </div>
 
-        <div className="mt-8 grid gap-6 xl:grid-cols-2">
+        <div className="mt-8 grid gap-5 xl:grid-cols-2">
           {fieldConfigs.map((field) => (
-            <div key={field.key} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
+            <div key={field.key} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4 sm:p-5">
               <label
                 htmlFor={`game-idea-${field.key}`}
                 className="text-xs font-black uppercase tracking-[0.22em] text-slate-500"
@@ -2244,7 +2244,7 @@ export default function GameIdeaGeneratorPage() {
                             : "Add another genre"
                       }
                       disabled={genreTags.length >= 3}
-                      className="min-w-[10rem] flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 focus:outline-none disabled:cursor-not-allowed disabled:text-slate-500"
+                      className="min-w-0 basis-full flex-1 bg-transparent text-sm text-white placeholder:text-slate-600 focus:outline-none disabled:cursor-not-allowed disabled:text-slate-500 sm:min-w-[10rem] sm:basis-auto"
                     />
                   </div>
                   <p className="mt-2 text-xs font-semibold text-slate-500">
@@ -2253,7 +2253,7 @@ export default function GameIdeaGeneratorPage() {
                   {genreError ? (
                     <p className="mt-2 text-xs font-semibold text-rose-400">{genreError}</p>
                   ) : null}
-                  <div className="mt-3 flex items-center gap-3">
+                  <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                     <button
                       type="button"
                       onClick={handleGenreGenerate}
@@ -2344,7 +2344,7 @@ export default function GameIdeaGeneratorPage() {
           <Sparkles size={18} className={isGeneratingIdeas ? "animate-pulse" : undefined} />
           {isGeneratingIdeas ? "Generating Game Ideas..." : "Generate Game Idea"}
         </button>
-        <p className="mt-3 overflow-x-auto whitespace-nowrap text-center text-sm leading-6 text-slate-400">
+        <p className="mt-3 text-left text-sm leading-6 text-slate-400 sm:text-center sm:whitespace-nowrap">
           Generating the idea costs 1 credit, and you will receive 2 distinct game ideas. Modifying any of the fields above does not cost credits.
         </p>
         {generationError ? (

@@ -576,7 +576,7 @@ export default function FinancialLibraryPage() {
           )}
 
           {!hasSavedProject ? (
-            <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
               <h3 className="text-2xl font-black text-white">No saved project yet</h3>
               <p className="mt-2 max-w-2xl text-slate-400">
                 Save your current Launch Budget project to see it here in Financial Library.
@@ -599,7 +599,7 @@ export default function FinancialLibraryPage() {
                     onClick={() => setExpandedProjectId(isExpanded ? null : project.id)}
                     className="w-full text-left"
                   >
-                    <div className="flex items-start justify-between gap-4 rounded-2xl border border-transparent p-1 transition hover:border-slate-700/70 hover:bg-slate-900/40">
+                    <div className="flex flex-col gap-3 rounded-2xl border border-transparent p-1 transition hover:border-slate-700/70 hover:bg-slate-900/40 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <h3 className="text-2xl font-black tracking-tight text-white">{project.name}</h3>
                         <p className="mt-1 text-xs text-slate-500">Last updated {project.lastUpdated}</p>
@@ -614,19 +614,19 @@ export default function FinancialLibraryPage() {
 
                     <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
                       <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
-                        <p className="text-[11px] text-slate-500">Total planned spend</p>
+                        <p className="text-xs text-slate-500">Total planned spend</p>
                         <p className="mt-1 text-sm font-black text-white">{formatCurrency(project.totalPlannedSpend)}</p>
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
-                        <p className="text-[11px] text-slate-500">Main price point</p>
+                        <p className="text-xs text-slate-500">Main price point</p>
                         <p className="mt-1 text-sm font-black text-white">{project.mainPricePoint > 0 ? `$${project.mainPricePoint.toFixed(2)}` : "Unavailable"}</p>
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
-                        <p className="text-[11px] text-slate-500">Rough break-even</p>
+                        <p className="text-xs text-slate-500">Rough break-even</p>
                         <p className="mt-1 text-sm font-black text-white">{project.roughBreakEvenCopies > 0 ? `${project.roughBreakEvenCopies.toLocaleString()} copies` : "Unavailable"}</p>
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
-                        <p className="text-[11px] text-slate-500">Budget status summary</p>
+                        <p className="text-xs text-slate-500">Budget status summary</p>
                         <p className="mt-1 text-sm font-semibold text-slate-300">{project.budgetStatus}</p>
                       </div>
                     </div>
@@ -652,13 +652,13 @@ export default function FinancialLibraryPage() {
 
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
-                          <p className="text-[11px] text-slate-500">Platform/tax assumptions</p>
+                          <p className="text-xs text-slate-500">Platform/tax assumptions</p>
                           <p className="mt-2 text-sm text-slate-300">Steam fee: {project.platformFee}%</p>
                           <p className="text-sm text-slate-300">U.S. withholding: {project.withholdingTax}%</p>
                           <p className="text-sm text-slate-300">Refund assumption: {project.refundsAssumption}%</p>
                         </div>
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
-                          <p className="text-[11px] text-slate-500">Selected price points</p>
+                          <p className="text-xs text-slate-500">Selected price points</p>
                           <p className="mt-2 text-sm text-slate-300">
                             {projectPricePoints.length > 0
                               ? projectPricePoints.map((value) => `$${value.toFixed(2)}`).join(" / ")
@@ -666,7 +666,7 @@ export default function FinancialLibraryPage() {
                           </p>
                         </div>
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
-                          <p className="text-[11px] text-slate-500">Rough break-even results</p>
+                          <p className="text-xs text-slate-500">Rough break-even results</p>
                           <p className="mt-2 text-sm text-slate-300">
                             {projectBreakEvenResults.length > 0
                               ? `${projectBreakEvenResults.map((value) => value.toLocaleString()).join(" / ")} copies`
@@ -677,7 +677,7 @@ export default function FinancialLibraryPage() {
 
                       {project.planningReview && (
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
-                          <p className="text-[11px] text-slate-500">Planning review summary</p>
+                          <p className="text-xs text-slate-500">Planning review summary</p>
                           <p className="mt-2 text-sm text-slate-300">
                             Budget health score: {project.planningReview.healthScore}/100 - {getBudgetHealthSummary(project.planningReview)}
                           </p>
@@ -692,7 +692,7 @@ export default function FinancialLibraryPage() {
 
                       {project.postLaunchActuals && (
                         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
-                          <p className="text-[11px] text-slate-500">Post-launch actuals summary</p>
+                          <p className="text-xs text-slate-500">Post-launch actuals summary</p>
                           <p className="mt-2 text-sm text-slate-300">Actual copies sold: {project.postLaunchActuals.actualCopiesSold.toLocaleString()}</p>
                           {project.postLaunchActuals.actualLaunchPrice !== null && (
                             <p className="text-sm text-slate-300">

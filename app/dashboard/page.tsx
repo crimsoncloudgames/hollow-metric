@@ -238,9 +238,9 @@ export default function DashboardPage() {
         : "Library access is not included on Starter.";
 
   return (
-    <section className="space-y-10">
+    <section className="space-y-8 sm:space-y-10">
       <div>
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-2">
+        <h1 className="mb-2 text-2xl font-black tracking-tight text-white sm:text-4xl">
           Launch Decision Workspace
         </h1>
         <p className="text-slate-400 max-w-2xl">
@@ -250,27 +250,27 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-5 sm:p-6">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Current Break-Even</p>
-          <p className="text-3xl font-black text-blue-500">{breakEvenValue}</p>
+          <p className="text-2xl font-black text-blue-500 sm:text-3xl">{breakEvenValue}</p>
           <p className="text-slate-500 text-sm mt-2">copies to sell</p>
         </div>
 
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-5 sm:p-6">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Total Planned Spend</p>
-          <p className="text-3xl font-black text-white">{plannedSpendValue}</p>
+          <p className="text-2xl font-black text-white sm:text-3xl">{plannedSpendValue}</p>
           <p className="text-slate-500 text-sm mt-2">launch costs</p>
         </div>
 
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-5 sm:p-6">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Last Updated</p>
-          <p className="text-2xl font-black text-white">{lastUpdatedValue}</p>
+          <p className="text-xl font-black text-white sm:text-2xl">{lastUpdatedValue}</p>
           <p className="text-slate-500 text-sm mt-2">{lastUpdatedLabel}</p>
         </div>
 
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-5 sm:p-6">
           <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Active Warnings</p>
-          <p className="text-3xl font-black text-blue-500">{warningsValue}</p>
+          <p className="text-2xl font-black text-blue-500 sm:text-3xl">{warningsValue}</p>
           <p className="text-slate-500 text-sm mt-2">issues to address</p>
         </div>
       </div>
@@ -287,9 +287,9 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Link
           href="/dashboard/budgeter"
-          className="group relative rounded-3xl border border-blue-600/40 bg-gradient-to-br from-blue-600/20 to-blue-600/5 hover:border-blue-600/60 hover:from-blue-600/30 transition-all p-8 shadow-lg hover:shadow-xl hover:shadow-blue-600/20"
+          className="group relative rounded-3xl border border-blue-600/40 bg-gradient-to-br from-blue-600/20 to-blue-600/5 p-6 transition-all hover:border-blue-600/60 hover:from-blue-600/30 hover:shadow-xl hover:shadow-blue-600/20 sm:p-8"
         >
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="text-2xl font-black text-white mb-2">Launch Budget</h2>
               <p className="text-slate-400 max-w-xs text-sm mb-4">
@@ -308,9 +308,9 @@ export default function DashboardPage() {
 
         <Link
           href="/dashboard/financial-library"
-          className="group rounded-3xl border border-slate-800 bg-slate-900/60 p-8 transition-all hover:border-blue-600/40 hover:shadow-xl hover:shadow-blue-600/10"
+          className="group rounded-3xl border border-slate-800 bg-slate-900/60 p-6 transition-all hover:border-blue-600/40 hover:shadow-xl hover:shadow-blue-600/10 sm:p-8"
         >
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-slate-500 font-black mb-2">Saved Projects</p>
               <h2 className="text-2xl font-black text-white mb-2">Financial Library</h2>
@@ -329,7 +329,7 @@ export default function DashboardPage() {
 
       {canAccessLibrary && recentCount > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-6">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-xl font-black text-white">Recent Projects</h3>
             <Link href="/dashboard/financial-library" className="text-blue-400 hover:text-blue-300 transition-all font-semibold text-sm flex items-center gap-1">
               View all <ArrowRight size={14} />
@@ -363,7 +363,7 @@ export default function DashboardPage() {
       )}
 
       {!isLoading && !loadError && recentCount === 0 && (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-12 text-center">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8 text-center sm:p-12">
           <p className="text-slate-200 font-semibold mb-2">
             {canAccessLibrary ? "No saved launch budgets yet." : "Saved launch budgets unlock on Launch Planner."}
           </p>

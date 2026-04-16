@@ -57,7 +57,7 @@ const creditPackOptions: CreditPackOption[] = [
 export default function BuyCreditsPage() {
   return (
     <section className="space-y-8">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] xl:items-stretch">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,460px)] xl:items-stretch">
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Current Balance</p>

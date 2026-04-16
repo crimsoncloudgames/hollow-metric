@@ -20,6 +20,8 @@ import {
   LogOut,
   Lightbulb,
   ArrowUpRight,
+  Menu,
+  X,
 } from "lucide-react";
 
 const navItems = [
@@ -116,10 +118,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isAuthChecked, setIsAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showUpgradeButton, setShowUpgradeButton] = useState(false);
+  const [mobileNavigationMenuPath, setMobileNavigationMenuPath] = useState<string | null>(null);
   const header = getHeaderText(pathname);
+  const isMobileNavigationOpen = mobileNavigationMenuPath === pathname;
   const showPageHeader = pathname !== "/dashboard" && pathname !== "/dashboard/library";
   const creditsBadgeClassName =
-    "inline-flex items-center gap-3 self-start rounded-2xl border border-blue-500/25 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-blue-400/40 hover:bg-blue-500/15";
+    "inline-flex w-full items-center justify-center gap-3 self-start rounded-2xl border border-blue-500/25 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-blue-400/40 hover:bg-blue-500/15 sm:w-auto sm:justify-start";
   const creditsBalanceBadgeContent = (
     <>
       <Coins size={17} className="text-blue-300" />
@@ -278,32 +282,73 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ? "border-b border-slate-900 bg-slate-950 lg:border-b-0 lg:border-r"
           : "border-b border-slate-300 bg-white lg:border-b-0 lg:border-r",
       ].join(" ")}>
-        <div className="mb-6 lg:mb-10">
-          <Link href="/dashboard" className="inline-flex items-center gap-3">
-            <Image
-              src="/HM Logo Icon.ico"
-              alt="Hollow Metric logo"
-              width={40}
-              height={40}
-              className="h-10 w-10 rounded-lg object-cover"
-              priority
-            />
-            <div className={[
-              "text-xl font-black italic tracking-tight sm:text-2xl",
-              theme === "dark" ? "text-white" : "text-slate-900",
-            ].join(" ")}>
-              Hollow Metric <span className="text-blue-500 text-sm not-italic ml-1">v0.6.7</span>
-            </div>
-          </Link>
-          <p className={[
-            "text-[10px] uppercase tracking-[0.25em] mt-2 font-bold",
-            theme === "dark" ? "text-slate-500" : "text-slate-600",
-          ].join(" ")}>
-            Launch Planning Suite
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileNavigationMenuPath(null)}
+              className="inline-flex min-w-0 items-center gap-3"
+            >
+              <Image
+                src="/HM Logo Icon.ico"
+                alt="Hollow Metric logo"
+                width={40}
+                height={40}
+                className="h-10 w-10 rounded-lg object-cover"
+                priority
+              />
+              <div
+                className={[
+                  "min-w-0 text-lg font-black italic tracking-tight sm:text-2xl",
+                  theme === "dark" ? "text-white" : "text-slate-900",
+                ].join(" ")}
+              >
+                <span className="block truncate">Hollow Metric</span>
+                <span className="mt-1 inline-block text-[10px] font-black not-italic text-blue-500 sm:text-sm">
+                  v0.6.7
+                </span>
+              </div>
+            </Link>
+            <p
+              className={[
+                "mt-2 text-[10px] font-bold uppercase tracking-[0.25em]",
+                theme === "dark" ? "text-slate-500" : "text-slate-600",
+              ].join(" ")}
+            >
+              Launch Planning Suite
+            </p>
+          </div>
+
+          <button
+            type="button"
+            aria-expanded={isMobileNavigationOpen}
+            aria-controls="dashboard-navigation"
+            aria-label={isMobileNavigationOpen ? "Close dashboard navigation" : "Open dashboard navigation"}
+            onClick={() =>
+              setMobileNavigationMenuPath((current) =>
+                current === pathname ? null : pathname
+              )
+            }
+            className={[
+              "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border lg:hidden",
+              theme === "dark"
+                ? "border-slate-800 bg-slate-900 text-slate-200 hover:border-blue-600/40 hover:text-blue-400"
+                : "border-slate-300 bg-slate-200 text-slate-800 hover:border-blue-500/40 hover:text-blue-700",
+            ].join(" ")}
+          >
+            {isMobileNavigationOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
 
-        <nav className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 space-y-2">
+        <div
+          id="dashboard-navigation"
+          className={[
+            "overflow-hidden transition-[max-height,opacity,margin] duration-300 ease-out lg:mt-6 lg:max-h-none lg:overflow-visible lg:opacity-100",
+            isMobileNavigationOpen ? "mt-6 max-h-[80vh] opacity-100" : "max-h-0 opacity-0",
+          ].join(" ")}
+        >
+        <div className="space-y-5 pb-1 lg:flex lg:h-[calc(100vh-8.5rem)] lg:flex-col lg:overflow-y-auto lg:pb-0">
+        <nav className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
@@ -313,8 +358,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setMobileNavigationMenuPath(null)}
                   className={[
-                    "flex items-center gap-3 rounded-2xl px-3 py-3 border transition-all duration-200 font-semibold sm:col-span-2 lg:col-span-1",
+                    "flex items-center gap-3 rounded-2xl px-3 py-3 border transition-all duration-200 font-semibold sm:col-span-2 md:col-span-1 lg:col-span-1",
                     isActive
                       ? "border-blue-600/60 text-white bg-blue-600 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40"
                       : theme === "dark"
@@ -332,6 +378,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setMobileNavigationMenuPath(null)}
                 className={[
                   "flex items-center gap-3 rounded-2xl px-3 py-2.5 border transition-all duration-200",
                   isActive
@@ -350,7 +397,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {showUpgradeButton ? (
             <Link
               href="/dashboard/settings#subscription"
-              className="mt-1 flex items-center justify-center gap-2 rounded-2xl border border-blue-600/40 bg-blue-600/10 px-3 py-3 text-sm font-semibold text-blue-300 transition-all duration-200 hover:bg-blue-600/20 sm:col-span-2 lg:col-span-1"
+              onClick={() => setMobileNavigationMenuPath(null)}
+              className="mt-1 flex items-center justify-center gap-2 rounded-2xl border border-blue-600/40 bg-blue-600/10 px-3 py-3 text-sm font-semibold text-blue-300 transition-all duration-200 hover:bg-blue-600/20 sm:col-span-2 md:col-span-1 lg:col-span-1"
             >
               <ArrowUpRight size={16} />
               <span>Upgrade</span>
@@ -434,24 +482,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Discord
           </a>
         </div>
+        </div>
+        </div>
       </aside>
 
       <main className={[
-        "min-h-screen flex-1 overflow-y-auto p-4 sm:p-6 lg:p-12",
+        "min-h-screen flex-1 overflow-y-auto p-5 sm:p-6 lg:p-8 xl:p-10 2xl:p-12",
         theme === "dark" ? "bg-slate-950" : "bg-slate-100",
       ].join(" ")}>
         {showPageHeader ? (
           <header className="mb-10 border-b border-slate-900 pb-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">{header.title}</h1>
-                <p className="mt-2 text-slate-500">{header.subtitle}</p>
+                <p className="mt-2 max-w-3xl text-sm text-slate-500 sm:text-base">{header.subtitle}</p>
               </div>
               {creditsBalanceBadge}
             </div>
           </header>
         ) : (
-          <div className="mb-6 flex justify-end">{creditsBalanceBadge}</div>
+          <div className="mb-6 flex justify-stretch sm:justify-end">{creditsBalanceBadge}</div>
         )}
 
         <div className="transition-all duration-300">{children}</div>

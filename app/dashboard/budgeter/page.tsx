@@ -1014,8 +1014,8 @@ export default function LaunchBudgetPage() {
   return (
     <section className="space-y-8">
       {/* SECTION 1: SUBSCRIPTION TIER INFO - LIGHTWEIGHT */}
-      <div className="rounded-2xl bg-slate-900/20 border border-slate-900 p-3">
-        <p className="text-[11px] font-black text-slate-500 uppercase tracking-[0.08em] mb-2">
+      <div className="rounded-2xl border border-slate-900 bg-slate-900/20 p-3">
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.08em] text-slate-500">
           Project Limits by Plan
         </p>
         <div className="mb-4 grid grid-cols-1 gap-2 md:max-w-xs">
@@ -1034,7 +1034,7 @@ export default function LaunchBudgetPage() {
             {localDataNotice}
           </p>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+        <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
           <div>
             <p className="font-semibold text-slate-400">Starter</p>
             <p className="text-slate-600">Starter includes calculator access only</p>
@@ -1050,7 +1050,7 @@ export default function LaunchBudgetPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <h2 className="text-2xl font-black text-white">Save Project</h2>
@@ -1115,12 +1115,12 @@ export default function LaunchBudgetPage() {
       </div>
 
       {/* SECTION 2: EXPENSE INPUTS - FLEXIBLE */}
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
         <h2 className="text-2xl font-black text-white mb-6">Launch Cost Inputs</h2>
 
         <div className="space-y-4 mb-6">
           {expenses.map((expense) => (
-            <div key={expense.id} className="flex items-end gap-4">
+            <div key={expense.id} className="flex flex-col gap-4 sm:flex-row sm:items-end">
               <div className="flex-1">
                 <label className="block text-sm font-semibold text-slate-300 mb-2">
                   Expense Category
@@ -1147,7 +1147,7 @@ export default function LaunchBudgetPage() {
               </div>
               <button
                 onClick={() => removeExpense(expense.id)}
-                className="rounded-2xl border border-slate-800 bg-slate-950 hover:bg-red-950/30 hover:border-red-600/30 px-3 py-3 text-slate-400 hover:text-red-400 transition-all"
+                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-3 py-3 text-slate-400 transition-all hover:border-red-600/30 hover:bg-red-950/30 hover:text-red-400 sm:w-auto"
                 title="Remove expense"
               >
                 <X size={18} />
@@ -1158,7 +1158,7 @@ export default function LaunchBudgetPage() {
 
         <button
           onClick={addExpense}
-          className="flex items-center gap-2 rounded-2xl border border-blue-600/30 bg-blue-600/10 hover:bg-blue-600/15 px-4 py-3 text-sm font-semibold text-blue-300 transition-all mb-6"
+          className="mb-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-blue-600/30 bg-blue-600/10 px-4 py-3 text-sm font-semibold text-blue-300 transition-all hover:bg-blue-600/15 sm:w-auto"
         >
           <Plus size={16} /> Add Expense
         </button>
@@ -1189,7 +1189,7 @@ export default function LaunchBudgetPage() {
       </div>
 
       {/* SECTION 3: PLATFORM + TAX ASSUMPTIONS */}
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
         <h2 className="text-2xl font-black text-white mb-6">Platform and Tax Assumptions</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1230,7 +1230,7 @@ export default function LaunchBudgetPage() {
       </div>
 
       {/* SECTION 4: PRICE POINT INPUTS */}
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
         <h2 className="text-2xl font-black text-white mb-6">Price Point Comparison</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-4">
@@ -1288,7 +1288,7 @@ export default function LaunchBudgetPage() {
       </div>
 
       {/* SECTION 5 & 6: RESULTS AREA */}
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
         <h2 className="text-2xl font-black text-white mb-6">Break-Even Results</h2>
 
         {calculationNotice && (
@@ -1359,7 +1359,7 @@ export default function LaunchBudgetPage() {
 
       {/* SECTION 7: PLANNING REVIEW */}
       {isPaidTier ? (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
           <h2 className="text-2xl font-black text-white mb-6">Planning Review</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
@@ -1422,7 +1422,7 @@ export default function LaunchBudgetPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-8 opacity-90">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/35 p-6 opacity-90 sm:p-8">
           <h2 className="text-2xl font-black text-white mb-3">Planning Review</h2>
           <p className="text-slate-400 mb-4">
             Planning Review is not included on Starter.
@@ -1440,7 +1440,7 @@ export default function LaunchBudgetPage() {
 
       {/* SECTION 8: POST-LAUNCH ACTUALS */}
       {isPaidTier ? (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
           <h2 className="text-2xl font-black text-white mb-2">Post-Launch Actuals</h2>
           <p className="text-slate-400 mb-6">
             Compare your original launch plan against real sales results.

@@ -13,6 +13,8 @@ type ReportRow = {
   created_at: string;
 };
 
+type LegacyReportRow = Omit<ReportRow, "project_name">;
+
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
     year: "numeric",
@@ -84,7 +86,10 @@ export default function DashboardLibraryPage() {
           setError(fallbackError.message);
           setAudits([]);
         } else {
-          const rows = (fallbackData ?? []).map((r: any) => ({ ...r, project_name: null })) as ReportRow[];
+          const rows = (fallbackData ?? []).map((report: LegacyReportRow) => ({
+            ...report,
+            project_name: null,
+          }));
           setAudits(rows);
           setActiveProject("Uncategorized");
         }
@@ -168,14 +173,14 @@ export default function DashboardLibraryPage() {
 
   const PageHeader = () => (
     <div className="mb-10 border-b border-slate-900 pb-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         {projectNames.length > 0 && activeProject ? (
-          <div ref={dropdownRef} className="relative inline-block">
+          <div ref={dropdownRef} className="relative inline-block w-full sm:w-auto">
             <button
               onClick={() => setDropdownOpen((o) => !o)}
-              className="flex items-center gap-2"
+              className="flex w-full items-start justify-between gap-2 text-left sm:w-auto sm:items-center"
             >
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
                 Project: {activeProject}
               </h1>
               <ChevronDown
@@ -184,7 +189,7 @@ export default function DashboardLibraryPage() {
               />
             </button>
             {dropdownOpen && (
-              <div className="absolute top-full left-0 mt-2 z-50 rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl min-w-[240px] overflow-hidden">
+              <div className="absolute top-full left-0 z-50 mt-2 w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl sm:min-w-[240px]">
                 {projectNames.map((name) => (
                   <button
                     key={name}
@@ -209,7 +214,7 @@ export default function DashboardLibraryPage() {
           <button
             onClick={handleClearHistory}
             disabled={clearing}
-            className="flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-400 hover:border-red-500/40 hover:text-red-400 transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0 mt-1"
+            className="mt-1 flex w-full shrink-0 items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-400 transition-all hover:border-red-500/40 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
           >
             <Trash2 size={13} />
             {clearing ? "Clearing..." : "Clear History"}
