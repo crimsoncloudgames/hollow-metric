@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { FormEvent, useState } from "react";
+import PublicSiteHeader from "@/components/public-site-header";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
 
@@ -197,37 +196,9 @@ export default function ContactPage() {
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
-        <header className="sticky top-0 z-30 mt-4 flex items-center justify-between rounded-full border border-slate-800/80 bg-slate-950/70 px-4 py-3 backdrop-blur-xl sm:px-6">
-          <Link href="/landing" className="relative inline-block w-[min(62vw,18rem)] sm:w-[min(44vw,19rem)] md:w-[18rem]">
-            <Image
-              src="/HM logo icon with text webP.webp"
-              alt="Hollow Metric"
-              width={1200}
-              height={300}
-              style={{ width: "100%", height: "auto" }}
-              priority
-            />
-            <p className="absolute bottom-[6%] left-[34%] whitespace-nowrap text-[8px] font-medium leading-none text-slate-500 sm:text-[9px] md:text-[10px]">
-              A tool by Crimson Cloud Games
-            </p>
-          </Link>
-          <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
-            <Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link>
-            <Link href="/resources" className="transition hover:text-blue-400">Resources</Link>
-            <Link href="/contact" className="text-blue-300 transition hover:text-blue-200">Contact</Link>
-            <Link href="/login" className="transition hover:text-blue-400">Login</Link>
-            <Link href="/signup" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
-              Sign Up
-            </Link>
-          </nav>
-          <div className="flex items-center gap-3 md:hidden">
-            <Link href="/contact" className="text-sm font-semibold text-blue-300">Contact</Link>
-            <Link href="/login" className="text-sm font-semibold text-slate-200">Login</Link>
-            <Link href="/signup" className="rounded-full border border-blue-500 px-4 py-2 text-sm font-semibold text-blue-300">Sign Up</Link>
-          </div>
-        </header>
+        <PublicSiteHeader />
 
-        <section className="mx-auto w-full max-w-5xl py-14 sm:py-16">
+        <section className="mx-auto w-full max-w-5xl py-10 sm:py-16">
           <div className="mb-10 max-w-3xl">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Get in touch</p>
             <h1 className="mt-4 text-4xl font-black text-white sm:text-5xl">Contact</h1>

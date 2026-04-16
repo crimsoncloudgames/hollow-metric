@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
+import PublicSiteHeader from "@/components/public-site-header";
 
 const landingScreenshots = {
   breakEvenCost: {
@@ -112,47 +113,19 @@ export default function LandingPage() {
 
       <div className="relative z-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
-          <header className="sticky top-0 z-30 mt-4 flex items-center justify-between rounded-full border border-slate-800/80 bg-slate-950/70 px-4 py-3 backdrop-blur-xl sm:px-6">
-            <Link href="/landing" className="relative inline-block w-[min(62vw,18rem)] sm:w-[min(44vw,19rem)] md:w-[18rem]">
-              <Image
-                src="/HM logo icon with text webP.webp"
-                alt="Hollow Metric"
-                width={1200}
-                height={300}
-                style={{ width: "100%", height: "auto" }}
-                priority
-              />
-              <p className="absolute bottom-[6%] left-[34%] whitespace-nowrap text-[8px] font-medium leading-none text-slate-500 sm:text-[9px] md:text-[10px]">
-                A tool by Crimson Cloud Games
-              </p>
-            </Link>
-            <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
-              <Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link>
-              <Link href="/resources" className="transition hover:text-blue-400">Resources</Link>
-              <Link href="/contact" className="transition hover:text-blue-400">Contact</Link>
-              <Link href="/login" className="transition hover:text-blue-400">Login</Link>
-              <Link href="/signup" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
-                Sign Up
-              </Link>
-            </nav>
-            <div className="flex items-center gap-3 md:hidden">
-              <Link href="/contact" className="text-sm font-semibold text-blue-300">Contact</Link>
-              <Link href="/login" className="text-sm font-semibold text-slate-200">Login</Link>
-              <Link href="/signup" className="rounded-full border border-blue-500 px-4 py-2 text-sm font-semibold text-blue-300">Sign Up</Link>
-            </div>
-          </header>
+          <PublicSiteHeader />
         </div>
 
-        <section className="fade-in px-4 pb-8 pt-12 text-center sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+        <section className="fade-in px-4 pb-6 pt-10 text-center sm:px-6 sm:pb-8 sm:pt-12 lg:px-8 xl:px-10 2xl:px-12">
           <div className="mx-auto max-w-[100rem]">
             <div className="mx-auto max-w-[92rem]">
             <p className="mx-auto inline-flex rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-blue-300">
               Launch planning and break-even modeling for indie game developers
             </p>
-            <h1 className="hero-glow mx-auto mt-5 max-w-[84rem] text-4xl font-black leading-[1.04] tracking-[-0.02em] text-white sm:text-5xl lg:text-[4rem] xl:text-[4.7rem] 2xl:text-[5.15rem]">
+            <h1 className="hero-glow mx-auto mt-5 max-w-[84rem] text-[2.65rem] font-black leading-[1.02] tracking-[-0.02em] text-white sm:text-5xl sm:leading-[1.04] lg:text-[4rem] xl:text-[4.7rem] 2xl:text-[5.15rem]">
               Know Exactly How Many Copies You Need to Sell to Break Even
             </h1>
-            <p className="mx-auto mt-5 max-w-[68rem] text-base leading-8 text-slate-300 sm:text-lg">
+            <p className="mx-auto mt-5 max-w-[68rem] text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
               Plan your launch, model pricing, and avoid costly financial mistakes.
             </p>
 
@@ -175,7 +148,7 @@ export default function LandingPage() {
 
         <div className="mx-auto flex w-full max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
 
-        <section className="fade-in relative left-1/2 w-screen max-w-[96rem] -translate-x-1/2 border-t border-slate-800/60 px-4 py-10 sm:px-6 lg:px-8 xl:px-10">
+        <section className="fade-in border-t border-slate-800/60 px-4 py-10 sm:px-6 lg:relative lg:left-1/2 lg:w-screen lg:-translate-x-1/2 lg:px-8 xl:px-10">
           <div className="mx-auto max-w-[88rem] text-left">
             <div className="max-w-4xl">
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Launch Planning Workflow</p>
@@ -187,7 +160,7 @@ export default function LandingPage() {
 
             <div className="mt-6 space-y-6">
               {launchPlanningCards.map((card) => (
-                <article key={card.title} className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6 shadow-[0_0_36px_rgba(15,23,42,0.24)] backdrop-blur-xl lg:p-7">
+                <article key={card.title} className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-5 shadow-[0_0_36px_rgba(15,23,42,0.24)] backdrop-blur-xl sm:p-6 lg:p-7">
                   <div className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)] lg:items-center">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">{card.eyebrow}</p>
@@ -266,7 +239,7 @@ export default function LandingPage() {
         </section>
 
         <section className="fade-in py-10">
-          <div className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.22),rgba(15,23,42,0.92))] p-10 text-center shadow-2xl">
+          <div className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.22),rgba(15,23,42,0.92))] p-6 text-center shadow-2xl sm:p-8 lg:p-10">
             <h2 className="mx-auto max-w-2xl text-3xl font-black text-white sm:text-4xl">
               Get Started for Free
             </h2>
@@ -300,7 +273,7 @@ export default function LandingPage() {
             <div>
               <div className="relative inline-block w-[min(72vw,20rem)] sm:w-[min(52vw,19rem)] md:w-[18.75rem]">
                 <Image src="/HM logo icon with text webP.webp" alt="Hollow Metric" width={1200} height={300} style={{ width: "100%", height: "auto" }} />
-                <p className="absolute bottom-[6%] left-[34%] whitespace-nowrap text-[9px] font-medium leading-none text-slate-500 sm:text-[10px]">
+                <p className="absolute bottom-[6%] left-[34%] hidden whitespace-nowrap text-[10px] font-medium leading-none text-slate-500 sm:block">
                   A tool by Crimson Cloud Games
                 </p>
               </div>

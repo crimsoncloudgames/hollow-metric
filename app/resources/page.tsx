@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PublicSiteHeader from "@/components/public-site-header";
 
 const resourceThemes = [
   {
@@ -32,17 +33,11 @@ const guides = [
 
 export default function ResourcesPage() {
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-16 text-slate-100 sm:px-6 lg:px-8">
+    <main className="min-h-screen overflow-x-hidden bg-slate-950 px-4 py-6 text-slate-100 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-12 flex items-center justify-between">
-          <Link href="/landing" className="text-2xl font-black italic text-blue-500">Hollow Metric</Link>
-          <div className="flex items-center gap-3">
-            <Link href="/landing" className="rounded-full border border-slate-700 px-5 py-2 font-semibold text-slate-200 transition hover:border-blue-500 hover:text-blue-300">Home</Link>
-            <Link href="/signup" className="rounded-full border border-blue-500 px-5 py-2 font-semibold text-blue-300 transition hover:bg-blue-600 hover:text-white">Start Planning Smarter</Link>
-          </div>
-        </div>
+        <PublicSiteHeader />
 
-        <div className="mb-12 max-w-3xl">
+        <div className="mb-12 mt-10 max-w-3xl">
           <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">RESOURCES</p>
           <h1 className="mb-4 text-4xl font-black text-white">Practical guidance for indie developers making launch planning decisions.</h1>
           <p className="text-lg leading-8 text-slate-400">Use this page to think more clearly about launch budget, break-even pressure, pricing tradeoffs, and the risks that shape a real launch plan.</p>

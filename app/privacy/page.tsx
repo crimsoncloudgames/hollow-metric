@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import PublicSiteHeader from "@/components/public-site-header";
 
 type PrivacySectionGroup = {
   heading: string;
@@ -163,32 +163,9 @@ export default function PrivacyPage() {
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
-        <header className="sticky top-0 z-30 mt-4 flex items-center justify-between rounded-full border border-slate-800/80 bg-slate-950/70 px-4 py-3 backdrop-blur-xl sm:px-6">
-          <Link href="/landing" className="relative inline-block w-[min(62vw,18rem)] sm:w-[min(44vw,19rem)] md:w-[18rem]">
-            <Image
-              src="/HM logo icon with text webP.webp"
-              alt="Hollow Metric"
-              width={1200}
-              height={300}
-              style={{ width: "100%", height: "auto" }}
-              priority
-            />
-            <p className="absolute bottom-[6%] left-[34%] whitespace-nowrap text-[8px] font-medium leading-none text-slate-500 sm:text-[9px] md:text-[10px]">
-              A tool by Crimson Cloud Games
-            </p>
-          </Link>
-          <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
-            <Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link>
-            <Link href="/resources" className="transition hover:text-blue-400">Resources</Link>
-            <Link href="/contact" className="transition hover:text-blue-400">Contact</Link>
-            <Link href="/login" className="transition hover:text-blue-400">Login</Link>
-            <Link href="/signup" className="rounded-full bg-blue-600 px-5 py-2 font-semibold text-white transition hover:bg-blue-500">
-              Sign Up
-            </Link>
-          </nav>
-        </header>
+        <PublicSiteHeader />
 
-        <section className="mx-auto w-full max-w-4xl py-14 sm:py-16">
+        <section className="mx-auto w-full max-w-4xl py-10 sm:py-16">
           <div className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-7 shadow-[0_0_40px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:p-10">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Privacy Policy</p>
             <h1 className="mt-4 text-4xl font-black text-white sm:text-5xl">Privacy Policy</h1>
