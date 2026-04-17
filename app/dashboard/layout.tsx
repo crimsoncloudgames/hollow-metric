@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import posthog from "posthog-js";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CreditsBalanceLabel } from "@/components/credits-balance-label";
@@ -221,6 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (!mounted) return;
 
       if (event === "SIGNED_OUT" || !session?.user) {
+        posthog.reset();
         setUserLabel("Account");
         setUserEmail(null);
         setShowUpgradeButton(false);
@@ -229,6 +231,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         router.replace("/login");
         router.refresh();
         return;
+      }
+
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
+        posthog.identify(session.user.id, { email: session.user.email });
       }
 
       if (session.user.email) {
