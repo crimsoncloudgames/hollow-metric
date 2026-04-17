@@ -1,11 +1,11 @@
 import posthog from "posthog-js";
 
-const projectToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+const posthogToken = process.env.NEXT_PUBLIC_POSTHOG_TOKEN;
 const apiHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
-if (projectToken && apiHost) {
+if (posthogToken && apiHost) {
   try {
-    posthog.init(projectToken, {
+    posthog.init(posthogToken, {
       api_host: apiHost,
       capture_pageview: true,
       capture_pageleave: true,
