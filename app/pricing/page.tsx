@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import posthog from "posthog-js";
+import { useEffect } from "react";
 import PublicSiteHeader from "@/components/public-site-header";
 
 type PricingPlan = {
@@ -60,7 +64,22 @@ const upgradeReasons = [
   },
 ];
 
+const PRICING_VIEWED_STORAGE_KEY = "hm_last_pricing_viewed_at";
+const PRICING_VIEWED_DEDUPE_MS = 1000;
+
 export default function PricingPage() {
+  useEffect(() => {
+    const now = Date.now();
+    const lastCapturedAt = Number(window.sessionStorage.getItem(PRICING_VIEWED_STORAGE_KEY) ?? "0");
+
+    if (Number.isFinite(lastCapturedAt) && now - lastCapturedAt < PRICING_VIEWED_DEDUPE_MS) {
+      return;
+    }
+
+    window.sessionStorage.setItem(PRICING_VIEWED_STORAGE_KEY, String(now));
+    posthog.capture("pricing_viewed");
+  }, []);
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-slate-950 px-4 py-6 text-slate-100 sm:px-6 sm:py-8 lg:px-8">
       <div className="mx-auto max-w-6xl">
