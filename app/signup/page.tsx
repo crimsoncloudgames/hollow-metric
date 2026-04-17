@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { useState } from "react";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
@@ -135,6 +136,8 @@ export default function SignUpPage() {
               username: username.trim() || null,
             },
           };
+
+      posthog.capture("signup_started");
 
       const { error: signUpError } = await supabase.auth.signUp({
         email: trimmedEmail,
