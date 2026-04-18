@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 import { openPaddleCheckout } from "@/lib/paddle";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -835,6 +836,8 @@ export default function SettingsPage() {
     setIsLaunchingUpgradeCheckout(true);
 
     try {
+      posthog.capture("checkout_started", { plan: "launch-planner" });
+
       const response = await fetch("/api/billing/checkout", {
         method: "POST",
       });

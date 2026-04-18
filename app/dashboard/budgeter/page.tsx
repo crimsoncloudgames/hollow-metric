@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { AlertCircle, Zap, X, Plus } from "lucide-react";
+import { AlertCircle, LoaderCircle, Plus, X, Zap } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import {
   normalizeFinancialProject,
@@ -130,6 +130,83 @@ type SaveProjectFeedback = {
   tone: "success" | "error";
   message: string;
 };
+
+type CompetitorComparisonResult = {
+  sourceGameTitle: string;
+  comparables: Array<{
+    title: string;
+    currentPrice: string;
+    reason: string;
+    fitLabel: "Strong" | "Medium" | "Weak";
+  }>;
+  disclaimer: string;
+  suggested_price_range_min: string;
+  suggested_price_range_max: string;
+  recommended_price: string;
+  pricing_rationale: string;
+};
+
+type CompetitorComparisonErrorCode =
+  | "COMPETITOR_CREDIT_RACE"
+  | "COMPETITOR_CREDIT_DEDUCTION_FAILED";
+
+function getCompetitorComparisonErrorMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  if (record.code === "COMPETITOR_CREDIT_RACE") {
+    return "The comparison finished, but the final credit could not be deducted because your last available credit was no longer available when it completed.";
+  }
+
+  if (record.code === "COMPETITOR_CREDIT_DEDUCTION_FAILED") {
+    return "The comparison finished, but the credit system failed while deducting the final credit. Please try again.";
+  }
+
+  if (typeof record.error === "string") {
+    return record.error;
+  }
+
+  return null;
+}
+
+function isCompetitorComparisonResult(
+  value: unknown
+): value is CompetitorComparisonResult {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.sourceGameTitle === "string" &&
+    typeof record.disclaimer === "string" &&
+    typeof record.suggested_price_range_min === "string" &&
+    typeof record.suggested_price_range_max === "string" &&
+    typeof record.recommended_price === "string" &&
+    typeof record.pricing_rationale === "string" &&
+    Array.isArray(record.comparables) &&
+    record.comparables.every((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+
+      const comparable = entry as Record<string, unknown>;
+
+      return (
+        typeof comparable.title === "string" &&
+        typeof comparable.currentPrice === "string" &&
+        typeof comparable.reason === "string" &&
+        (comparable.fitLabel === "Strong" ||
+          comparable.fitLabel === "Medium" ||
+          comparable.fitLabel === "Weak")
+      );
+    })
+  );
+}
 
 const deriveBudgetStatus = (review: PlanningReview): string => {
   if (review.healthScore >= 75 && review.costSignal === "Balanced") {
@@ -575,6 +652,12 @@ export default function LaunchBudgetPage() {
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [saveProjectFeedback, setSaveProjectFeedback] =
     useState<SaveProjectFeedback | null>(null);
+  const [competitorSteamUrl, setCompetitorSteamUrl] = useState("");
+  const [isRunningCompetitorComparison, setIsRunningCompetitorComparison] =
+    useState(false);
+  const [competitorComparisonError, setCompetitorComparisonError] = useState<string | null>(null);
+  const [competitorComparisonResult, setCompetitorComparisonResult] =
+    useState<CompetitorComparisonResult | null>(null);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
 
   // Post-launch actuals
@@ -1011,6 +1094,108 @@ export default function LaunchBudgetPage() {
     }
   };
 
+  const competitorCompareDisabled =
+    isRunningCompetitorComparison || competitorSteamUrl.trim().length === 0;
+
+  const handleCompetitorPriceComparison = async () => {
+    const trimmedSteamUrl = competitorSteamUrl.trim();
+
+    if (isRunningCompetitorComparison) {
+      return;
+    }
+
+    setCompetitorComparisonError(null);
+    setCompetitorComparisonResult(null);
+
+    if (!trimmedSteamUrl) {
+      setCompetitorComparisonError("Paste a valid Steam page URL before comparing prices.");
+      return;
+    }
+
+    setIsRunningCompetitorComparison(true);
+
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const supabase = createClient();
+
+      if (supabase) {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        const accessToken = session?.access_token?.trim();
+
+        if (accessToken) {
+          headers.Authorization = `Bearer ${accessToken}`;
+        }
+      }
+
+      const response = await fetch("/api/competitor-price-comparison", {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ url: trimmedSteamUrl }),
+      });
+
+      const rawResponse = await response.text();
+      let payload: unknown = null;
+
+      if (rawResponse) {
+        try {
+          payload = JSON.parse(rawResponse) as unknown;
+        } catch {
+          payload = null;
+        }
+      }
+
+      if (!response.ok) {
+        const message =
+          getCompetitorComparisonErrorMessage(payload) ??
+          "We couldn't compare competitor prices right now. Please try again.";
+
+        setCompetitorComparisonError(message);
+        return;
+      }
+
+      if (!isCompetitorComparisonResult(payload)) {
+        setCompetitorComparisonError(
+          "We received an unexpected comparison response. Please try again."
+        );
+        return;
+      }
+
+      setCompetitorComparisonResult({
+        sourceGameTitle: payload.sourceGameTitle.trim(),
+        comparables: payload.comparables.slice(0, 3).map((comparable) => ({
+          title: comparable.title.trim(),
+          currentPrice: comparable.currentPrice.trim(),
+          reason: comparable.reason.trim(),
+          fitLabel: comparable.fitLabel,
+        })),
+        disclaimer: payload.disclaimer.trim(),
+        suggested_price_range_min: payload.suggested_price_range_min.trim(),
+        suggested_price_range_max: payload.suggested_price_range_max.trim(),
+        recommended_price: payload.recommended_price.trim(),
+        pricing_rationale: payload.pricing_rationale.trim(),
+      });
+    } catch (error) {
+      setCompetitorComparisonError(
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : "We couldn't compare competitor prices right now. Please try again."
+      );
+    } finally {
+      setIsRunningCompetitorComparison(false);
+    }
+  };
+
   return (
     <section className="space-y-8">
       {/* SECTION 1: SUBSCRIPTION TIER INFO - LIGHTWEIGHT */}
@@ -1226,6 +1411,194 @@ export default function LaunchBudgetPage() {
           <p className="text-xs leading-6 text-amber-100/80">
             This tool is a planning estimate. Final tax treatment varies by treaty status, country, documentation, and income type. Users should verify final calculations with a qualified tax professional.
           </p>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
+        <h2 className="text-2xl font-black text-white">Competitor Price Comparison</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Paste your Steam page URL to get suggested comparable games and pricing context.
+        </p>
+
+        <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-950/60 p-5 sm:p-6">
+          <div className="space-y-2">
+            <label
+              htmlFor="competitor-price-comparison-steam-url"
+              className="block text-sm font-semibold text-slate-300"
+            >
+              Steam page URL
+            </label>
+            <input
+              id="competitor-price-comparison-steam-url"
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              placeholder="https://store.steampowered.com/app/620/Portal_2/"
+              value={competitorSteamUrl}
+              onChange={(event) => {
+                setCompetitorSteamUrl(event.target.value);
+                if (competitorComparisonError) {
+                  setCompetitorComparisonError(null);
+                }
+              }}
+              disabled={isRunningCompetitorComparison}
+              className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                void handleCompetitorPriceComparison();
+              }}
+              disabled={competitorCompareDisabled}
+              className={[
+                "inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-bold text-white transition",
+                competitorCompareDisabled
+                  ? "cursor-not-allowed bg-blue-900 text-slate-300"
+                  : "bg-blue-600 hover:bg-blue-500",
+              ].join(" ")}
+            >
+              {isRunningCompetitorComparison ? (
+                <>
+                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  Comparing...
+                </>
+              ) : (
+                "Compare Competitor Prices"
+              )}
+            </button>
+
+            <p className="text-xs text-slate-500">
+              Costs 1 credit per successful result.
+            </p>
+          </div>
+
+          {competitorComparisonError ? (
+            <div
+              className="mt-4 min-h-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+              role="alert"
+            >
+              {competitorComparisonError}
+            </div>
+          ) : isRunningCompetitorComparison ? (
+            <div className="mt-4 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-4" aria-live="polite">
+              <div className="flex items-start gap-3">
+                <LoaderCircle className="mt-0.5 h-5 w-5 animate-spin text-blue-300" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-100">Analyzing Steam page and pricing context...</p>
+                  <p className="mt-1 text-sm text-blue-100/75">This can take a little longer.</p>
+                </div>
+              </div>
+            </div>
+          ) : !competitorComparisonResult ? (
+            <div className="mt-4 min-h-6 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-slate-500">
+              Enter a Steam page URL to test the comparison flow.
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-6 rounded-3xl border border-dashed border-slate-800 bg-slate-950/40 p-5 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+            Results
+          </p>
+
+          {isRunningCompetitorComparison ? (
+            <div className="mt-4 rounded-2xl border border-blue-500/20 bg-slate-950/70 p-5" aria-live="polite">
+              <div className="flex items-start gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+                <LoaderCircle className="mt-0.5 h-5 w-5 animate-spin text-blue-300" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-100">Analyzing Steam page and pricing context...</p>
+                  <p className="mt-1 text-sm text-blue-100/75">This can take a little longer.</p>
+                </div>
+              </div>
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                {[0, 1, 2].map((index) => (
+                  <div key={index} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+                    <div className="h-4 w-20 animate-pulse rounded-full bg-slate-800" />
+                    <div className="mt-3 h-5 w-3/4 animate-pulse rounded-full bg-slate-800" />
+                    <div className="mt-3 h-4 w-1/3 animate-pulse rounded-full bg-slate-800" />
+                    <div className="mt-4 h-4 w-full animate-pulse rounded-full bg-slate-800" />
+                    <div className="mt-2 h-4 w-5/6 animate-pulse rounded-full bg-slate-800" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : competitorComparisonResult ? (
+            <div className="mt-4 space-y-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                  Source Game
+                </p>
+                <p className="mt-2 text-lg font-black text-white">
+                  {competitorComparisonResult.sourceGameTitle}
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                {competitorComparisonResult.comparables.map((comparable) => (
+                  <article
+                    key={`${comparable.title}:${comparable.currentPrice}`}
+                    className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4"
+                  >
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                      {comparable.fitLabel} Fit
+                    </p>
+                    <p className="text-sm font-black text-white">{comparable.title}</p>
+                    <p className="mt-2 text-lg font-black text-blue-300">
+                      {comparable.currentPrice}
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-slate-300">
+                      {comparable.reason}
+                    </p>
+                  </article>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-blue-600/20 bg-blue-600/10 p-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                      Suggested Price Range
+                    </p>
+                    <p className="mt-2 text-lg font-black text-white">
+                      {competitorComparisonResult.suggested_price_range_min} to{" "}
+                      {competitorComparisonResult.suggested_price_range_max}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                      Recommended Launch Price
+                    </p>
+                    <p className="mt-2 text-lg font-black text-blue-300">
+                      {competitorComparisonResult.recommended_price}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                    Why This Makes Sense
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-300">
+                    {competitorComparisonResult.pricing_rationale}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs leading-6 text-slate-500">
+                {competitorComparisonResult.disclaimer}
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+              <p className="text-sm text-slate-500">
+                Comparison results will appear here.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

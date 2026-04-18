@@ -17,6 +17,18 @@ export const runtime = "nodejs";
 
 const MODEL_NAME = "gpt-4o-mini";
 
+function logGameIdeaGeneratorTiming(
+  stage: string,
+  startedAt: number,
+  details?: Record<string, unknown>
+) {
+  console.info("Game idea generator timing", {
+    stage,
+    durationMs: Math.round(performance.now() - startedAt),
+    ...(details ?? {}),
+  });
+}
+
 const IDEA_ONE_SYSTEM_PROMPT = `You are an elite game designer creating a sharp, commercially strong, highly pitchable game concept.
 Generate 1 game idea from the user inputs.
 This version must be the cleaner, broader, more immediately marketable direction.
@@ -263,6 +275,7 @@ async function generateSingleIdea(
   ideaLabel: "Idea One" | "Idea Two"
 ) {
   const openai = getOpenAIClient();
+  const modelStartedAt = performance.now();
   const response = await openai.chat.completions.create({
     model: MODEL_NAME,
     messages: [
@@ -276,6 +289,10 @@ async function generateSingleIdea(
       },
     ],
     response_format: { type: "json_object" },
+  });
+
+  logGameIdeaGeneratorTiming("model-call", modelStartedAt, {
+    idea: ideaLabel,
   });
 
   const rawContent = response.choices[0]?.message?.content ?? "";
@@ -307,12 +324,18 @@ async function generateSingleIdea(
 }
 
 export async function POST(request: Request) {
+  const routeStartedAt = performance.now();
   const accessToken = getSupabaseAccessTokenFromAuthorizationHeader(
     request.headers.get("authorization")
   );
 
   try {
+    const accessStartedAt = performance.now();
     const access = await requireGameIdeaGeneratorAccess(accessToken);
+    logGameIdeaGeneratorTiming("auth-access", accessStartedAt, {
+      ok: access.ok,
+      status: access.ok ? 200 : access.status,
+    });
 
     if (!access.ok) {
       return NextResponse.json(
@@ -351,9 +374,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const creditsGateStartedAt = performance.now();
     const creditsGate = await requireGameIdeaGeneratorCredits({
       source: "game-idea-generator/route",
       accessToken,
+    });
+    logGameIdeaGeneratorTiming("credits-gate", creditsGateStartedAt, {
+      ok: creditsGate.ok,
+      status: creditsGate.ok ? 200 : creditsGate.status,
     });
 
     if (!creditsGate.ok) {
@@ -370,17 +398,22 @@ export async function POST(request: Request) {
     }
 
     const sharedInputBlock = buildUserPrompt(payload);
+    const ideaOneStartedAt = performance.now();
     const ideaOne = await generateSingleIdea(
       IDEA_ONE_SYSTEM_PROMPT,
       sharedInputBlock,
       "Idea One"
     );
+    logGameIdeaGeneratorTiming("idea-one-generation", ideaOneStartedAt);
+    const ideaTwoStartedAt = performance.now();
     const ideaTwo = await generateSingleIdea(
       IDEA_TWO_SYSTEM_PROMPT,
       buildIdeaTwoUserPrompt(sharedInputBlock, ideaOne),
       "Idea Two"
     );
+    logGameIdeaGeneratorTiming("idea-two-generation", ideaTwoStartedAt);
 
+    const creditDeductionStartedAt = performance.now();
     const creditDeduction = await deductGameIdeaGeneratorCredit(
       creditsGate.userId,
       creditsGate.balance,
@@ -389,6 +422,10 @@ export async function POST(request: Request) {
         accessToken,
       }
     );
+    logGameIdeaGeneratorTiming("credit-deduction", creditDeductionStartedAt, {
+      ok: creditDeduction.ok,
+      status: creditDeduction.ok ? 200 : creditDeduction.status,
+    });
 
     if (!creditDeduction.ok) {
       return NextResponse.json(
@@ -431,5 +468,7 @@ export async function POST(request: Request) {
       },
       { status: 500 }
     );
+  } finally {
+    logGameIdeaGeneratorTiming("total-route", routeStartedAt);
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lightbulb, RefreshCw, Sparkles } from "lucide-react";
+import { Lightbulb, LoaderCircle, RefreshCw, Sparkles } from "lucide-react";
 
 import {
   dispatchCreditsBalanceUpdated,
@@ -50,7 +50,7 @@ type GameIdeaGenerationErrorResponse = {
   remainingCredits?: number;
 };
 
-const GAME_IDEA_GENERATION_CREDIT_REQUIRED_MESSAGE = "1 credit or more needed for generation";
+const GAME_IDEA_GENERATION_CREDIT_REQUIRED_MESSAGE = "You need at least 1 credit to use this feature.";
 
 const genreOptions = Array.from(
   new Set([
@@ -2341,12 +2341,27 @@ export default function GameIdeaGeneratorPage() {
           aria-busy={isGeneratingIdeas}
           className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-blue-600 px-6 py-4 text-sm font-black uppercase tracking-[0.16em] text-white transition hover:bg-blue-500 disabled:cursor-wait disabled:bg-blue-500/80"
         >
-          <Sparkles size={18} className={isGeneratingIdeas ? "animate-pulse" : undefined} />
+          {isGeneratingIdeas ? (
+            <LoaderCircle size={18} className="animate-spin" />
+          ) : (
+            <Sparkles size={18} />
+          )}
           {isGeneratingIdeas ? "Generating Game Ideas..." : "Generate Game Idea"}
         </button>
         <p className="mt-3 text-left text-sm leading-6 text-slate-400 sm:text-center sm:whitespace-nowrap">
           Generating the idea costs 1 credit, and you will receive 2 distinct game ideas. Modifying any of the fields above does not cost credits.
         </p>
+        {isGeneratingIdeas ? (
+          <div className="mt-4 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-4" aria-live="polite">
+            <div className="flex items-start gap-3">
+              <LoaderCircle className="mt-0.5 h-5 w-5 animate-spin text-blue-300" />
+              <div>
+                <p className="text-sm font-semibold text-blue-100">Working on your game ideas...</p>
+                <p className="mt-1 text-sm text-blue-100/75">This can take a few seconds.</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {generationError ? (
           <p className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200">
             {generationError}
@@ -2355,20 +2370,48 @@ export default function GameIdeaGeneratorPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        {generatedIdeas.map((idea) => (
-          <article
-            key={idea.label}
-            className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-[0_0_24px_rgba(15,23,42,0.35)] sm:p-8"
-          >
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300/80">{idea.label}</p>
-            <h3 className="mt-3 text-2xl font-black tracking-tight text-white">{idea.title}</h3>
-            <p className="mt-4 text-sm leading-7 text-slate-300">{idea.description}</p>
-            <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Positioning</p>
-              <p className="mt-2 text-sm leading-7 text-slate-400">{idea.positioning}</p>
-            </div>
-          </article>
-        ))}
+        {isGeneratingIdeas
+          ? ["Game Idea One", "Game Idea Two"].map((label) => (
+            <article
+              key={label}
+              className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-[0_0_24px_rgba(15,23,42,0.35)] sm:p-8"
+              aria-live="polite"
+            >
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300/80">{label}</p>
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+                <LoaderCircle className="mt-0.5 h-5 w-5 animate-spin text-blue-300" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-100">Working on your game ideas...</p>
+                  <p className="mt-1 text-sm text-blue-100/75">This can take a few seconds.</p>
+                </div>
+              </div>
+              <div className="mt-5 space-y-3">
+                <div className="h-6 w-2/3 animate-pulse rounded-full bg-slate-800" />
+                <div className="h-4 w-full animate-pulse rounded-full bg-slate-800" />
+                <div className="h-4 w-11/12 animate-pulse rounded-full bg-slate-800" />
+                <div className="h-4 w-5/6 animate-pulse rounded-full bg-slate-800" />
+              </div>
+              <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <div className="h-4 w-24 animate-pulse rounded-full bg-slate-800" />
+                <div className="mt-3 h-4 w-full animate-pulse rounded-full bg-slate-800" />
+                <div className="mt-2 h-4 w-3/4 animate-pulse rounded-full bg-slate-800" />
+              </div>
+            </article>
+          ))
+          : generatedIdeas.map((idea) => (
+            <article
+              key={idea.label}
+              className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-[0_0_24px_rgba(15,23,42,0.35)] sm:p-8"
+            >
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300/80">{idea.label}</p>
+              <h3 className="mt-3 text-2xl font-black tracking-tight text-white">{idea.title}</h3>
+              <p className="mt-4 text-sm leading-7 text-slate-300">{idea.description}</p>
+              <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Positioning</p>
+                <p className="mt-2 text-sm leading-7 text-slate-400">{idea.positioning}</p>
+              </div>
+            </article>
+          ))}
       </div>
     </section>
   );

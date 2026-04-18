@@ -40,6 +40,68 @@ const comingSoonItems = [
   { label: "Creator Discovery", icon: Search },
 ];
 
+type SupabaseErrorLike = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  status?: number | null;
+};
+
+function readSupabaseError(error: unknown): SupabaseErrorLike | null {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const record = error as Record<string, unknown>;
+  const readString = (value: unknown) =>
+    typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+
+  return {
+    code: readString(record.code),
+    message: readString(record.message),
+    details: readString(record.details),
+    hint: readString(record.hint),
+    status: typeof record.status === "number" ? record.status : null,
+  };
+}
+
+function isMissingEntitlementRowError(error: unknown): boolean {
+  const supabaseError = readSupabaseError(error);
+  const message = [supabaseError?.message, supabaseError?.details, supabaseError?.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    supabaseError?.code === "PGRST116" ||
+    supabaseError?.status === 406 ||
+    message.includes("0 rows") ||
+    message.includes("no rows")
+  );
+}
+
+function isIgnorableEntitlementLoadError(error: unknown): boolean {
+  if (isMissingEntitlementRowError(error)) {
+    return true;
+  }
+
+  const supabaseError = readSupabaseError(error);
+  const message = [supabaseError?.message, supabaseError?.details, supabaseError?.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    supabaseError?.code === "PGRST205" ||
+    supabaseError?.code === "42P01" ||
+    supabaseError?.code === "42703" ||
+    message.includes("does not exist") ||
+    message.includes("could not find the table") ||
+    message.includes("schema cache")
+  );
+}
+
 function getHeaderText(pathname: string) {
   if (pathname.startsWith("/dashboard/reports/")) {
     return {
@@ -204,8 +266,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (!mounted) return;
 
         if (entitlementError) {
-          console.error("Failed to load dashboard entitlement state for navigation", entitlementError);
-          setShowUpgradeButton(false);
+          if (isMissingEntitlementRowError(entitlementError)) {
+            setShowUpgradeButton(true);
+          } else {
+            if (!isIgnorableEntitlementLoadError(entitlementError)) {
+              console.warn(
+                "Dashboard navigation entitlement check is unavailable",
+                entitlementError
+              );
+            }
+
+            setShowUpgradeButton(false);
+          }
         } else {
           setShowUpgradeButton(!hasLaunchPlannerAccess(entitlement));
         }
@@ -311,7 +383,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               >
                 <span className="block truncate">Hollow Metric</span>
                 <span className="mt-1 inline-block text-[10px] font-black not-italic text-blue-500 sm:text-sm">
-                  v0.6.7
+                  v0.6.8
                 </span>
               </div>
             </Link>

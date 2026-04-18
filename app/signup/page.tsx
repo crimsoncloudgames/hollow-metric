@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import { useState } from "react";
 import { TurnstileWidget } from "@/components/turnstile-widget";
@@ -70,11 +69,12 @@ function getFriendlySignUpError(message: string): string | null {
 }
 
 export default function SignUpPage() {
-  const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
@@ -163,8 +163,12 @@ export default function SignUpPage() {
         return;
       }
 
-      setInfo("Account created. Check your email for confirmation if prompted.");
-      router.push("/login");
+      // Fire PostHog event only on actual successful signup
+      posthog.capture("signup_completed");
+      setSubmittedEmail(trimmedEmail);
+      setShowConfirmModal(true);
+      setPassword("");
+      setInfo(null);
     } catch {
       setError("We couldn't create your account right now. Please check your connection and try again.");
     } finally {
@@ -329,6 +333,30 @@ export default function SignUpPage() {
           />
         </form>
       </div>
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4">
+          <div className="relative w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl shadow-slate-950/50">
+            <button
+              type="button"
+              onClick={() => setShowConfirmModal(false)}
+              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+              aria-label="Close confirmation modal"
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M5 5l10 10" strokeLinecap="round" />
+                <path d="M15 5L5 15" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <h2 className="text-2xl font-black text-white">Confirm your email</h2>
+            <p className="mt-4 text-sm leading-6 text-slate-300">
+              We sent a confirmation email to <span className="font-semibold text-white">{submittedEmail}</span>. Please confirm your email before you can log in.
+            </p>
+            <p className="mt-3 text-sm text-slate-400">If you do not see it, check your spam or junk folder.</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

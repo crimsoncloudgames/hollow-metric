@@ -82,7 +82,7 @@ const SUBSCRIPTION_EVENT_TYPES = new Set([
 ]);
 
 const CREDIT_PACK_TRANSACTION_COMPLETED_EVENT_TYPE = "transaction.completed";
-const PRO_UPGRADE_BONUS_CREDITS = 1;
+const PRO_UPGRADE_BONUS_CREDITS = 3;
 const PRO_UPGRADE_BONUS_TRANSACTION_PREFIX = "bonus_pro_upgrade";
 
 type Database = {
@@ -289,6 +289,76 @@ function getSupabaseAdminClient(): SupabaseClient<Database> | null {
   }
 
   return createAdminClient<Database>(url, serviceKey);
+}
+
+function getPostHogCaptureConfig() {
+  const apiKey =
+    process.env.NEXT_PUBLIC_POSTHOG_TOKEN?.trim() ??
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() ??
+    "";
+  const host = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() ?? "";
+
+  if (!apiKey || !host) {
+    return null;
+  }
+
+  return {
+    apiKey,
+    endpoint: new URL("/i/v0/e/", host).toString(),
+  };
+}
+
+async function capturePostHogServerEvent({
+  event,
+  distinctId,
+  properties,
+  timestamp,
+}: {
+  event: string;
+  distinctId: string;
+  properties?: Record<string, JsonValue>;
+  timestamp?: string;
+}) {
+  const config = getPostHogCaptureConfig();
+
+  if (!config) {
+    console.warn("PostHog server capture skipped: missing PostHog configuration.", {
+      event,
+      distinctId,
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch(config.endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        api_key: config.apiKey,
+        event,
+        distinct_id: distinctId,
+        properties,
+        ...(timestamp ? { timestamp } : {}),
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("PostHog server capture failed", {
+        event,
+        distinctId,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
+  } catch (error) {
+    console.error("PostHog server capture request failed", {
+      event,
+      distinctId,
+      error,
+    });
+  }
 }
 
 function parsePaddleSignatureHeader(headerValue: string) {
@@ -822,7 +892,7 @@ async function syncUserEntitlement(
 ) {
   const { data: existingRow, error: lookupError } = await supabase
     .from("user_entitlements")
-    .select("user_id")
+    .select("user_id, tier, premium_access, billing_state")
     .eq("user_id", row.user_id)
     .limit(1)
     .maybeSingle();
@@ -830,6 +900,12 @@ async function syncUserEntitlement(
   if (lookupError) {
     return { ok: false as const, error: lookupError };
   }
+
+  const wasActive =
+    existingRow?.tier === "pro" &&
+    existingRow?.premium_access === true &&
+    existingRow?.billing_state === "active";
+  const isActive = row.tier === "pro" && row.premium_access === true && row.billing_state === "active";
 
   if (existingRow) {
     const { error } = await supabase
@@ -841,7 +917,7 @@ async function syncUserEntitlement(
       return { ok: false as const, error };
     }
 
-    return { ok: true as const };
+    return { ok: true as const, activated: isActive && !wasActive };
   }
 
   const { error } = await supabase
@@ -852,7 +928,7 @@ async function syncUserEntitlement(
     return { ok: false as const, error };
   }
 
-  return { ok: true as const };
+  return { ok: true as const, activated: isActive && !wasActive };
 }
 
 async function fulfillCreditPurchase(
@@ -1442,7 +1518,7 @@ export async function POST(request: Request) {
         }
 
         const errorMessage = [
-          "Failed to grant pro upgrade bonus credit.",
+          "Failed to grant pro upgrade bonus credits.",
           bonusCreditResult.error.message,
           bonusCreditResult.error.details,
           bonusCreditResult.error.hint,
@@ -1450,7 +1526,7 @@ export async function POST(request: Request) {
           .filter((value): value is string => Boolean(value && value.trim()))
           .join(" ");
 
-        console.error("Failed to grant pro upgrade bonus credit", {
+        console.error("Failed to grant pro upgrade bonus credits", {
           paddleEventId: eventId,
           eventType,
           paddleSubscriptionId: extracted.row.paddle_subscription_id,
@@ -1461,10 +1537,28 @@ export async function POST(request: Request) {
         await recordWebhookError(supabase, eventId, errorMessage);
 
         return NextResponse.json(
-          { error: "Failed to grant pro upgrade bonus credit." },
+          { error: "Failed to grant pro upgrade bonus credits." },
           { status: 500 },
         );
       }
+    }
+
+    if (entitlementResult.activated) {
+      await capturePostHogServerEvent({
+        event: "subscription_activated",
+        distinctId: extracted.row.user_id,
+        timestamp: extractEventCreatedAt(parsedEvent) ?? syncTimestamp,
+        properties: {
+          $insert_id: eventId,
+          plan: extracted.row.plan_key === "pro" ? "launch-planner" : extracted.row.plan_key,
+          plan_key: extracted.row.plan_key,
+          billing_state: entitlementRow.billing_state,
+          user_id: extracted.row.user_id,
+          source: "paddle",
+          paddle_event_id: eventId,
+          paddle_event_type: eventType,
+        },
+      });
     }
 
     const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, syncTimestamp);

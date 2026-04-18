@@ -7,9 +7,14 @@ export const STEAM_TAG_TOOL_CREDIT_COST = 1;
 export const STEAM_TAG_TOOL_CREDIT_REQUIRED_MESSAGE = "At least 1 credit is required to use the Steam Tag Tool.";
 export const STEAM_TAG_TOOL_CREDIT_DEDUCTION_FAILED_MESSAGE = "Tag generation succeeded, but credit deduction failed.";
 export const GAME_IDEA_GENERATOR_CREDIT_COST = 1;
-export const GAME_IDEA_GENERATOR_CREDIT_REQUIRED_MESSAGE = "1 credit or more needed for generation";
+export const GAME_IDEA_GENERATOR_CREDIT_REQUIRED_MESSAGE = "You need at least 1 credit to use this feature.";
 export const GAME_IDEA_GENERATOR_CREDIT_DEDUCTION_FAILED_MESSAGE =
   "Game idea generation succeeded, but credit deduction failed.";
+export const COMPETITOR_PRICE_COMPARISON_CREDIT_COST = 1;
+export const COMPETITOR_PRICE_COMPARISON_CREDIT_REQUIRED_MESSAGE =
+  "You need at least 1 credit to use this feature.";
+export const COMPETITOR_PRICE_COMPARISON_CREDIT_DEDUCTION_FAILED_MESSAGE =
+  "Competitor price comparison succeeded, but credit deduction failed.";
 
 type CreditsGateResult =
   | {
@@ -164,7 +169,7 @@ async function requireCredits(
 
 async function deductCredit(
   userId: string,
-  currentBalance: number,
+  _currentBalance: number,
   creditCost: number,
   deductionFailedMessage: string,
   authContext?: CreditsAuthContext
@@ -187,17 +192,33 @@ async function deductCredit(
     };
   }
 
-  const nextBalance = Math.max(0, normalizeCreditsBalance(currentBalance) - creditCost);
-  const { data, error } = await supabase
-    .from("user_credits")
-    .update({
-      balance: nextBalance,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", userId)
-    .gte("balance", creditCost)
-    .select("balance")
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("consume_user_credit", {
+    credits_to_consume: creditCost,
+  });
+
+  const result =
+    data && typeof data === "object"
+      ? (data as { ok?: unknown; remaining_balance?: unknown })
+      : null;
+  const interpretedStatus = error
+    ? 500
+    : result?.ok !== true || result.remaining_balance === undefined
+      ? 409
+      : 200;
+  const interpretedRemainingBalance =
+    result?.remaining_balance === undefined
+      ? null
+      : normalizeCreditsBalance(result.remaining_balance);
+
+  console.info("Credit deduction RPC result", {
+    source: authContext?.source ?? "unknown",
+    userId,
+    creditCost,
+    rawRpcData: data ?? null,
+    rawRpcError: error ?? null,
+    interpretedStatus,
+    interpretedRemainingBalance,
+  });
 
   if (error) {
     console.error("Failed to deduct credit", {
@@ -213,17 +234,17 @@ async function deductCredit(
     };
   }
 
-  if (!data) {
+  if (result?.ok !== true || result.remaining_balance === undefined) {
     return {
       ok: false,
-      status: 500,
+      status: 409,
       error: deductionFailedMessage,
     };
   }
 
   return {
     ok: true,
-    remainingBalance: normalizeCreditsBalance(data.balance),
+    remainingBalance: normalizeCreditsBalance(result.remaining_balance),
   };
 }
 
@@ -271,6 +292,30 @@ export async function deductGameIdeaGeneratorCredit(
     currentBalance,
     GAME_IDEA_GENERATOR_CREDIT_COST,
     GAME_IDEA_GENERATOR_CREDIT_DEDUCTION_FAILED_MESSAGE,
+    authContext
+  );
+}
+
+export async function requireCompetitorPriceComparisonCredits(
+  authContext?: CreditsAuthContext
+): Promise<CreditsGateResult> {
+  return requireCredits(
+    COMPETITOR_PRICE_COMPARISON_CREDIT_COST,
+    COMPETITOR_PRICE_COMPARISON_CREDIT_REQUIRED_MESSAGE,
+    authContext
+  );
+}
+
+export async function deductCompetitorPriceComparisonCredit(
+  userId: string,
+  currentBalance: number,
+  authContext?: CreditsAuthContext
+): Promise<CreditDeductionResult> {
+  return deductCredit(
+    userId,
+    currentBalance,
+    COMPETITOR_PRICE_COMPARISON_CREDIT_COST,
+    COMPETITOR_PRICE_COMPARISON_CREDIT_DEDUCTION_FAILED_MESSAGE,
     authContext
   );
 }
