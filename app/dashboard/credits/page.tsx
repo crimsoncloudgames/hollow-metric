@@ -1,4 +1,4 @@
-import { Coins, Lightbulb, Sparkles, Store, Users } from "lucide-react";
+import { Coins, Lightbulb, Scale, Sparkles, Store, Users } from "lucide-react";
 import { CreditsBalanceLabel } from "@/components/credits-balance-label";
 import { CreditPackSelector, type CreditPackOption } from "./credit-pack-selector";
 
@@ -7,6 +7,12 @@ const creditUsageItems = [
     title: "Game Idea Generator",
     description: "Spend credits on generating and refining game concepts.",
     icon: Lightbulb,
+    creditCostLabel: "Uses 1 credit per use",
+  },
+  {
+    title: "Competitor Price Comparison",
+    description: "Compare similar Steam games and get pricing context before you choose a launch price.",
+    icon: Scale,
     creditCostLabel: "Uses 1 credit per use",
   },
   {
@@ -24,6 +30,11 @@ const creditUsageItems = [
     description: "Future credit usage for creator and outreach tooling.",
     icon: Users,
   },
+  {
+    title: "More Features Coming Soon",
+    description: "Additional credit-powered tools will be added here as they go live.",
+    icon: Sparkles,
+  },
 ];
 
 const creditPackOptions: CreditPackOption[] = [
@@ -32,12 +43,14 @@ const creditPackOptions: CreditPackOption[] = [
     credits: 1,
     priceLabel: "$3",
     priceId: process.env.PADDLE_CREDITS_1_PRICE_ID?.trim() ?? "",
+    helperText: "Good for one quick test",
   },
   {
     id: "starter-3",
     credits: 3,
     priceLabel: "$5",
     priceId: process.env.PADDLE_CREDITS_3_PRICE_ID?.trim() ?? "",
+    helperText: "Best starter option",
     isDefault: true,
   },
   {
@@ -45,12 +58,14 @@ const creditPackOptions: CreditPackOption[] = [
     credits: 6,
     priceLabel: "$9",
     priceId: process.env.PADDLE_CREDITS_6_PRICE_ID?.trim() ?? "",
+    helperText: "Better value for repeat use",
   },
   {
     id: "starter-10",
     credits: 10,
     priceLabel: "$13",
     priceId: process.env.PADDLE_CREDITS_10_PRICE_ID?.trim() ?? "",
+    helperText: "Best for heavier usage",
   },
 ];
 
@@ -58,7 +73,7 @@ export default function BuyCreditsPage() {
   return (
     <section className="space-y-8">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,460px)] xl:items-stretch">
-        <div className="space-y-6">
+        <div className="space-y-6 xl:flex xl:h-full xl:flex-col">
           <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Current Balance</p>
             <div className="mt-5 inline-flex items-center gap-3 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4">
@@ -70,7 +85,7 @@ export default function BuyCreditsPage() {
             </p>
           </div>
 
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8">
+          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8 xl:flex-1">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-500">Credits Can Be Used For</p>
             <div className="mt-6 grid gap-4 xl:gap-5">
               {creditUsageItems.map((item) => {

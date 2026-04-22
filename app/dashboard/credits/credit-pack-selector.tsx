@@ -9,12 +9,17 @@ export type CreditPackOption = {
   credits: number;
   priceLabel: string;
   priceId: string;
+  helperText?: string;
   isDefault?: boolean;
 };
 
 type CreditPackSelectorProps = {
   packOptions: CreditPackOption[];
 };
+
+function formatCreditsLabel(credits: number) {
+  return `${credits} ${credits === 1 ? "Credit" : "Credits"}`;
+}
 
 function getDefaultSelectedPackId(packOptions: CreditPackOption[]) {
   return (
@@ -44,7 +49,7 @@ export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
       <div>
         <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300/80">Credit Pack</p>
 
-        <div className="mt-6 grid gap-3">
+        <div className="mt-6 grid gap-4">
           {packOptions.map((packOption) => {
             const isSelected = packOption.id === selectedPack.id;
 
@@ -55,21 +60,26 @@ export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
                 onClick={() => setSelectedPackId(packOption.id)}
                 aria-pressed={isSelected}
                 className={[
-                  "rounded-2xl border px-5 py-4 text-left transition",
+                  "min-h-[116px] rounded-2xl border px-5 py-5 text-left transition",
                   isSelected
                     ? "border-blue-500/40 bg-blue-500/10 shadow-[0_0_24px_rgba(59,130,246,0.18)]"
                     : "border-slate-800 bg-slate-950/70 hover:border-blue-500/30 hover:bg-slate-950",
                 ].join(" ")}
               >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-400">Quantity</p>
-                    <p className="mt-1 text-2xl font-black text-white">{packOption.credits} Credits</p>
+                <div className="flex h-full flex-col justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-400">Quantity</p>
+                      <p className="mt-1 text-2xl font-black text-white">{formatCreditsLabel(packOption.credits)}</p>
+                    </div>
+                    <div className="sm:text-right">
+                      <p className="text-sm font-semibold text-slate-400">Price</p>
+                      <p className="mt-1 text-3xl font-black text-blue-400">{packOption.priceLabel}</p>
+                    </div>
                   </div>
-                  <div className="sm:text-right">
-                    <p className="text-sm font-semibold text-slate-400">Price</p>
-                    <p className="mt-1 text-3xl font-black text-blue-400">{packOption.priceLabel}</p>
-                  </div>
+                  {packOption.helperText ? (
+                    <p className="text-sm text-slate-400">{packOption.helperText}</p>
+                  ) : null}
                 </div>
               </button>
             );
@@ -77,14 +87,14 @@ export function CreditPackSelector({ packOptions }: CreditPackSelectorProps) {
         </div>
       </div>
 
-      <div className="mt-auto pt-6">
+      <div className="mt-8 pt-2">
         <p className="text-sm leading-7 text-slate-300">
           A simple way to test extra features without buying too much too early.
         </p>
 
         <StarterCreditPackCheckoutButton
           priceId={selectedPack.priceId}
-          packLabel={`${selectedPack.credits} Credits`}
+          packLabel={formatCreditsLabel(selectedPack.credits)}
           buttonLabel="Buy Credits"
         />
 

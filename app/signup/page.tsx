@@ -354,6 +354,9 @@ export default function SignUpPage() {
               We sent a confirmation email to <span className="font-semibold text-white">{submittedEmail}</span>. Please confirm your email before you can log in.
             </p>
             <p className="mt-3 text-sm text-slate-400">If you do not see it, check your spam or junk folder.</p>
+            <p className="mt-3 text-sm text-slate-400">
+              If you do not verify your email within 7 days, your details will be automatically removed.
+            </p>
           </div>
         </div>
       )}
