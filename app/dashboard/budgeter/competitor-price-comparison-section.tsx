@@ -162,25 +162,30 @@ async function getCompetitorPriceComparisonAuthState() {
 
   if (!session?.user) {
     return {
-        </div>
-      ))}      {Array.isArray(dbg._debugRejectedCandidates) &&
-      (dbg._debugRejectedCandidates as Array<unknown>).length > 0 ? (
-        <>
-          <p style={{ marginTop: 8, fontWeight: "bold", color: "#ff8844" }}>
-            Rejected by acceptance gate ({(dbg._debugRejectedCandidates as Array<unknown>).length}):
-          </p>
-          {(dbg._debugRejectedCandidates as Array<Record<string, unknown>>).map((r, i) => (
-            <div
-              key={i}
-              style={{ marginTop: 4, paddingLeft: 8, borderLeft: "2px solid #884422", color: "#cc6633" }}
-            >
-              ✗ [{r.rejectionReason as string}] {r.resolvedTitle as string} (searched:{" "}
-              {r.candidateTitle as string})
-            </div>
-          ))}
-        </>
-      ) : null}    </div>
-  );
+      headers,
+      balance: 0,
+    };
+  }
+
+  const creditsResponse = await fetch("/api/credits", {
+    method: "GET",
+    credentials: "include",
+    headers,
+  });
+
+  if (!creditsResponse.ok) {
+    return { headers, balance: 0 };
+  }
+
+  const creditsPayload = (await creditsResponse.json()) as unknown;
+  const balance =
+    creditsPayload &&
+    typeof creditsPayload === "object" &&
+    typeof (creditsPayload as Record<string, unknown>).balance === "number"
+      ? normalizeCreditsBalance((creditsPayload as Record<string, number>).balance)
+      : 0;
+
+  return { headers, balance };
 }
 
 export function CompetitorPriceComparisonSection() {
