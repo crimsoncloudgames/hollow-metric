@@ -24,6 +24,12 @@ const landingScreenshots = {
     width: 2066,
     height: 496,
   },
+  competitorPricing: {
+    src: "/images/landing/hm-screenshot-9.png.png",
+    alt: "Hollow Metric competitor price comparison showing comparable Steam games and a suggested price range based on their original non-discounted list prices.",
+    width: 2106,
+    height: 720,
+  },
 };
 
 const launchPlanningCards = [
@@ -47,6 +53,13 @@ const launchPlanningCards = [
     body: "Review budget health, sales target pressure, and cost structure signals to improve your planning decisions.",
     cta: "Review My Budget",
     screenshot: landingScreenshots.breakEvenReview,
+  },
+  {
+    eyebrow: "Competitor Pricing",
+    title: "See What Comparable Games Are Charging Before You Commit to a Price",
+    body: "Paste your game's Steam page URL and Hollow Metric finds games with similar gameplay, checks their original non-discounted list prices, and gives you a suggested price range as a grounded starting point. Not a guarantee, but real market context based on actual comparable games.",
+    cta: "Compare Competitor Prices",
+    screenshot: landingScreenshots.competitorPricing,
   },
 ];
 
@@ -82,6 +95,11 @@ const faqs = [
     question: "Are paid subscriptions live?",
     answer:
       "Yes. You can start free or upgrade to Launch Planner when you want saved projects, dashboard access, and a more serious planning workflow.",
+  },
+  {
+    question: "Why charge a subscription and also charge credits?",
+    answer:
+      "Some developers only need parts of the tool, and I want to allow that without forcing a monthly commitment for everything. The monthly plan includes credits added to your account each billing cycle. Those credits do not roll over.",
   },
 ];
 
@@ -228,7 +246,7 @@ export default function LandingPage() {
           <div className="max-w-5xl">
             <div className="grid gap-4 md:grid-cols-2">
               {primaryFaqs.map((faq) => (
-                <article key={faq.question} className="flex h-full flex-col rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+                <article key={faq.question} className={["flex h-full flex-col rounded-3xl border border-slate-800 bg-slate-900/60 p-6", faq.question.startsWith("Why charge a subscription") ? "md:col-span-2" : ""].join(" ").trim()}>
                   <h3 className="text-base font-black text-white">{faq.question}</h3>
                   <p className="mt-2 text-sm leading-7 text-slate-400">{faq.answer}</p>
                 </article>

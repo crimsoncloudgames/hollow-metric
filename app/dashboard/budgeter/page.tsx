@@ -134,21 +134,46 @@ type SaveProjectFeedback = {
 type CompetitorComparisonResult = {
   sourceGameTitle: string;
   comparables: Array<{
+    appId?: string;
     title: string;
     currentPrice: string;
+    originalListPrice?: string;
     reason: string;
-    fitLabel: "Strong" | "Medium" | "Weak";
   }>;
   disclaimer: string;
   suggested_price_range_min: string;
   suggested_price_range_max: string;
   recommended_price: string;
   pricing_rationale: string;
+  lowConfidence: boolean;
 };
 
 type CompetitorComparisonErrorCode =
   | "COMPETITOR_CREDIT_RACE"
   | "COMPETITOR_CREDIT_DEDUCTION_FAILED";
+
+type CompetitorFindResponse = {
+  sourceGameTitle: string;
+  sourceAppId: string;
+  competitors: Array<{
+    appId: string;
+    title: string;
+    currentPrice: string;
+    originalListPrice: string;
+    shortDescription: string;
+    genres: string[];
+    categories: string[];
+    fitLabel: "Strong" | "Medium" | "Weak";
+    fitScore: number;
+    reason: string;
+    selected: boolean;
+  }>;
+  selectedCompetitorAppIds: string[];
+  selectedComparables?: unknown[];
+  enoughComparables: boolean;
+  insufficientDataReason: string | null;
+  disclaimer: string;
+};
 
 function getCompetitorComparisonErrorMessage(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") {
@@ -188,6 +213,7 @@ function isCompetitorComparisonResult(
     typeof record.suggested_price_range_max === "string" &&
     typeof record.recommended_price === "string" &&
     typeof record.pricing_rationale === "string" &&
+    (record.lowConfidence === true || record.lowConfidence === false) &&
     Array.isArray(record.comparables) &&
     record.comparables.every((entry) => {
       if (!entry || typeof entry !== "object") {
@@ -197,12 +223,53 @@ function isCompetitorComparisonResult(
       const comparable = entry as Record<string, unknown>;
 
       return (
+        (comparable.appId === undefined || typeof comparable.appId === "string") &&
         typeof comparable.title === "string" &&
         typeof comparable.currentPrice === "string" &&
-        typeof comparable.reason === "string" &&
-        (comparable.fitLabel === "Strong" ||
-          comparable.fitLabel === "Medium" ||
-          comparable.fitLabel === "Weak")
+        (comparable.originalListPrice === undefined ||
+          typeof comparable.originalListPrice === "string") &&
+        typeof comparable.reason === "string"
+      );
+    })
+  );
+}
+
+function isCompetitorFindResponse(value: unknown): value is CompetitorFindResponse {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.sourceGameTitle === "string" &&
+    typeof record.sourceAppId === "string" &&
+    typeof record.enoughComparables === "boolean" &&
+    (record.insufficientDataReason === null || typeof record.insufficientDataReason === "string") &&
+    typeof record.disclaimer === "string" &&
+    Array.isArray(record.selectedCompetitorAppIds) &&
+    (record.selectedCompetitorAppIds as unknown[]).every((s) => typeof s === "string") &&
+    Array.isArray(record.competitors) &&
+    record.competitors.every((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+
+      const competitor = entry as Record<string, unknown>;
+      return (
+        typeof competitor.appId === "string" &&
+        typeof competitor.title === "string" &&
+        typeof competitor.currentPrice === "string" &&
+        typeof competitor.originalListPrice === "string" &&
+        typeof competitor.shortDescription === "string" &&
+        Array.isArray(competitor.genres) &&
+        Array.isArray(competitor.categories) &&
+        (competitor.fitLabel === "Strong" ||
+          competitor.fitLabel === "Medium" ||
+          competitor.fitLabel === "Weak") &&
+        typeof competitor.fitScore === "number" &&
+        typeof competitor.reason === "string" &&
+        typeof competitor.selected === "boolean"
       );
     })
   );
@@ -1137,34 +1204,92 @@ export default function LaunchBudgetPage() {
         }
       }
 
-      const response = await fetch("/api/competitor-price-comparison", {
+      const findResponse = await fetch("/api/competitor-price-comparison/find", {
         method: "POST",
         credentials: "include",
         headers,
         body: JSON.stringify({ url: trimmedSteamUrl }),
       });
 
-      const rawResponse = await response.text();
-      let payload: unknown = null;
+      const rawFindResponse = await findResponse.text();
+      let findPayload: unknown = null;
 
-      if (rawResponse) {
+      if (rawFindResponse) {
         try {
-          payload = JSON.parse(rawResponse) as unknown;
+          findPayload = JSON.parse(rawFindResponse) as unknown;
         } catch {
-          payload = null;
+          findPayload = null;
         }
       }
 
-      if (!response.ok) {
+      if (!findResponse.ok) {
         const message =
-          getCompetitorComparisonErrorMessage(payload) ??
+          getCompetitorComparisonErrorMessage(findPayload) ??
           "We couldn't compare competitor prices right now. Please try again.";
 
         setCompetitorComparisonError(message);
         return;
       }
 
-      if (!isCompetitorComparisonResult(payload)) {
+      if (!isCompetitorFindResponse(findPayload)) {
+        setCompetitorComparisonError(
+          "We couldn't validate enough competitors from this Steam page. Please try another URL."
+        );
+        return;
+      }
+
+      if (!findPayload.enoughComparables) {
+        setCompetitorComparisonError(
+          typeof findPayload.insufficientDataReason === "string"
+            ? findPayload.insufficientDataReason
+            : "We couldn't validate enough competitors from this Steam page. Please try another URL."
+        );
+        return;
+      }
+
+      const selectedCount = findPayload.selectedCompetitorAppIds.length;
+      if (selectedCount < 2 || selectedCount > 3) {
+        setCompetitorComparisonError(
+          "We couldn't validate enough competitors from this Steam page. Please try another URL."
+        );
+        return;
+      }
+
+      const priceRequestBody = {
+        sourceGameTitle: findPayload.sourceGameTitle,
+        sourceAppId: findPayload.sourceAppId,
+        competitors: findPayload.competitors,
+        selectedCompetitorAppIds: findPayload.selectedCompetitorAppIds,
+      };
+
+      const priceResponse = await fetch("/api/competitor-price-comparison/price", {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify(priceRequestBody),
+      });
+
+      const rawPriceResponse = await priceResponse.text();
+      let pricePayload: unknown = null;
+
+      if (rawPriceResponse) {
+        try {
+          pricePayload = JSON.parse(rawPriceResponse) as unknown;
+        } catch {
+          pricePayload = null;
+        }
+      }
+
+      if (!priceResponse.ok) {
+        const message =
+          getCompetitorComparisonErrorMessage(pricePayload) ??
+          "We couldn't compare competitor prices right now. Please try again.";
+
+        setCompetitorComparisonError(message);
+        return;
+      }
+
+      if (!isCompetitorComparisonResult(pricePayload)) {
         setCompetitorComparisonError(
           "We received an unexpected comparison response. Please try again."
         );
@@ -1172,18 +1297,20 @@ export default function LaunchBudgetPage() {
       }
 
       setCompetitorComparisonResult({
-        sourceGameTitle: payload.sourceGameTitle.trim(),
-        comparables: payload.comparables.slice(0, 3).map((comparable) => ({
+        sourceGameTitle: pricePayload.sourceGameTitle.trim(),
+        comparables: pricePayload.comparables.slice(0, 3).map((comparable) => ({
+          appId: comparable.appId?.trim(),
           title: comparable.title.trim(),
           currentPrice: comparable.currentPrice.trim(),
           reason: comparable.reason.trim(),
-          fitLabel: comparable.fitLabel,
+          originalListPrice: comparable.originalListPrice?.trim(),
         })),
-        disclaimer: payload.disclaimer.trim(),
-        suggested_price_range_min: payload.suggested_price_range_min.trim(),
-        suggested_price_range_max: payload.suggested_price_range_max.trim(),
-        recommended_price: payload.recommended_price.trim(),
-        pricing_rationale: payload.pricing_rationale.trim(),
+        disclaimer: pricePayload.disclaimer.trim(),
+        suggested_price_range_min: pricePayload.suggested_price_range_min.trim(),
+        suggested_price_range_max: pricePayload.suggested_price_range_max.trim(),
+        recommended_price: pricePayload.recommended_price.trim(),
+        pricing_rationale: pricePayload.pricing_rationale.trim(),
+        lowConfidence: pricePayload.lowConfidence === true,
       });
     } catch (error) {
       setCompetitorComparisonError(
@@ -1250,65 +1377,56 @@ export default function LaunchBudgetPage() {
                 : "Project saving is not included on Starter."}
             </p>
           </div>
-
-          <div className="w-full max-w-xl">
-            <label htmlFor="project-name" className="mb-2 block text-sm font-semibold text-slate-300">
-              Project Name
-            </label>
-            <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 w-full sm:max-w-xs">
+            <div>
+              <label
+                htmlFor="project-name"
+                className="block text-sm font-semibold text-slate-300 mb-2"
+              >
+                Project Name
+              </label>
               <input
                 id="project-name"
                 type="text"
-                placeholder="e.g. Hollow Metric launch plan"
+                placeholder="e.g. Launch Budget Project"
                 value={projectName}
-                onChange={(event) => setProjectName(event.target.value)}
-                disabled={isSavingProject}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all disabled:cursor-not-allowed disabled:opacity-70"
+                onChange={(e) => setProjectName(e.target.value)}
+                disabled={!isPaidTier || isSavingProject}
+                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all disabled:opacity-50"
               />
-              <button
-                type="button"
-                onClick={() => {
-                  void handleSaveProject();
-                }}
-                disabled={saveProjectDisabled}
-                className={[
-                  "rounded-2xl px-5 py-3 text-sm font-semibold transition-all sm:min-w-36",
-                  saveProjectDisabled
-                    ? "cursor-not-allowed border border-slate-800 bg-slate-900/60 text-slate-500"
-                    : "border border-blue-600/30 bg-blue-600/10 text-blue-300 hover:bg-blue-600/15",
-                ].join(" ")}
-              >
-                {isSavingProject ? "Saving..." : isLoadingBillingContext ? "Checking access..." : "Save Project"}
-              </button>
             </div>
-
-            {saveProjectFeedback && (
-              <p
-                role={saveProjectFeedback.tone === "error" ? "alert" : "status"}
-                className={[
-                  "mt-3 text-sm",
-                  saveProjectFeedback.tone === "success"
-                    ? "text-emerald-300"
-                    : "text-amber-300",
-                ].join(" ")}
-              >
-                {saveProjectFeedback.message}
-              </p>
-            )}
+            <button
+              onClick={handleSaveProject}
+              disabled={saveProjectDisabled}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-sm font-black text-white transition-all hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isSavingProject ? (
+                <LoaderCircle size={16} className="animate-spin" />
+              ) : null}
+              {isSavingProject ? "Saving…" : "Save Project"}
+            </button>
           </div>
         </div>
+        {saveProjectFeedback !== null && (
+          <p
+            className={`mt-3 text-sm font-semibold ${
+              saveProjectFeedback.tone === "success" ? "text-green-400" : "text-red-400"
+            }`}
+            role="status"
+          >
+            {saveProjectFeedback.message}
+          </p>
+        )}
       </div>
 
-      {/* SECTION 2: EXPENSE INPUTS - FLEXIBLE */}
       <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
-        <h2 className="text-2xl font-black text-white mb-6">Launch Cost Inputs</h2>
-
-        <div className="space-y-4 mb-6">
+        <h2 className="text-2xl font-black text-white mb-6">Planned Costs</h2>
+        <div className="space-y-3 mb-6">
           {expenses.map((expense) => (
-            <div key={expense.id} className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div key={expense.id} className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex-1">
                 <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Expense Category
+                  Name
                 </label>
                 <input
                   type="text"
@@ -1527,6 +1645,14 @@ export default function LaunchBudgetPage() {
             </div>
           ) : competitorComparisonResult ? (
             <div className="mt-4 space-y-4">
+              {competitorComparisonResult.lowConfidence ? (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                  <p className="text-sm font-bold text-amber-300">Low confidence result</p>
+                  <p className="mt-1 text-xs text-amber-200/80">
+                    Only {competitorComparisonResult.comparables.length} comparable game{competitorComparisonResult.comparables.length === 1 ? " was" : "s were"} found instead of the standard 3. Pricing estimates are directional only and less reliable.
+                  </p>
+                </div>
+              ) : null}
               <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
                   Source Game
@@ -1543,7 +1669,7 @@ export default function LaunchBudgetPage() {
                     className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4"
                   >
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                      {comparable.fitLabel} Fit
+                      Comparable
                     </p>
                     <p className="text-sm font-black text-white">{comparable.title}</p>
                     <p className="mt-2 text-lg font-black text-blue-300">

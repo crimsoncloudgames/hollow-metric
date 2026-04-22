@@ -14,6 +14,10 @@ const resourceThemes = [
     title: "Spot launch risk before it gets expensive",
     body: "Use Hollow Metric to catch weak assumptions early so budget, pricing, and scope do not quietly push your break-even target higher.",
   },
+  {
+    title: "Market pricing context before you commit to a number",
+    body: "Paste a Steam page URL and see what comparable games are actually charging. Competitor price comparison gives you a grounded starting point rather than guessing where your game fits in the market.",
+  },
 ];
 
 const guides = [
@@ -71,7 +75,7 @@ export default function ResourcesPage() {
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">USE THE PRODUCT</p>
           <h2 className="mt-3 text-3xl font-black text-white">Move from reading about launch decisions to testing your own.</h2>
           <p className="mx-auto mt-4 max-w-3xl text-sm leading-7 text-slate-200 sm:text-base">
-            Use Hollow Metric to model budget, pressure-test break-even, and compare launch scenarios in one place. Launch Planner also includes 1 credit to try the Game Idea Generator if you want it.
+          Use Hollow Metric to model budget, pressure-test break-even, compare price scenarios, and check competitor pricing alongside your own assumptions. The planning tools are built for constrained, real-world indie launch decisions.
           </p>
           <div className="mt-8 flex justify-center">
             <Link href="/signup" className="rounded-full bg-blue-600 px-8 py-3 font-bold text-white transition hover:bg-blue-500">

@@ -39,12 +39,12 @@ const plans: PricingPlan[] = [
     ctaHref: "/signup",
     ctaLabel: "Choose Launch Planner",
     ctaSupportingText:
-      "Extra AI-powered usage uses credits only when you choose to use it.",
+      "Credits are for optional on-demand tools. They refresh each billing cycle and do not roll over.",
     features: [
       "Save and revisit launch plans",
       "Keep budget, pricing, and assumptions organized",
       "Use dashboard tools for a more serious planning workflow",
-      "Includes 1 credit to try the Game Idea Generator",
+      "Credits included each month for usage-based tools like competitor price comparison",
     ],
   },
 ];
@@ -154,6 +154,20 @@ export default function PricingPage() {
                 <p className="mt-3 text-sm leading-7 text-slate-300">{reason.body}</p>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <h2 className="mb-6 text-2xl font-black text-white">Common questions</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <article className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h3 className="text-base font-black text-white">Why charge a subscription and also charge credits?</h3>
+              <p className="mt-2 text-sm leading-7 text-slate-400">Some features, like competitor price comparison, are useful occasionally rather than every month. Credits let you use those tools when you actually need them without baking the full cost into every subscription tier. Your monthly plan includes credits that refresh each billing cycle. They do not roll over.</p>
+            </article>
+            <article className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
+              <h3 className="text-base font-black text-white">What does the subscription actually include?</h3>
+              <p className="mt-2 text-sm leading-7 text-slate-400">Launch Planner includes full access to the core planning workflow, saved project storage, and dashboard history. Credits are on top of that for the optional usage-based tools you might only need once in a while.</p>
+            </article>
           </div>
         </section>
       </div>

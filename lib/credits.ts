@@ -15,6 +15,11 @@ export const COMPETITOR_PRICE_COMPARISON_CREDIT_REQUIRED_MESSAGE =
   "You need at least 1 credit to use this feature.";
 export const COMPETITOR_PRICE_COMPARISON_CREDIT_DEDUCTION_FAILED_MESSAGE =
   "Competitor price comparison succeeded, but credit deduction failed.";
+export const COMPETITIVE_ANALYSIS_CREDIT_COST = 1;
+export const COMPETITIVE_ANALYSIS_CREDIT_REQUIRED_MESSAGE =
+  "You need at least 1 credit to use this feature.";
+export const COMPETITIVE_ANALYSIS_CREDIT_DEDUCTION_FAILED_MESSAGE =
+  "Competitive analysis succeeded, but credit deduction failed.";
 
 type CreditsGateResult =
   | {
@@ -316,6 +321,30 @@ export async function deductCompetitorPriceComparisonCredit(
     currentBalance,
     COMPETITOR_PRICE_COMPARISON_CREDIT_COST,
     COMPETITOR_PRICE_COMPARISON_CREDIT_DEDUCTION_FAILED_MESSAGE,
+    authContext
+  );
+}
+
+export async function requireCompetitiveAnalysisCredits(
+  authContext?: CreditsAuthContext
+): Promise<CreditsGateResult> {
+  return requireCredits(
+    COMPETITIVE_ANALYSIS_CREDIT_COST,
+    COMPETITIVE_ANALYSIS_CREDIT_REQUIRED_MESSAGE,
+    authContext
+  );
+}
+
+export async function deductCompetitiveAnalysisCredit(
+  userId: string,
+  currentBalance: number,
+  authContext?: CreditsAuthContext
+): Promise<CreditDeductionResult> {
+  return deductCredit(
+    userId,
+    currentBalance,
+    COMPETITIVE_ANALYSIS_CREDIT_COST,
+    COMPETITIVE_ANALYSIS_CREDIT_DEDUCTION_FAILED_MESSAGE,
     authContext
   );
 }
