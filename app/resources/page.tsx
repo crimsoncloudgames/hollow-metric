@@ -61,6 +61,20 @@ export default function ResourcesPage() {
 
         <div className="mb-12">
           <h2 className="mb-6 text-2xl font-black text-white">Guide previews</h2>
+          <div className="mb-8">
+            <article className="rounded-[2rem] border border-slate-800 bg-slate-900/60 p-6">
+              <p className="inline-flex rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-blue-300">
+                How It Works
+              </p>
+              <h3 className="mt-4 text-lg font-black text-white">How Hollow Metric Works</h3>
+              <p className="mt-4 text-sm leading-7 text-slate-400">See how break-even estimates, price assumptions, and competitor pricing context are used inside the planning workflow.</p>
+              <div className="mt-6">
+                <Link href="/how-it-works" className="text-sm font-bold text-blue-300 transition hover:text-blue-200">
+                  Read how it works
+                </Link>
+              </div>
+            </article>
+          </div>
           <div className="grid gap-6 md:grid-cols-2">
             {educationPreviews.map((preview) => (
               <article key={preview.title} className="rounded-[2rem] border border-slate-800 bg-slate-900/60 p-6">

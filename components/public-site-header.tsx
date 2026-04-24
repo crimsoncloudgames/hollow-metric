@@ -15,6 +15,7 @@ type NavItem = {
 const desktopNavItems: NavItem[] = [
   { href: "/pricing", label: "Pricing" },
   { href: "/resources", label: "Resources" },
+  { href: "/how-it-works", label: "How It Works" },
   { href: "/contact", label: "Contact" },
 ];
 

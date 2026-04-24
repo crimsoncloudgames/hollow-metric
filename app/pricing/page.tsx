@@ -39,14 +39,14 @@ const plans: PricingPlan[] = [
     featured: true,
     ctaHref: "/signup",
     ctaLabel: "Choose Launch Planner",
-    ctaSupportingText:
-      "Included monthly credits are for optional on-demand tools and do not roll over.",
+      ctaSupportingText:
+        "Launch Planner includes 3 bonus credits after upgrade. Extra credits available if needed.",
     features: [
       "Save and revisit your launch budget projects",
       "Compare break-even targets across different price points",
       "Sanity-check your launch price against real Steam competitors",
       "Keep budget, sales target, and pricing context in one workflow",
-      "Use included monthly credits for credit-based tools",
+      "Use 3 bonus credits for optional credit-based tools",
     ],
   },
 ];
@@ -164,11 +164,11 @@ export default function PricingPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <article className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h3 className="text-base font-black text-white">Why charge a subscription and also charge credits?</h3>
-              <p className="mt-2 text-sm leading-7 text-slate-400">Launch Planner gives you the core planning workflow, saved projects, and dashboard history. Credits are for optional tools with extra processing costs, such as competitor price analysis. Included monthly credits refresh each billing cycle and do not roll over.</p>
+              <p className="mt-2 text-sm leading-7 text-slate-400">The subscription covers the core planning workflow, saved projects, and dashboard access. A successful Launch Planner upgrade includes 3 bonus credits. Credits are used for optional tools with extra processing costs, such as competitor price analysis.</p>
             </article>
             <article className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h3 className="text-base font-black text-white">What is included in Launch Planner?</h3>
-              <p className="mt-2 text-sm leading-7 text-slate-400">Launch Planner includes the core break-even workflow, saved project storage, dashboard access, and included monthly credits for optional credit-based tools.</p>
+              <p className="mt-2 text-sm leading-7 text-slate-400">Launch Planner includes the core break-even workflow, saved project storage, dashboard access, and 3 bonus credits after a successful upgrade.</p>
             </article>
           </div>
         </section>
