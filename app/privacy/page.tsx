@@ -1,5 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PublicSiteHeader from "@/components/public-site-header";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy | Hollow Metric",
+  description: "Learn how Hollow Metric collects, uses, and protects your data.",
+  alternates: {
+    canonical: "/privacy",
+  },
+};
 
 type PrivacySectionGroup = {
   heading: string;

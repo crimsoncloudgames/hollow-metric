@@ -1,5 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PublicSiteHeader from "@/components/public-site-header";
+
+export const metadata: Metadata = {
+  title: "Cookie Policy | Hollow Metric",
+  description: "Information about how Hollow Metric uses cookies.",
+  alternates: {
+    canonical: "/cookies",
+  },
+};
 
 type CookieSection = {
   title: string;

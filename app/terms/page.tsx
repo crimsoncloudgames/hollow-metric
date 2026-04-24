@@ -1,5 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PublicSiteHeader from "@/components/public-site-header";
+
+export const metadata: Metadata = {
+  title: "Terms of Service | Hollow Metric",
+  description: "Read Hollow Metric's terms of service and user agreement.",
+  alternates: {
+    canonical: "/terms",
+  },
+};
 
 type TermsSection = {
   title: string;

@@ -1,5 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PublicSiteHeader from "@/components/public-site-header";
+
+export const metadata: Metadata = {
+  title: "Refund Policy | Hollow Metric",
+  description: "Refund policy and process for Hollow Metric subscriptions.",
+  alternates: {
+    canonical: "/refunds",
+  },
+};
 
 type RefundSection = {
   title: string;

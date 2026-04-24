@@ -1,26 +1,39 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PublicSiteHeader from "@/components/public-site-header";
+
+export const metadata: Metadata = {
+  title: "Education | Hollow Metric",
+  description: "Practical guides for understanding break-even targets, launch pricing, budgets, and financial decisions for indie game developers.",
+  alternates: {
+    canonical: "/resources",
+  },
+};
 
 const educationPreviews = [
   {
     title: "How many copies does your indie game need to sell to break even?",
     body: "Learn how budget, price, platform fees, taxes, and revenue assumptions combine into a realistic break-even target.",
-    status: "Coming soon",
+    status: "Break-even",
+    href: "/resources/how-many-copies-to-break-even",
   },
   {
     title: "How to choose a launch price for your Steam game",
     body: "Understand why launch price affects sales targets, player expectations, discount strategy, and how your game compares to similar titles.",
-    status: "Coming soon",
+    status: "Pricing",
+    href: "/resources/choose-steam-launch-price",
   },
   {
-    title: "Hidden costs indie developers forget to budget for",
+    title: "Hidden launch costs indie developers forget",
     body: "A practical checklist for art, audio, tools, contractors, marketing, store fees, localization, QA, and other launch expenses.",
-    status: "Coming soon",
+    status: "Budgeting",
+    href: "/resources/hidden-indie-game-budget-costs",
   },
   {
     title: "Why wishlists do not automatically mean profit",
     body: "Wishlists can help, but they do not replace break-even math. Learn how to think about conversion, price, and revenue risk.",
-    status: "Coming soon",
+    status: "Wishlists",
+    href: "/resources/wishlists-do-not-guarantee-profit",
   },
 ];
 
@@ -56,6 +69,11 @@ export default function ResourcesPage() {
                 </p>
                 <h3 className="mt-4 text-lg font-black text-white">{preview.title}</h3>
                 <p className="mt-4 text-sm leading-7 text-slate-400">{preview.body}</p>
+                <div className="mt-6">
+                  <Link href={preview.href} className="text-sm font-bold text-blue-300 transition hover:text-blue-200">
+                    Open guide
+                  </Link>
+                </div>
               </article>
             ))}
           </div>
