@@ -18,33 +18,35 @@ type PricingPlan = {
 
 const plans: PricingPlan[] = [
   {
-    name: "Starter",
+    name: "Free Launch Planner",
     price: "$0",
     featured: false,
-    description: "Test your launch budget, price points, and break-even basics before you commit more money.",
+    description: "Start with the core break-even workflow before upgrading.",
     ctaHref: "/signup",
     ctaLabel: "Start Free",
     features: [
-      "Core budget and break-even tools",
-      "Quick way to test a price point",
-      "Good for first-pass launch planning",
-      "No saved projects or dashboard history",
+      "Build a basic break-even model",
+      "Test launch price assumptions",
+      "See how many copies you may need to sell",
+      "Upgrade when you want saved projects and deeper pricing tools",
     ],
   },
   {
     name: "Launch Planner",
     price: "$12/mo",
-    description: "Save your work, compare planning scenarios, and make clearer launch decisions in one place.",
+    description:
+      "For indie developers who want to save, revisit, and pressure-test real launch decisions before release. Turn your budget, price points, break-even target, and competitor pricing context into one planning workflow you can return to.",
     featured: true,
     ctaHref: "/signup",
     ctaLabel: "Choose Launch Planner",
     ctaSupportingText:
-      "Credits are for optional on-demand tools. They refresh each billing cycle and do not roll over.",
+      "Included monthly credits are for optional on-demand tools and do not roll over.",
     features: [
-      "Save and revisit launch plans",
-      "Keep budget, pricing, and assumptions organized",
-      "Use dashboard tools for a more serious planning workflow",
-      "Credits included each month for usage-based tools like competitor price comparison",
+      "Save and revisit your launch budget projects",
+      "Compare break-even targets across different price points",
+      "Sanity-check your launch price against real Steam competitors",
+      "Keep budget, sales target, and pricing context in one workflow",
+      "Use included monthly credits for credit-based tools",
     ],
   },
 ];
@@ -87,8 +89,8 @@ export default function PricingPage() {
 
         <div className="mb-12 mt-10 max-w-4xl">
           <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">PRICING</p>
-          <h1 className="mb-4 text-4xl font-black text-white">Start free, then upgrade when you need a more serious launch planning workflow.</h1>
-          <p className="text-lg leading-8 text-slate-400">Use Starter to test budget, pricing, and break-even basics. Upgrade to Launch Planner when you want saved projects, clearer tracking, and stronger launch decisions in one place.</p>
+          <h1 className="mb-4 text-4xl font-black text-white">Simple pricing for serious launch planning</h1>
+          <p className="text-lg leading-8 text-slate-400">Start free, then upgrade when you need saved projects, competitor pricing context, and a repeatable planning workflow.</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
@@ -162,11 +164,11 @@ export default function PricingPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <article className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
               <h3 className="text-base font-black text-white">Why charge a subscription and also charge credits?</h3>
-              <p className="mt-2 text-sm leading-7 text-slate-400">Some features, like competitor price comparison, are useful occasionally rather than every month. Credits let you use those tools when you actually need them without baking the full cost into every subscription tier. Your monthly plan includes credits that refresh each billing cycle. They do not roll over.</p>
+              <p className="mt-2 text-sm leading-7 text-slate-400">Launch Planner gives you the core planning workflow, saved projects, and dashboard history. Credits are for optional tools with extra processing costs, such as competitor price analysis. Included monthly credits refresh each billing cycle and do not roll over.</p>
             </article>
             <article className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-              <h3 className="text-base font-black text-white">What does the subscription actually include?</h3>
-              <p className="mt-2 text-sm leading-7 text-slate-400">Launch Planner includes full access to the core planning workflow, saved project storage, and dashboard history. Credits are on top of that for the optional usage-based tools you might only need once in a while.</p>
+              <h3 className="text-base font-black text-white">What is included in Launch Planner?</h3>
+              <p className="mt-2 text-sm leading-7 text-slate-400">Launch Planner includes the core break-even workflow, saved project storage, dashboard access, and included monthly credits for optional credit-based tools.</p>
             </article>
           </div>
         </section>

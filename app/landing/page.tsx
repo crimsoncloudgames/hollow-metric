@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import PublicSiteHeader from "@/components/public-site-header";
 
 const landingScreenshots = {
@@ -35,29 +35,29 @@ const landingScreenshots = {
 const launchPlanningCards = [
   {
     eyebrow: "Break-Even Cost",
-    title: "Add Your Own Inputs to See How Much It Costs to Make Your Game",
-    body: "Enter your expenses below to calculate your total planned spend and understand how it affects your break-even target.",
+    title: "Start with the real cost of making your game",
+    body: "Add art, audio, tools, contractors, marketing, and launch costs so your target is based on actual spending, not vibes.",
     cta: "Add Your Expenses",
     screenshot: landingScreenshots.breakEvenCost,
   },
   {
     eyebrow: "Price Point Selection",
-    title: "Choose Your Price Points and See How Many Copies You Need to Sell to Break Even",
-    body: "Set your desired price points and see the estimated number of copies needed to break even for each price point.",
+    title: "See the sales target behind your price",
+    body: "Hollow Metric turns your budget and price into a copies-needed target, so you can see whether your launch plan is realistic before you commit.",
     cta: "Start Setting Price Points",
     screenshot: landingScreenshots.breakEvenResults,
   },
   {
     eyebrow: "Planning Review",
-    title: "Gain Insight on Your Current Budget",
-    body: "Review budget health, sales target pressure, and cost structure signals to improve your planning decisions.",
+    title: "Compare price points before launch",
+    body: "Test different prices and see how they change your break-even target. A lower price and a higher price do not need the same sales volume.",
     cta: "Review My Budget",
     screenshot: landingScreenshots.breakEvenReview,
   },
   {
     eyebrow: "Competitor Pricing",
-    title: "See What Comparable Games Are Charging Before You Commit to a Price",
-    body: "Paste your game's Steam page URL and Hollow Metric finds games with similar gameplay, checks their original non-discounted list prices, and gives you a suggested price range as a grounded starting point. Not a guarantee, but real market context based on actual comparable games.",
+    title: "Check your price against real Steam competitors",
+    body: "Use comparable games to sanity-check your minimum, maximum, and recommended launch price instead of copying random Steam prices.",
     cta: "Compare Competitor Prices",
     screenshot: landingScreenshots.competitorPricing,
   },
@@ -79,33 +79,35 @@ const faqs = [
   {
     question: "Why not just use a spreadsheet?",
     answer:
-      "Spreadsheets work until budget, pricing, and scope start shifting. Hollow Metric keeps those decisions in one workflow so they are easier to compare, revisit, and trust.",
+      "You can, and many developers should start there. The problem is that spreadsheets get messy when your budget, price points, platform cuts, taxes, and sales targets keep changing. Hollow Metric keeps those decisions in one workflow so you can compare scenarios, revisit assumptions, and understand the break-even target faster.",
   },
   {
     question: "Does this guarantee sales?",
     answer:
-      "No. Hollow Metric helps you test budget, break-even, and profitability using your own assumptions so you can make a clearer launch decision.",
+      "No. Hollow Metric does not predict demand or guarantee revenue. It helps you pressure-test your launch assumptions so you can see what your budget and price imply before release.",
   },
   {
     question: "Can I use it for free?",
     answer:
-      "Yes. Start with the Free Launch Planner and try the core workflow before you upgrade.",
+      "Yes. You can start with the Free Launch Planner and build a basic break-even model before upgrading. Upgrade when you want saved projects, dashboard access, and deeper pricing tools.",
   },
   {
     question: "Are paid subscriptions live?",
     answer:
-      "Yes. You can start free or upgrade to Launch Planner when you want saved projects, dashboard access, and a more serious planning workflow.",
+      "Yes. Launch Planner is available now for developers who want saved projects, dashboard access, and a more serious planning workflow.",
   },
   {
     question: "Why charge a subscription and also charge credits?",
     answer:
-      "Some developers only need parts of the tool, and I want to allow that without forcing a monthly commitment for everything. The monthly plan includes credits added to your account each billing cycle. Those credits do not roll over.",
+      "The subscription covers the core planning workflow, saved projects, and dashboard access. Credits are used for heavier tools with extra processing costs, such as competitor price analysis. This keeps the monthly plan lower while letting developers use those tools only when they need them.",
   },
 ];
 
 const primaryFaqs = faqs;
 
 export default function LandingPage() {
+  const [activeScreenshot, setActiveScreenshot] = useState<null | (typeof launchPlanningCards)[number]>(null);
+
   useEffect(() => {
     const sections = document.querySelectorAll(".fade-in");
     sections.forEach((el, i) => {
@@ -144,7 +146,7 @@ export default function LandingPage() {
               Know Exactly How Many Copies You Need to Sell to Break Even
             </h1>
             <p className="mx-auto mt-5 max-w-[68rem] text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
-              Plan your launch, model pricing, and avoid costly financial mistakes.
+              Turn your budget, price points, and sales assumptions into a clear break-even target before you launch.
             </p>
 
             <div className="mt-8 flex items-center justify-center">
@@ -152,11 +154,11 @@ export default function LandingPage() {
                 href="/signup"
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-7 py-4 text-sm font-bold text-white transition hover:bg-blue-500 sm:w-auto"
               >
-                Get Your Free Break-Even Model
+                Build Your Free Break-Even Model
               </Link>
             </div>
             <p className="mt-3 text-center text-xs text-slate-500">
-              Start free. Upgrade later for saved projects and dashboard access.
+              Start free. Upgrade later when you want saved projects, dashboard access, and competitor pricing tools.
             </p>
           </div>
 
@@ -172,7 +174,10 @@ export default function LandingPage() {
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Launch Planning Workflow</p>
               <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl lg:text-[2.85rem]">Work through costs, price points, and planning review in one flow.</h2>
               <p className="mt-4 max-w-[62rem] text-sm leading-7 text-slate-300 sm:text-base lg:text-[1.05rem]">
-                Move from expense inputs to price-point testing to planning review so you can see how each decision shapes your break-even target.
+                Move from expense inputs to price-point testing to planning review, so you can see how each decision changes your break-even target.
+              </p>
+              <p className="mt-3 max-w-[62rem] text-xs leading-6 text-slate-400 sm:text-sm">
+                These are example outputs from the actual Hollow Metric workflow, showing how budget and price decisions change the break-even target.
               </p>
             </div>
 
@@ -194,7 +199,12 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    <div className="overflow-hidden rounded-[1.5rem] border border-slate-800 bg-slate-950">
+                    <button
+                      type="button"
+                      onClick={() => setActiveScreenshot(card)}
+                      className="overflow-hidden rounded-[1.5rem] border border-slate-800 bg-slate-950 text-left transition hover:border-blue-500/50"
+                      aria-label={`Open larger screenshot: ${card.title}`}
+                    >
                       <Image
                         src={card.screenshot.src}
                         alt={card.screenshot.alt}
@@ -203,11 +213,38 @@ export default function LandingPage() {
                         sizes="(min-width: 1280px) 46vw, (min-width: 768px) 92vw, 96vw"
                         className="h-auto w-full"
                       />
-                    </div>
+                    </button>
                   </div>
                 </article>
               ))}
             </div>
+
+            <article className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-900/60 p-5 sm:p-6">
+              <h3 className="text-xl font-black text-white sm:text-2xl">Same budget. Different price. Very different target.</h3>
+              <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-300 sm:text-base">
+                In this example, a $30,800 planned spend creates very different break-even targets depending on the launch price.
+              </p>
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <p className="text-2xl font-black text-white">$12.99</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">5,260 copies needed to roughly break even.</p>
+                </div>
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <p className="text-2xl font-black text-white">$16.99</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">4,022 copies needed to roughly break even.</p>
+                </div>
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <p className="text-2xl font-black text-white">$19.99</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">3,418 copies needed to roughly break even.</p>
+                </div>
+              </div>
+              <p className="mt-4 text-sm font-semibold text-slate-200">
+                That is a 1,842-copy difference between the lowest and highest tested price.
+              </p>
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                Example only. Your actual result depends on your own budget, revenue assumptions, platform fees, taxes, and launch price.
+              </p>
+            </article>
           </div>
         </section>
 
@@ -230,7 +267,7 @@ export default function LandingPage() {
 
             <article className="rounded-[2rem] border border-blue-600/25 bg-blue-600/10 p-6">
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">Audience fit</p>
-              <h2 className="mt-3 text-2xl font-black text-white">Built for practical launch planning, not enterprise forecasting.</h2>
+              <h2 className="mt-3 text-2xl font-black text-white">Built for practical indie launch planning, not vague forecasting.</h2>
               <p className="mt-4 text-sm leading-7 text-slate-200">
                 Hollow Metric is built for indie developers and small teams planning a real launch, not enterprise BI or AAA forecasting.
               </p>
@@ -242,8 +279,8 @@ export default function LandingPage() {
         </section>
 
         <section className="fade-in border-t border-slate-800/60 py-10">
-          <h2 className="mb-8 text-3xl font-black text-white md:text-4xl">Common questions</h2>
-          <div className="max-w-5xl">
+          <div className="mx-auto w-full max-w-5xl">
+            <h2 className="mb-8 text-3xl font-black text-white md:text-4xl">Common questions</h2>
             <div className="grid gap-4 md:grid-cols-2">
               {primaryFaqs.map((faq) => (
                 <article key={faq.question} className={["flex h-full flex-col rounded-3xl border border-slate-800 bg-slate-900/60 p-6", faq.question.startsWith("Why charge a subscription") ? "md:col-span-2" : ""].join(" ").trim()}>
@@ -252,17 +289,16 @@ export default function LandingPage() {
                 </article>
               ))}
             </div>
-
           </div>
         </section>
 
         <section className="fade-in py-10">
           <div className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.22),rgba(15,23,42,0.92))] p-6 text-center shadow-2xl sm:p-8 lg:p-10">
             <h2 className="mx-auto max-w-2xl text-3xl font-black text-white sm:text-4xl">
-              Get Started for Free
+              Build Your First Break-Even Plan for Free
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-slate-200">
-              Test your break-even model before upgrading. No risk, just insights.
+              Start with your own budget and price assumptions before upgrading.
             </p>
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link
@@ -331,6 +367,38 @@ export default function LandingPage() {
         </footer>
         </div>
       </div>
+
+      {activeScreenshot && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 px-4 py-6"
+          onClick={() => setActiveScreenshot(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Expanded screenshot preview"
+        >
+          <div
+            className="relative w-full max-w-6xl rounded-2xl border border-slate-700 bg-slate-950 p-3 sm:p-4"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveScreenshot(null)}
+              className="absolute right-3 top-3 rounded-full border border-slate-600 bg-slate-900 px-3 py-1 text-sm font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+              aria-label="Close screenshot preview"
+            >
+              Close
+            </button>
+            <Image
+              src={activeScreenshot.screenshot.src}
+              alt={activeScreenshot.screenshot.alt}
+              width={activeScreenshot.screenshot.width}
+              height={activeScreenshot.screenshot.height}
+              sizes="(min-width: 1280px) 80vw, 96vw"
+              className="h-auto max-h-[85vh] w-full rounded-xl object-contain"
+            />
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         .hero-glow {

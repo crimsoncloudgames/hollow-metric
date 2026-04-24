@@ -70,7 +70,6 @@ function getFriendlySignUpError(message: string): string | null {
 
 export default function SignUpPage() {
   const [fullName, setFullName] = useState("");
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -126,14 +125,12 @@ export default function SignUpPage() {
         ? {
             data: {
               full_name: trimmedFullName,
-              username: username.trim() || null,
             },
             captchaToken: turnstileToken ?? undefined,
           }
         : {
             data: {
               full_name: trimmedFullName,
-              username: username.trim() || null,
             },
           };
 
@@ -186,12 +183,23 @@ export default function SignUpPage() {
             Back to home
           </Link>
           <Link href="/login" className="text-sm font-semibold text-blue-300 transition hover:text-blue-200">
-            Already have an account?
+            Already have an account? Log in
           </Link>
         </div>
 
         <h1 className="text-3xl font-black text-white">Sign up</h1>
-        <p className="mt-2 text-sm text-slate-400">Create your Hollow Metric account.</p>
+        <p className="mt-2 text-sm text-slate-400">Build your first break-even plan for free.</p>
+
+        <div className="mt-6 rounded-2xl border border-slate-700/60 bg-slate-950/25 p-4">
+          <h2 className="text-base font-bold text-white">Start free</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            Build your first break-even plan in minutes.
+            <br />
+            Upgrade later for saved projects and competitor pricing tools.
+          </p>
+          <p className="mt-2 text-sm text-slate-300">No card required to start.</p>
+          <p className="mt-2 text-sm text-slate-400">We’ll send a confirmation email so you can activate your account.</p>
+        </div>
 
         <form className="mt-8 space-y-4" onSubmit={handleSubmit} noValidate aria-busy={isSubmitting}>
           <div>
@@ -224,22 +232,6 @@ export default function SignUpPage() {
                 {fieldErrors.fullName}
               </p>
             )}
-          </div>
-
-          <div>
-            <label htmlFor="signup-username" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-              Username
-            </label>
-            <input
-              id="signup-username"
-              type="text"
-              autoComplete="username"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              disabled={isSubmitting}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30"
-              placeholder="Choose a username (optional)"
-            />
           </div>
 
           <div>
