@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import PublicSiteHeader from "@/components/public-site-header";
 import { openPaddleCheckout } from "@/lib/paddle";
@@ -89,11 +89,18 @@ function LaunchMathAuditPageContent() {
   const [fieldErrors, setFieldErrors] = useState<LaunchMathAuditFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
 
   const showConfirmation = useMemo(
     () => searchParams.get("checkout") === "success",
     [searchParams],
   );
+
+  useEffect(() => {
+    if (showConfirmation) {
+      setIsSuccessModalOpen(true);
+    }
+  }, [showConfirmation]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -140,6 +147,52 @@ function LaunchMathAuditPageContent() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-slate-950 px-4 py-6 text-slate-100 sm:px-6 sm:py-8 lg:px-8">
+      {showConfirmation && isSuccessModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="launch-math-audit-success-title"
+            className="relative w-full max-w-lg rounded-[2rem] border border-emerald-500/40 bg-slate-950 p-6 shadow-[0_24px_60px_rgba(2,6,23,0.55)] sm:p-8"
+          >
+            <button
+              type="button"
+              aria-label="Close confirmation"
+              onClick={() => setIsSuccessModalOpen(false)}
+              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-sm font-bold text-slate-200 transition hover:border-emerald-400/50 hover:text-white"
+            >
+              X
+            </button>
+
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-300">
+              Launch Math Audit
+            </p>
+            <h2
+              id="launch-math-audit-success-title"
+              className="mt-3 max-w-sm text-2xl font-black text-white sm:text-3xl"
+            >
+              Payment received
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-slate-200 sm:text-base">
+              Your Launch Math Audit request was received. Your written report will be emailed to the email address you provided within 48 hours.
+            </p>
+            <p className="mt-3 text-sm leading-7 text-slate-400">
+              If you made a typo or need to add context, email support@hollowmetric.com.
+            </p>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsSuccessModalOpen(false)}
+                className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-emerald-500"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mx-auto max-w-6xl">
         <PublicSiteHeader />
 
@@ -147,7 +200,7 @@ function LaunchMathAuditPageContent() {
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">One-Time Paid Service</p>
           <h1 className="mt-3 text-3xl font-black text-white sm:text-4xl">Indie Game Launch Math Audit</h1>
           <p className="mt-4 max-w-4xl text-sm leading-7 text-slate-300 sm:text-base">
-            Need someone to do the launch math for you? I will check your pricing, competitors, break-even risk, scope risk, and budget assumptions, then email you a written report within 48 hours after payment.
+            Need someone to do the launch math for you? I will check your pricing, comparable games, break-even risk, estimated budget, and budget assumptions, then email you a written report within 48 hours after payment.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <button
@@ -160,7 +213,7 @@ function LaunchMathAuditPageContent() {
             >
               Get Audit
             </button>
-            <p className="text-sm font-semibold text-slate-200">$99 first-audit price</p>
+            <p className="text-sm font-semibold text-slate-200">One-time written audit: $99</p>
           </div>
           <p className="mt-2 text-xs leading-6 text-slate-400">
             Written report emailed within 48 hours after payment.
@@ -185,17 +238,9 @@ function LaunchMathAuditPageContent() {
               <li className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />Planned price</li>
               <li className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />Comparable games and pricing context</li>
               <li className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />Break-even risk</li>
-              <li className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />Scope risk</li>
               <li className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />Estimated budget realism</li>
-              <li className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />Commercial risk based on the information provided</li>
               <li className="flex items-start gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />The biggest concern you want checked</li>
             </ul>
-            <p className="mt-4 text-xs leading-6 text-slate-400">
-              Scope risk means checking whether the game appears to promise more work than the likely budget, team size, timeline, and sales target can support.
-            </p>
-            <p className="mt-3 text-xs leading-6 text-slate-400">
-              Example of wording used in the report: These visible parts of the project may carry risk if your budget, timeline, or sales targets are tight.
-            </p>
           </article>
 
           <article className="rounded-[2rem] border border-slate-800 bg-slate-900/60 p-6">
@@ -304,7 +349,7 @@ function LaunchMathAuditPageContent() {
 
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="launch-audit-release-window" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Release Window (Optional if any)</label>
+                <label htmlFor="launch-audit-release-window" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Release Window (if any)</label>
                 <input
                   id="launch-audit-release-window"
                   name="releaseWindow"
@@ -315,7 +360,7 @@ function LaunchMathAuditPageContent() {
               </div>
 
               <div>
-                <label htmlFor="launch-audit-planned-price" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Planned Price (Optional if any)</label>
+                <label htmlFor="launch-audit-planned-price" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Planned Price (if any)</label>
                 <input
                   id="launch-audit-planned-price"
                   name="plannedPrice"
@@ -367,7 +412,7 @@ function LaunchMathAuditPageContent() {
             </div>
 
             <div>
-              <label htmlFor="launch-audit-referral-code" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Referral Code (Optional if any)</label>
+              <label htmlFor="launch-audit-referral-code" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Referral Code (if any)</label>
               <input
                 id="launch-audit-referral-code"
                 name="referralCode"
@@ -387,7 +432,10 @@ function LaunchMathAuditPageContent() {
               >
                 {isSubmitting ? "Opening Checkout..." : "Get Audit"}
               </button>
-              <p className="text-xs text-slate-400">One-time payment handled through Paddle.</p>
+              <div className="text-xs text-slate-400">
+                <p>One-time payment handled through Paddle.</p>
+                <p className="mt-1">After payment, your report will be sent to the email you entered above.</p>
+              </div>
             </div>
           </form>
         </section>

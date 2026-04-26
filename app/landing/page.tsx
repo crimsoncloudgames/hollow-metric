@@ -293,6 +293,32 @@ export default function LandingPage() {
         </section>
 
         <section className="fade-in py-10">
+          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/60 p-6 sm:p-8">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">One-Time Option</p>
+            <div className="mt-3 grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+              <div>
+                <h2 className="text-2xl font-black text-white sm:text-3xl">
+                  Need someone to do the launch math for you?
+                </h2>
+                <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
+                  If you do not want to build the plan yourself, get a one-time Hollow Metric Launch Math Audit. I will check your planned price, comparable games, break-even risk, estimated budget, and biggest concern, then email you a written report within 48 hours after payment.
+                </p>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-blue-500/20 bg-blue-600/10 p-5 text-left lg:text-center">
+                <p className="text-sm font-semibold text-blue-200">One-time audit: $99</p>
+                <Link
+                  href="/launch-math-audit"
+                  className="mt-4 inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
+                >
+                  Get a Launch Math Audit
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="fade-in py-10">
           <div className="rounded-[2rem] border border-blue-600/30 bg-[linear-gradient(135deg,rgba(30,64,175,0.22),rgba(15,23,42,0.92))] p-6 text-center shadow-2xl sm:p-8 lg:p-10">
             <h2 className="mx-auto max-w-2xl text-3xl font-black text-white sm:text-4xl">
               Build Your First Break-Even Plan for Free
