@@ -9,6 +9,7 @@ type PaddleCheckoutOptions = {
   email?: string;
   planKey?: string;
   successUrl?: string;
+  customData?: Record<string, string | number | boolean>;
 };
 
 function getPaddleEnvironment() {
@@ -83,6 +84,7 @@ export async function openPaddleCheckout(priceId: string, options: PaddleCheckou
   const normalizedEmail = options.email?.trim();
   const normalizedPlanKey = options.planKey?.trim();
   const normalizedSuccessUrl = options.successUrl?.trim();
+  const normalizedCustomData = options.customData ?? {};
 
   if (!paddle) {
     throw new Error("Paddle failed to initialize. Check client-side token env var.");
@@ -92,6 +94,24 @@ export async function openPaddleCheckout(priceId: string, options: PaddleCheckou
     throw new Error("Missing Paddle price ID.");
   }
 
+  const baseCustomData = {
+    ...(options.userId
+      ? {
+          supabase_user_id: options.userId,
+        }
+      : {}),
+    ...(normalizedPlanKey
+      ? {
+          plan_key: normalizedPlanKey,
+        }
+      : {}),
+  };
+
+  const mergedCustomData = {
+    ...baseCustomData,
+    ...normalizedCustomData,
+  };
+
   paddle.Checkout.open({
     items: [{ priceId: normalizedPriceId, quantity: 1 }],
     settings: normalizedSuccessUrl
@@ -99,21 +119,7 @@ export async function openPaddleCheckout(priceId: string, options: PaddleCheckou
           successUrl: normalizedSuccessUrl,
         }
       : undefined,
-    customData:
-      options.userId || normalizedPlanKey
-        ? {
-            ...(options.userId
-              ? {
-                  supabase_user_id: options.userId,
-                }
-              : {}),
-            ...(normalizedPlanKey
-              ? {
-                  plan_key: normalizedPlanKey,
-                }
-              : {}),
-          }
-        : undefined,
+    customData: Object.keys(mergedCustomData).length > 0 ? mergedCustomData : undefined,
     customer: normalizedEmail
       ? {
           email: normalizedEmail,

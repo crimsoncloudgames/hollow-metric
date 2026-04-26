@@ -7,6 +7,9 @@ const PUBLIC_DESCRIPTION =
 const PUBLIC_URL = "https://www.hollowmetric.com/";
 const PUBLIC_IMAGE_URL = "https://www.hollowmetric.com/og/hollowmetric-preview.png";
 
+export const dynamic = "force-static";
+export const revalidate = false;
+
 export const metadata: Metadata = {
   title: {
     absolute: PUBLIC_TITLE,

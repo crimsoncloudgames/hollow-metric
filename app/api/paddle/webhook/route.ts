@@ -71,6 +71,27 @@ type CreditPurchaseFulfillment = {
   credits_added: number;
 };
 
+type LaunchMathAuditFulfillment = {
+  request_id: number;
+  paddle_transaction_id: string;
+};
+
+type LaunchMathAuditNotificationRow = {
+  id: number;
+  name: string;
+  email: string;
+  game_name: string;
+  steam_url: string;
+  release_window: string | null;
+  planned_price: string | null;
+  estimated_budget: string;
+  biggest_concern: string;
+  referral_code: string | null;
+  paddle_transaction_id: string | null;
+  paid_at: string | null;
+  owner_notification_sent_at: string | null;
+};
+
 const SUBSCRIPTION_EVENT_TYPES = new Set([
   "subscription.created",
   "subscription.activated",
@@ -84,6 +105,8 @@ const SUBSCRIPTION_EVENT_TYPES = new Set([
 const CREDIT_PACK_TRANSACTION_COMPLETED_EVENT_TYPE = "transaction.completed";
 const PRO_UPGRADE_BONUS_CREDITS = 3;
 const PRO_UPGRADE_BONUS_TRANSACTION_PREFIX = "bonus_pro_upgrade";
+const LAUNCH_MATH_AUDIT_PENDING_PAYMENT_STATUS = "pending_payment";
+const LAUNCH_MATH_AUDIT_PAID_STATUS = "paid";
 
 type Database = {
   public: {
@@ -259,6 +282,56 @@ type Database = {
         };
         Insert: BillingSubscriptionUpsert;
         Update: Partial<BillingSubscriptionUpsert>;
+        Relationships: [];
+      };
+      launch_math_audit_requests: {
+        Row: {
+          id: number;
+          created_at: string;
+          name: string;
+          email: string;
+          game_name: string;
+          steam_url: string;
+          release_window: string | null;
+          planned_price: string | null;
+          estimated_budget: string;
+          biggest_concern: string;
+          referral_code: string | null;
+          status: string;
+          paddle_transaction_id: string | null;
+          paid_at: string | null;
+          owner_notification_sent_at: string | null;
+        };
+        Insert: {
+          name: string;
+          email: string;
+          game_name: string;
+          steam_url: string;
+          release_window?: string | null;
+          planned_price?: string | null;
+          estimated_budget: string;
+          biggest_concern: string;
+          referral_code?: string | null;
+          status?: string;
+          paddle_transaction_id?: string | null;
+          paid_at?: string | null;
+          owner_notification_sent_at?: string | null;
+        };
+        Update: {
+          name?: string;
+          email?: string;
+          game_name?: string;
+          steam_url?: string;
+          release_window?: string | null;
+          planned_price?: string | null;
+          estimated_budget?: string;
+          biggest_concern?: string;
+          referral_code?: string | null;
+          status?: string;
+          paddle_transaction_id?: string | null;
+          paid_at?: string | null;
+          owner_notification_sent_at?: string | null;
+        };
         Relationships: [];
       };
     };
@@ -465,6 +538,20 @@ function readTimestamp(value: unknown): string | null {
   }
 
   return Number.isNaN(Date.parse(text)) ? null : text;
+}
+
+function readPositiveInteger(value: unknown): number | null {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+
+  const text = readString(value);
+  if (!text || !/^\d+$/.test(text)) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(text, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function extractFirstSubscriptionItemPriceId(data: Record<string, unknown>) {
@@ -788,6 +875,243 @@ function extractCreditPurchaseFulfillment(
   };
 }
 
+function extractLaunchMathAuditFulfillment(
+  event: PaddleWebhookEvent,
+):
+  | { ok: true; row: LaunchMathAuditFulfillment }
+  | { ok: false; reason: string; skip: boolean } {
+  const launchMathAuditPriceId = process.env.PADDLE_LAUNCH_MATH_AUDIT_PRICE_ID?.trim();
+  if (!launchMathAuditPriceId) {
+    return {
+      ok: false,
+      reason: "launch math audit price id is not configured",
+      skip: true,
+    };
+  }
+
+  const data = asRecord(event.data);
+  if (!data) {
+    return { ok: false, reason: "missing transaction data object", skip: false };
+  }
+
+  const priceIds = extractTransactionItemPriceIds(data);
+  if (!priceIds.includes(launchMathAuditPriceId)) {
+    return { ok: false, reason: "transaction is not a launch math audit purchase", skip: true };
+  }
+
+  const transactionId = readString(data.id);
+  if (!transactionId) {
+    return { ok: false, reason: "missing transaction id", skip: false };
+  }
+
+  const customData = asRecord(data.custom_data);
+  const requestId = readPositiveInteger(customData?.launch_math_audit_request_id);
+  if (!requestId) {
+    return {
+      ok: false,
+      reason: "missing custom_data.launch_math_audit_request_id",
+      skip: false,
+    };
+  }
+
+  return {
+    ok: true,
+    row: {
+      request_id: requestId,
+      paddle_transaction_id: transactionId,
+    },
+  };
+}
+
+async function notifyLaunchMathAuditOwner(order: LaunchMathAuditNotificationRow) {
+  const notifyEmail = process.env.LAUNCH_MATH_AUDIT_NOTIFY_EMAIL?.trim();
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  const fromEmail =
+    process.env.LAUNCH_MATH_AUDIT_FROM_EMAIL?.trim() ?? process.env.CONTACT_FROM_EMAIL?.trim();
+
+  if (!notifyEmail) {
+    console.warn(
+      "Launch Math Audit owner notification skipped: missing LAUNCH_MATH_AUDIT_NOTIFY_EMAIL.",
+      {
+        requestId: order.id,
+      },
+    );
+
+    return { sent: false as const, skipped: true as const };
+  }
+
+  if (!resendApiKey || !fromEmail) {
+    console.warn(
+      "Launch Math Audit owner notification skipped: missing email provider configuration.",
+      {
+        requestId: order.id,
+        hasResendApiKey: Boolean(resendApiKey),
+        hasFromEmail: Boolean(fromEmail),
+      },
+    );
+
+    return { sent: false as const, skipped: true as const };
+  }
+
+  const bodyLines = [
+    "A new paid Hollow Metric Launch Math Audit order was received.",
+    "",
+    `name: ${order.name}`,
+    `email: ${order.email}`,
+    `game name: ${order.game_name}`,
+    `Steam URL: ${order.steam_url}`,
+    `release window: ${order.release_window ?? "(not provided)"}`,
+    `planned price: ${order.planned_price ?? "(not provided)"}`,
+    `estimated budget: ${order.estimated_budget}`,
+    `biggest concern: ${order.biggest_concern}`,
+    `referral code: ${order.referral_code ?? "(not provided)"}`,
+    `Paddle transaction id: ${order.paddle_transaction_id ?? "(not saved)"}`,
+    `paid_at: ${order.paid_at ?? "(not saved)"}`,
+  ];
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [notifyEmail],
+        subject: "New Hollow Metric Launch Math Audit order",
+        text: bodyLines.join("\n"),
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("Launch Math Audit owner notification failed", {
+        requestId: order.id,
+        status: response.status,
+        statusText: response.statusText,
+      });
+
+      return { sent: false as const, skipped: false as const };
+    }
+
+    return { sent: true as const, skipped: false as const };
+  } catch (error) {
+    console.error("Launch Math Audit owner notification request failed", {
+      requestId: order.id,
+      error,
+    });
+
+    return { sent: false as const, skipped: false as const };
+  }
+}
+
+async function fulfillLaunchMathAuditPayment(
+  supabase: SupabaseClient<Database>,
+  row: LaunchMathAuditFulfillment,
+) {
+  const selection =
+    "id,name,email,game_name,steam_url,release_window,planned_price,estimated_budget,biggest_concern,referral_code,status,paddle_transaction_id,paid_at,owner_notification_sent_at";
+  const { data: existingRequest, error: existingRequestError } = await supabase
+    .from("launch_math_audit_requests")
+    .select(selection)
+    .eq("id", row.request_id)
+    .limit(1)
+    .maybeSingle<LaunchMathAuditNotificationRow & { status: string }>();
+
+  if (existingRequestError) {
+    return { ok: false as const, reason: existingRequestError.message };
+  }
+
+  if (!existingRequest) {
+    return {
+      ok: false as const,
+      reason: `launch_math_audit_requests row not found for id ${row.request_id}`,
+    };
+  }
+
+  if (
+    existingRequest.status === LAUNCH_MATH_AUDIT_PAID_STATUS &&
+    existingRequest.paddle_transaction_id &&
+    existingRequest.paddle_transaction_id !== row.paddle_transaction_id
+  ) {
+    return {
+      ok: false as const,
+      reason: `launch_math_audit_requests row ${row.request_id} is already linked to a different transaction`,
+    };
+  }
+
+  const paidAt = existingRequest.paid_at ?? new Date().toISOString();
+
+  if (existingRequest.status !== LAUNCH_MATH_AUDIT_PAID_STATUS) {
+    const { error: markPaidError } = await supabase
+      .from("launch_math_audit_requests")
+      .update({
+        status: LAUNCH_MATH_AUDIT_PAID_STATUS,
+        paddle_transaction_id: row.paddle_transaction_id,
+        paid_at: paidAt,
+      })
+      .eq("id", row.request_id)
+      .eq("status", LAUNCH_MATH_AUDIT_PENDING_PAYMENT_STATUS);
+
+    if (markPaidError) {
+      return {
+        ok: false as const,
+        reason: markPaidError.message,
+      };
+    }
+  }
+
+  const { data: refreshedRequest, error: refreshedRequestError } = await supabase
+    .from("launch_math_audit_requests")
+    .select(selection)
+    .eq("id", row.request_id)
+    .limit(1)
+    .maybeSingle<LaunchMathAuditNotificationRow>();
+
+  if (refreshedRequestError) {
+    return {
+      ok: false as const,
+      reason: refreshedRequestError.message,
+    };
+  }
+
+  if (!refreshedRequest) {
+    return {
+      ok: false as const,
+      reason: `launch_math_audit_requests row disappeared for id ${row.request_id}`,
+    };
+  }
+
+  let notificationSent = false;
+
+  if (!refreshedRequest.owner_notification_sent_at) {
+    const notificationResult = await notifyLaunchMathAuditOwner(refreshedRequest);
+
+    if (notificationResult.sent) {
+      notificationSent = true;
+      const sentAt = new Date().toISOString();
+      const { error: markNotifiedError } = await supabase
+        .from("launch_math_audit_requests")
+        .update({ owner_notification_sent_at: sentAt })
+        .eq("id", row.request_id)
+        .is("owner_notification_sent_at", null);
+
+      if (markNotifiedError) {
+        return {
+          ok: false as const,
+          reason: markNotifiedError.message,
+        };
+      }
+    }
+  }
+
+  return {
+    ok: true as const,
+    notificationSent,
+  };
+}
+
 async function insertVerifiedWebhookEvent(
   supabase: SupabaseClient<Database>,
   row: BillingWebhookEventInsert,
@@ -1093,6 +1417,110 @@ export async function POST(request: Request) {
   }
 
   if (eventType === CREDIT_PACK_TRANSACTION_COMPLETED_EVENT_TYPE) {
+    const launchMathAuditExtracted = extractLaunchMathAuditFulfillment(parsedEvent);
+
+    if (launchMathAuditExtracted.ok) {
+      const launchMathAuditResult = await fulfillLaunchMathAuditPayment(
+        supabase,
+        launchMathAuditExtracted.row,
+      );
+
+      if (!launchMathAuditResult.ok) {
+        const errorMessage = `Failed to fulfill launch math audit payment. ${launchMathAuditResult.reason}`;
+
+        console.error("Failed to fulfill Launch Math Audit payment", {
+          paddleEventId: eventId,
+          eventType,
+          launchMathAuditRequestId: launchMathAuditExtracted.row.request_id,
+          paddleTransactionId: launchMathAuditExtracted.row.paddle_transaction_id,
+          reason: launchMathAuditResult.reason,
+        });
+
+        await recordWebhookError(supabase, eventId, errorMessage);
+
+        return NextResponse.json(
+          { error: "Failed to fulfill launch math audit payment." },
+          { status: 500 },
+        );
+      }
+
+      const processedAt = new Date().toISOString();
+      const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, processedAt);
+
+      if (!markProcessedResult.ok) {
+        const errorMessage = [
+          "Failed to finalize webhook processing state.",
+          markProcessedResult.error.message,
+          markProcessedResult.error.details,
+          markProcessedResult.error.hint,
+        ]
+          .filter((value): value is string => Boolean(value && value.trim()))
+          .join(" ");
+
+        console.error("Failed to mark Launch Math Audit webhook event as processed", {
+          paddleEventId: eventId,
+          eventType,
+          error: markProcessedResult.error,
+        });
+
+        await recordWebhookError(supabase, eventId, errorMessage);
+
+        return NextResponse.json(
+          { error: "Failed to finalize webhook processing state." },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          paddleEventId: eventId,
+          duplicate: persistResult.duplicate,
+          launchMathAuditFulfilled: true,
+          ownerNotificationSent: launchMathAuditResult.notificationSent,
+        },
+        { status: 200 },
+      );
+    }
+
+    if (!launchMathAuditExtracted.skip) {
+      const processedAt = new Date().toISOString();
+
+      console.error("Malformed Launch Math Audit transaction payload", {
+        paddleEventId: eventId,
+        eventType,
+        reason: launchMathAuditExtracted.reason,
+      });
+
+      await recordWebhookError(supabase, eventId, launchMathAuditExtracted.reason);
+
+      const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, processedAt);
+
+      if (!markProcessedResult.ok) {
+        console.error("Failed to mark malformed Launch Math Audit webhook event as processed", {
+          paddleEventId: eventId,
+          eventType,
+          error: markProcessedResult.error,
+        });
+
+        return NextResponse.json(
+          { error: "Failed to finalize webhook processing state." },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          paddleEventId: eventId,
+          duplicate: persistResult.duplicate,
+          launchMathAuditFulfilled: false,
+          skipped: "malformed_launch_math_audit_transaction_payload",
+        },
+        { status: 200 },
+      );
+    }
+
     const extracted = extractCreditPurchaseFulfillment(parsedEvent);
 
     if (!extracted.ok) {

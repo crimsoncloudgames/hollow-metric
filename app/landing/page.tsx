@@ -339,6 +339,7 @@ export default function LandingPage() {
               <p className="mb-3 font-semibold text-white">Navigation</p>
               <div className="space-y-2">
                 <p><Link href="/pricing" className="transition hover:text-blue-400">Pricing</Link></p>
+                <p><Link href="/launch-math-audit" className="transition hover:text-blue-400">Launch Math Audit</Link></p>
                 <p><Link href="/resources" className="transition hover:text-blue-400">Resources</Link></p>
                 <p><Link href="/contact" className="transition hover:text-blue-400">Contact</Link></p>
                 <p><Link href="/login" className="transition hover:text-blue-400">Login</Link></p>

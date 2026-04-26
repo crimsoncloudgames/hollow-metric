@@ -70,6 +70,24 @@ Client-side Paddle checkout also requires:
 
 `NEXT_PUBLIC_PADDLE_ENV` may be set to either `live` or `production` for production Paddle, and any other value falls back to sandbox.
 
+## Launch Math Audit (One-Time Service)
+
+The public `launch-math-audit` page uses a one-time Paddle checkout and webhook fulfillment path that stores paid orders in Supabase.
+
+Required environment variables:
+
+- `PADDLE_LAUNCH_MATH_AUDIT_PRICE_ID`: one-time Paddle price ID for the audit.
+- `LAUNCH_MATH_AUDIT_NOTIFY_EMAIL`: owner inbox to receive paid order notifications.
+
+Optional environment variables:
+
+- `LAUNCH_MATH_AUDIT_FROM_EMAIL`: sender address for owner notifications. If omitted, `CONTACT_FROM_EMAIL` is used.
+
+Email provider:
+
+- The webhook uses Resend (`RESEND_API_KEY`) for owner notifications when configured.
+- If notification email configuration is missing, the webhook still marks the order as paid and logs a warning.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

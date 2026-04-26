@@ -31,12 +31,6 @@ function applyNoIndexHeader(response: NextResponse) {
 }
 
 export async function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname === "/api/paddle/webhook") {
-    return NextResponse.next();
-  }
-
-  const { supabase, supabaseResponse } = createClient(request);
-  const secureCookies = request.nextUrl.protocol === "https:" || process.env.NODE_ENV === "production";
   const pathname = request.nextUrl.pathname;
   const isDashboardRoute = pathname.startsWith("/dashboard");
   const shouldNoIndex = shouldNoIndexPath(pathname);
@@ -47,6 +41,19 @@ export async function proxy(request: NextRequest) {
       NextResponse.redirect(new URL(`${normalizedPath}${request.nextUrl.search}`, request.url))
     );
   }
+
+  // Auth pages only need the noindex header and do not require Supabase user lookups.
+  if (!isDashboardRoute) {
+    const response = NextResponse.next();
+    if (shouldNoIndex) {
+      applyNoIndexHeader(response);
+    }
+
+    return response;
+  }
+
+  const { supabase, supabaseResponse } = createClient(request);
+  const secureCookies = request.nextUrl.protocol === "https:" || process.env.NODE_ENV === "production";
 
   if (!supabase) {
     if (isDashboardRoute) {
@@ -89,6 +96,12 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/dashboard/:path*",
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/reset-password",
+    "/landing/dashboard",
+    "/landing/dashboard/:path*",
   ],
 };
