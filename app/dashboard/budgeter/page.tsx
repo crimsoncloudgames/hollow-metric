@@ -72,6 +72,8 @@ type RevenueBreakdown = {
   platformCut: number;
   netAfterPlatformCut: number;
   publisherTake: number;
+  estimatedWithholdingTax: number;
+  estimatedRefundImpact: number;
   developerNetPerCopy: number;
 };
 
@@ -94,12 +96,16 @@ const calculateRevenueBreakdown = (
   const afterWithholding =
     developerNetAfterPublisher * (1 - safeWithholding / 100);
   const afterRefunds = afterWithholding * (1 - safeRefundRate / 100);
+  const estimatedWithholdingTax = developerNetAfterPublisher - afterWithholding;
+  const estimatedRefundImpact = afterWithholding - afterRefunds;
 
   return {
     grossPrice: safePrice,
     platformCut,
     netAfterPlatformCut,
     publisherTake,
+    estimatedWithholdingTax,
+    estimatedRefundImpact,
     developerNetPerCopy: afterRefunds,
   };
 };
@@ -1952,10 +1958,24 @@ export default function LaunchBudgetPage() {
                           {formatCurrencyWithDecimals(revenueBreakdown.netAfterPlatformCut)}
                         </span>
                       </div>
+                      {revenueBreakdown.publisherTake > 0 ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <span>Publisher take</span>
+                          <span className="font-semibold text-white">
+                            {formatCurrencyWithDecimals(revenueBreakdown.publisherTake)}
+                          </span>
+                        </div>
+                      ) : null}
                       <div className="flex items-center justify-between gap-3">
-                        <span>Publisher take</span>
+                        <span>Estimated withholding tax</span>
                         <span className="font-semibold text-white">
-                          {formatCurrencyWithDecimals(revenueBreakdown.publisherTake)}
+                          {formatCurrencyWithDecimals(revenueBreakdown.estimatedWithholdingTax)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Estimated refund impact</span>
+                        <span className="font-semibold text-white">
+                          {formatCurrencyWithDecimals(revenueBreakdown.estimatedRefundImpact)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3 border-t border-blue-600/20 pt-2">
@@ -1967,7 +1987,7 @@ export default function LaunchBudgetPage() {
                     </div>
 
                     <p className="mt-3 text-xs leading-5 text-slate-500">
-                      Developer net per copy also reflects your withholding tax and refund assumptions.
+                      Developer net per copy after platform fee, publisher split, withholding tax, and refund assumptions.
                     </p>
 
                     {netRevenue <= 0 ? (
