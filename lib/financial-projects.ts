@@ -8,6 +8,7 @@ export type FinancialProject = {
   budgetStatus: string;
   expenses: Array<{ name: string; amount: number }>;
   platformFee: number;
+  publisherSplitPercent?: number;
   withholdingTax: number;
   refundsAssumption: number;
   pricePoints: number[];
@@ -41,6 +42,7 @@ export type FinancialProjectDraft = {
   budgetStatus?: unknown;
   expenses?: unknown;
   platformFee?: unknown;
+  publisherSplitPercent?: unknown;
   withholdingTax?: unknown;
   refundsAssumption?: unknown;
   pricePoints?: unknown;
@@ -259,6 +261,7 @@ export function normalizeFinancialProject(draft: FinancialProjectDraft): Financi
     budgetStatus: sanitizeText(draft.budgetStatus, "Needs review"),
     expenses: normalizeExpenses(draft.expenses),
     platformFee: clampPercent(draft.platformFee),
+    publisherSplitPercent: clampPercent(draft.publisherSplitPercent),
     withholdingTax: clampPercent(draft.withholdingTax),
     refundsAssumption: clampPercent(draft.refundsAssumption),
     pricePoints,

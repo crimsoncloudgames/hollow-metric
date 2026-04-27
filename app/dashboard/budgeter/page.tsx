@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { AlertCircle, LoaderCircle, Plus, X, Zap } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -10,6 +10,7 @@ import {
 
 const MAX_MONEY_VALUE = 1_000_000_000;
 const MAX_COPIES_VALUE = 1_000_000_000;
+const PLATFORM_FEE_PERCENT = 30;
 const PLANNING_DEFAULTS_STORAGE_KEY = "hm_planning_defaults";
 const LAUNCH_BUDGET_DRAFT_STORAGE_KEY = "hm_launch_budget_draft";
 
@@ -31,6 +32,9 @@ const parseNumericInput = (
   const max = options?.max ?? Number.POSITIVE_INFINITY;
   return clampNumber(finite, min, max);
 };
+
+const normalizePercentInputString = (value: string, fallback = 0): string =>
+  parseNumericInput(value, { min: 0, max: 100, fallback }).toString();
 
 const sanitizePercent = (value: number): number =>
   clampNumber(toFiniteNumber(value, 0), 0, 100);
@@ -63,19 +67,41 @@ const formatCurrencyWithDecimals = (value: number): string => {
 };
 
 // Calculation helpers
-const calculateNetRevenuePerCopy = (
+type RevenueBreakdown = {
+  grossPrice: number;
+  platformCut: number;
+  netAfterPlatformCut: number;
+  publisherTake: number;
+  developerNetPerCopy: number;
+};
+
+const calculateRevenueBreakdown = (
   pricePerCopy: number,
   withholding: number,
-  refundRate: number
-): number => {
+  refundRate: number,
+  publisherSplitPercent: number
+): RevenueBreakdown => {
   const safePrice = sanitizeMoney(pricePerCopy);
   const safeWithholding = sanitizePercent(withholding);
   const safeRefundRate = sanitizePercent(refundRate);
+  const safePublisherSplitPercent = sanitizePercent(publisherSplitPercent);
 
-  const afterSteamFee = safePrice * (1 - 0.3);
-  const afterWithholding = afterSteamFee * (1 - safeWithholding / 100);
+  const platformCut = safePrice * (PLATFORM_FEE_PERCENT / 100);
+  const netAfterPlatformCut = safePrice - platformCut;
+  const publisherTake =
+    netAfterPlatformCut * (safePublisherSplitPercent / 100);
+  const developerNetAfterPublisher = netAfterPlatformCut - publisherTake;
+  const afterWithholding =
+    developerNetAfterPublisher * (1 - safeWithholding / 100);
   const afterRefunds = afterWithholding * (1 - safeRefundRate / 100);
-  return afterRefunds;
+
+  return {
+    grossPrice: safePrice,
+    platformCut,
+    netAfterPlatformCut,
+    publisherTake,
+    developerNetPerCopy: afterRefunds,
+  };
 };
 
 const calculateBreakEven = (
@@ -115,6 +141,7 @@ type LaunchBudgetDraft = {
   expenses?: unknown;
   refundRate?: unknown;
   withholding?: unknown;
+  publisherSplitPercent?: unknown;
   price1?: unknown;
   price2?: unknown;
   price3?: unknown;
@@ -550,6 +577,8 @@ export default function LaunchBudgetPage() {
   const [isLoadingBillingContext, setIsLoadingBillingContext] = useState(true);
   const [billingContextError, setBillingContextError] = useState<string | null>(null);
   const [localDataNotice, setLocalDataNotice] = useState<string | null>(null);
+  const billingContextLoadPromiseRef = useRef<Promise<void> | null>(null);
+  const pendingBillingContextRefreshRef = useRef(false);
   const isPaidTier = subscriptionTier !== "starter";
   const currentPlanLabel = isLoadingBillingContext
     ? "Checking access..."
@@ -560,60 +589,89 @@ export default function LaunchBudgetPage() {
   useEffect(() => {
     let mounted = true;
 
-    const loadBillingContext = async () => {
-      setBillingContextError(null);
-      setIsLoadingBillingContext(true);
+    const loadBillingContext = () => {
+      if (billingContextLoadPromiseRef.current) {
+        pendingBillingContextRefreshRef.current = true;
+        return billingContextLoadPromiseRef.current;
+      }
 
-      try {
-        const supabase = createClient();
-        if (!supabase) {
-          if (mounted) {
+      const request = (async () => {
+        setBillingContextError(null);
+        setIsLoadingBillingContext(true);
+
+        try {
+          const supabase = createClient();
+          if (!supabase) {
+            if (mounted) {
+              setSubscriptionTier("starter");
+              setBillingContextError(
+                "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+              );
+            }
+            return;
+          }
+
+          const {
+            data: { user },
+            error: userError,
+          } = await supabase.auth.getUser();
+
+          if (!mounted) {
+            return;
+          }
+
+          if (userError) {
+            console.error("Failed to load current user for launch budget page", userError);
             setSubscriptionTier("starter");
             setBillingContextError(
-              "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+              getFriendlyBudgeterLoadError(
+                userError,
+                "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+              )
             );
+            return;
           }
-          return;
-        }
 
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+          if (!user) {
+            setSubscriptionTier("starter");
+            return;
+          }
 
-        if (!mounted) {
-          return;
-        }
+          const { data: entitlement, error } = await supabase
+            .from("user_entitlements")
+            .select("tier, premium_access, billing_state")
+            .eq("user_id", user.id)
+            .maybeSingle();
 
-        if (userError) {
-          console.error("Failed to load current user for launch budget page", userError);
-          setSubscriptionTier("starter");
-          setBillingContextError(
-            getFriendlyBudgeterLoadError(
-              userError,
-              "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
-            )
-          );
-          return;
-        }
+          if (!mounted) {
+            return;
+          }
 
-        if (!user) {
-          setSubscriptionTier("starter");
-          return;
-        }
+          if (error) {
+            console.error("Failed to load live billing state for launch budget page", error);
+            setSubscriptionTier("starter");
+            setBillingContextError(
+              getFriendlyBudgeterLoadError(
+                error,
+                "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+              )
+            );
+            return;
+          }
 
-        const { data: entitlement, error } = await supabase
-          .from("user_entitlements")
-          .select("tier, premium_access, billing_state")
-          .eq("user_id", user.id)
-          .maybeSingle();
+          const hasPaidAccess =
+            entitlement?.tier === "pro" &&
+            entitlement.premium_access === true &&
+            entitlement.billing_state === "active";
 
-        if (!mounted) {
-          return;
-        }
-
-        if (error) {
+          setSubscriptionTier(hasPaidAccess ? "launch-planner" : "starter");
+        } catch (error) {
           console.error("Failed to load live billing state for launch budget page", error);
+
+          if (!mounted) {
+            return;
+          }
+
           setSubscriptionTier("starter");
           setBillingContextError(
             getFriendlyBudgeterLoadError(
@@ -621,34 +679,22 @@ export default function LaunchBudgetPage() {
               "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
             )
           );
-          return;
+        } finally {
+          billingContextLoadPromiseRef.current = null;
+
+          if (mounted) {
+            setIsLoadingBillingContext(false);
+          }
+
+          if (mounted && pendingBillingContextRefreshRef.current) {
+            pendingBillingContextRefreshRef.current = false;
+            void loadBillingContext();
+          }
         }
+      })();
 
-        const hasPaidAccess =
-          entitlement?.tier === "pro" &&
-          entitlement.premium_access === true &&
-          entitlement.billing_state === "active";
-
-        setSubscriptionTier(hasPaidAccess ? "launch-planner" : "starter");
-      } catch (error) {
-        console.error("Failed to load live billing state for launch budget page", error);
-
-        if (!mounted) {
-          return;
-        }
-
-        setSubscriptionTier("starter");
-        setBillingContextError(
-          getFriendlyBudgeterLoadError(
-            error,
-            "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
-          )
-        );
-      } finally {
-        if (mounted) {
-          setIsLoadingBillingContext(false);
-        }
-      }
+      billingContextLoadPromiseRef.current = request;
+      return request;
     };
 
     const refresh = () => {
@@ -661,6 +707,7 @@ export default function LaunchBudgetPage() {
 
     return () => {
       mounted = false;
+      pendingBillingContextRefreshRef.current = false;
       window.removeEventListener("focus", refresh);
       window.removeEventListener("pageshow", refresh);
     };
@@ -681,6 +728,7 @@ export default function LaunchBudgetPage() {
 
   const [refundRate, setRefundRate] = useState("8");
   const [withholding, setWithholding] = useState("30");
+  const [publisherSplitPercent, setPublisherSplitPercent] = useState("0");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -771,6 +819,12 @@ export default function LaunchBudgetPage() {
 
       setRefundRate(sanitizeStoredText(parsed.refundRate, "8"));
       setWithholding(sanitizeStoredText(parsed.withholding, "30"));
+      setPublisherSplitPercent(
+        normalizePercentInputString(
+          String(parsed.publisherSplitPercent ?? ""),
+          0
+        )
+      );
       setPrice1(sanitizeStoredText(parsed.price1, "12.99"));
       setPrice2(sanitizeStoredText(parsed.price2, "16.99"));
       setPrice3(sanitizeStoredText(parsed.price3, "19.99"));
@@ -797,6 +851,7 @@ export default function LaunchBudgetPage() {
       expenses,
       refundRate,
       withholding,
+      publisherSplitPercent,
       price1,
       price2,
       price3,
@@ -827,6 +882,7 @@ export default function LaunchBudgetPage() {
     actualRefundRate,
     expenses,
     hasLoadedDraft,
+    publisherSplitPercent,
     price1,
     price2,
     price3,
@@ -878,12 +934,22 @@ export default function LaunchBudgetPage() {
     const pricePoints = [parseMoneyInput(price1), parseMoneyInput(price2), parseMoneyInput(price3)];
     const witholdingRate = parsePercentInput(withholding);
     const refundRateNum = parsePercentInput(refundRate);
+    const publisherSplitPercentNum = parsePercentInput(publisherSplitPercent);
 
-    const netRevenuesPerCopy = pricePoints.map((price) =>
-      calculateNetRevenuePerCopy(price, witholdingRate, refundRateNum)
+    const revenueBreakdowns = pricePoints.map((price) =>
+      calculateRevenueBreakdown(
+        price,
+        witholdingRate,
+        refundRateNum,
+        publisherSplitPercentNum
+      )
     );
 
-    const breakEvenResults = pricePoints.map((price, idx) =>
+    const netRevenuesPerCopy = revenueBreakdowns.map(
+      (breakdown) => breakdown.developerNetPerCopy
+    );
+
+    const breakEvenResults = pricePoints.map((_price, idx) =>
       calculateBreakEven(totalCost, netRevenuesPerCopy[idx])
     );
 
@@ -899,13 +965,15 @@ export default function LaunchBudgetPage() {
     return {
       totalCost,
       pricePoints,
+      revenueBreakdowns,
       netRevenuesPerCopy,
       breakEvenResults,
       witholdingRate,
       refundRateNum,
+      publisherSplitPercentNum,
       planningReview,
     };
-  }, [expenses, refundRate, withholding, price1, price2, price3]);
+  }, [expenses, refundRate, withholding, publisherSplitPercent, price1, price2, price3]);
 
   const activePriceCount = isPaidTier ? 3 : 1;
   const visiblePricePoints = calculations.pricePoints.slice(0, activePriceCount);
@@ -918,7 +986,7 @@ export default function LaunchBudgetPage() {
         : calculations.netRevenuesPerCopy
             .slice(0, activePriceCount)
             .some((value) => value <= 0)
-          ? "Adjust your pricing, refunds, or withholding assumptions so estimated net revenue per copy stays above $0."
+          ? "Adjust your pricing, publisher split, refunds, or withholding assumptions so developer net revenue per copy stays above $0."
           : null;
 
   const postLaunchSummary = useMemo(() => {
@@ -928,6 +996,7 @@ export default function LaunchBudgetPage() {
     const plannedBreakEven = calculations.breakEvenResults[launchPriceIdx];
     const plannedNetRevenuePerCopy = toFiniteNumber(calculations.netRevenuesPerCopy[launchPriceIdx], 0);
     const plannedRefundRate = sanitizePercent(calculations.refundRateNum);
+    const plannedPublisherSplitPercent = sanitizePercent(calculations.publisherSplitPercentNum);
 
     const hasActualRefundInput = actualRefundRate.trim() !== "";
     const hasActualGrossInput = actualGrossRevenue.trim() !== "";
@@ -942,7 +1011,8 @@ export default function LaunchBudgetPage() {
     const actualGross = hasActualGrossInput ? grossInput : sanitizeMoney(actualCopies * launchPrice);
     const estimatedActualNet =
       actualGross *
-      (1 - 0.3) *
+      (1 - PLATFORM_FEE_PERCENT / 100) *
+      (1 - plannedPublisherSplitPercent / 100) *
       (1 - sanitizePercent(calculations.witholdingRate) / 100) *
       (1 - actualRefunds / 100);
     const resolvedActualNet = hasActualNetInput ? netInput : sanitizeMoney(estimatedActualNet);
@@ -1008,6 +1078,7 @@ export default function LaunchBudgetPage() {
     calculations.breakEvenResults,
     calculations.netRevenuesPerCopy,
     calculations.pricePoints,
+    calculations.publisherSplitPercentNum,
     calculations.refundRateNum,
     calculations.witholdingRate,
   ]);
@@ -1068,9 +1139,10 @@ export default function LaunchBudgetPage() {
         name: expense.name,
         amount: expense.amount,
       })),
-      platformFee: 30,
+      platformFee: PLATFORM_FEE_PERCENT,
       withholdingTax: calculations.witholdingRate,
       refundsAssumption: calculations.refundRateNum,
+      publisherSplitPercent: calculations.publisherSplitPercentNum,
       pricePoints: calculations.pricePoints.slice(0, activePriceCount),
       breakEvenResults: resolvedBreakEvenResults,
       netRevenuePerCopy: calculations.netRevenuesPerCopy.slice(0, activePriceCount),
@@ -1493,18 +1565,45 @@ export default function LaunchBudgetPage() {
 
       {/* SECTION 3: PLATFORM + TAX ASSUMPTIONS */}
       <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
-        <h2 className="text-2xl font-black text-white mb-6">Platform and Tax Assumptions</h2>
+        <h2 className="text-2xl font-black text-white mb-6">Platform, Publisher, and Tax Assumptions</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="rounded-2xl bg-slate-800/30 p-4 border border-slate-800">
-            <p className="text-sm font-semibold text-slate-400 mb-1">Steam Platform Fee</p>
+        <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="rounded-2xl border border-slate-800 bg-slate-800/30 p-4">
+            <p className="mb-1 text-sm font-semibold text-slate-400">U.S. Withholding Tax (Typical)</p>
             <p className="text-3xl font-black text-white">30%</p>
+            <p className="mt-2 text-xs text-slate-500">May vary by treaty</p>
           </div>
 
-          <div className="rounded-2xl bg-slate-800/30 p-4 border border-slate-800">
-            <p className="text-sm font-semibold text-slate-400 mb-1">U.S. Withholding Tax (Typical)</p>
-            <p className="text-3xl font-black text-white">30%</p>
-            <p className="text-xs text-slate-500 mt-2">May vary by treaty</p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-800/30 p-4">
+            <p className="mb-1 text-sm font-semibold text-slate-400">Steam Platform Fee</p>
+            <p className="text-3xl font-black text-white">{PLATFORM_FEE_PERCENT}%</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-800/30 p-4">
+            <label
+              htmlFor="publisher-split-percent"
+              className="mb-3 block text-sm font-semibold text-slate-400"
+            >
+              Publisher Split
+            </label>
+            <input
+              id="publisher-split-percent"
+              type="number"
+              min={0}
+              max={100}
+              placeholder="0"
+              value={publisherSplitPercent}
+              onChange={(e) => setPublisherSplitPercent(e.target.value)}
+              onBlur={() => {
+                setPublisherSplitPercent(
+                  normalizePercentInputString(publisherSplitPercent, 0)
+                );
+              }}
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+            />
+            <p className="mt-2 text-xs text-slate-500">
+              Add your publisher split if you have one.
+            </p>
           </div>
         </div>
 
@@ -1802,6 +1901,7 @@ export default function LaunchBudgetPage() {
           {visiblePricePoints.map((price, idx) => {
             const netRevenue = calculations.netRevenuesPerCopy[idx];
             const breakEven = calculations.breakEvenResults[idx];
+            const revenueBreakdown = calculations.revenueBreakdowns[idx];
 
             return (
               <div
@@ -1817,15 +1917,65 @@ export default function LaunchBudgetPage() {
                   <p className="text-3xl font-black text-white">${price.toFixed(2)}</p>
                 </div>
 
-                <div className="mb-4 pb-4 border-b border-blue-600/20">
-                  <p className="text-sm text-slate-400 mb-1">Estimated Net Revenue Per Copy</p>
-                  {netRevenue > 0 ? (
-                    <p className="text-2xl font-black text-blue-400">
-                      {formatCurrencyWithDecimals(netRevenue)}
+                <div className="mb-4 space-y-4 border-b border-blue-600/20 pb-4">
+                  <div>
+                    <p className="text-sm text-slate-400 mb-1">Estimated Developer Net Per Copy</p>
+                    {netRevenue > 0 ? (
+                      <p className="text-2xl font-black text-blue-400">
+                        {formatCurrencyWithDecimals(netRevenue)}
+                      </p>
+                    ) : (
+                      <p className="text-sm font-black text-red-400">Developer net is $0.00 or less</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+                      Revenue Breakdown
                     </p>
-                  ) : (
-                    <p className="text-sm font-black text-red-400">Invalid (net ≤ $0)</p>
-                  )}
+                    <div className="mt-3 space-y-2 text-sm text-slate-300">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Gross sale price</span>
+                        <span className="font-semibold text-white">
+                          {formatCurrencyWithDecimals(revenueBreakdown.grossPrice)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Platform cut</span>
+                        <span className="font-semibold text-white">
+                          {formatCurrencyWithDecimals(revenueBreakdown.platformCut)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Net after platform cut</span>
+                        <span className="font-semibold text-white">
+                          {formatCurrencyWithDecimals(revenueBreakdown.netAfterPlatformCut)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Publisher take</span>
+                        <span className="font-semibold text-white">
+                          {formatCurrencyWithDecimals(revenueBreakdown.publisherTake)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 border-t border-blue-600/20 pt-2">
+                        <span>Developer net per copy</span>
+                        <span className="font-semibold text-blue-300">
+                          {formatCurrencyWithDecimals(revenueBreakdown.developerNetPerCopy)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-xs leading-5 text-slate-500">
+                      Developer net per copy also reflects your withholding tax and refund assumptions.
+                    </p>
+
+                    {netRevenue <= 0 ? (
+                      <p className="mt-3 text-xs font-semibold text-red-300">
+                        Developer net per copy is $0.00 or less after platform, publisher, withholding, and refund deductions.
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div>
@@ -1851,7 +2001,7 @@ export default function LaunchBudgetPage() {
             <AlertCircle size={14} /> Planning Estimates
           </p>
           <p className="text-xs leading-6 text-slate-400">
-            These figures are planning estimates. Real outcomes vary based on regional pricing, tax treatment, refunds, discounts, and platform factors.
+            These figures are planning estimates. Real outcomes vary based on regional pricing, publisher terms, tax treatment, refunds, discounts, and platform factors.
           </p>
         </div>
       </div>
