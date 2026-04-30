@@ -84,7 +84,7 @@ export default function ResourcesPage() {
                   If you are preparing your game for release and want outside feedback before launch, Fix Access may be a useful service to explore alongside Hollow Metric&apos;s launch planning and break-even tools.
                 </p>
                 <p className="mt-4 text-xs leading-6 text-slate-400">
-                  “Disclosure: Fix Gaming Channel / Fix Access may receive a commission from Hollow Metric referrals. Editorial coverage remains independent and is never guaranteed.”
+                  Disclosure: Fix Gaming Channel / Fix Access may receive a commission from Hollow Metric referrals. Editorial coverage remains independent and is never guaranteed.
                 </p>
                 <div className="mt-6">
                   <Link
