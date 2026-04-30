@@ -11,7 +11,6 @@ import { hasLaunchPlannerAccess } from "@/lib/billing";
 import { createClient, missingSupabaseClientEnvMessage } from "@/utils/supabase/client";
 import {
   LayoutDashboard,
-  Rocket,
   Search,
   FolderOpen,
   DollarSign,
@@ -36,7 +35,6 @@ const navItems = [
 
 const comingSoonItems = [
   { label: "Steam Tag Tool", icon: Tag },
-  { label: "Steam Page Analysis", icon: Rocket },
   { label: "Creator Discovery", icon: Search },
 ];
 

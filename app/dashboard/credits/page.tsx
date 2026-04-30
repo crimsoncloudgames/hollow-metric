@@ -1,4 +1,4 @@
-import { Coins, Lightbulb, Scale, Sparkles, Store, Users } from "lucide-react";
+import { Coins, Lightbulb, Scale, Sparkles, Users } from "lucide-react";
 import { CreditsBalanceLabel } from "@/components/credits-balance-label";
 import { CreditPackSelector, type CreditPackOption } from "./credit-pack-selector";
 
@@ -19,11 +19,6 @@ const creditUsageItems = [
     title: "Steam Tag Tool (coming later)",
     description: "Future credit usage for AI-powered tag generation.",
     icon: Sparkles,
-  },
-  {
-    title: "Steam Store Page Analysis (coming later)",
-    description: "Future credit usage for deeper Steam page recommendations.",
-    icon: Store,
   },
   {
     title: "Creator Discovery (coming later)",
