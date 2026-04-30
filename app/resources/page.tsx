@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import PublicSiteHeader from "@/components/public-site-header";
@@ -37,6 +38,8 @@ const educationPreviews = [
   },
 ];
 
+const FIX_ACCESS_URL = "https://www.fixgamingchannel.com/fix-access/";
+
 export default function ResourcesPage() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-slate-950 px-4 py-6 text-slate-100 sm:px-6 sm:py-8 lg:px-8">
@@ -58,6 +61,45 @@ export default function ResourcesPage() {
             These guides will help you understand the decisions behind the numbers before you commit to a launch plan.
           </p>
         </div>
+
+        <section className="mb-12">
+          <div className="rounded-[2rem] border border-blue-500/20 bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(15,23,42,0.84),rgba(37,99,235,0.14))] p-5 shadow-[0_0_28px_rgba(37,99,235,0.12)] sm:p-6">
+            <div className="flex flex-col gap-6 md:flex-row md:items-start">
+              <div className="mx-auto w-full max-w-[14rem] shrink-0 md:mx-0 md:w-[15rem] md:max-w-none md:self-center">
+                <Image
+                  src="/images/fix-access-logo.png"
+                  alt="Fix Access by Fix Gaming Channel"
+                  width={1024}
+                  height={1024}
+                  className="h-auto w-full"
+                />
+              </div>
+              <div className="max-w-3xl">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">PARTNER RESOURCE</p>
+                <h2 className="mt-3 text-2xl font-black text-white">In partnership with Fix Access by Fix Gaming Channel</h2>
+                <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-base">
+                  Fix Access by Fix Gaming Channel offers developer-facing support for indie game teams, including mock reviews, playtesting, launch-readiness feedback, Steam page guidance, press-kit feedback, and outreach strategy.
+                </p>
+                <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-base">
+                  If you are preparing your game for release and want outside feedback before launch, Fix Access may be a useful service to explore alongside Hollow Metric&apos;s launch planning and break-even tools.
+                </p>
+                <p className="mt-4 text-xs leading-6 text-slate-400">
+                  Disclosure: Fix Gaming Channel may receive a commission if referred Hollow Metric customers make a purchase.
+                </p>
+                <div className="mt-6">
+                  <Link
+                    href={FIX_ACCESS_URL}
+                    target="_blank"
+                    rel="sponsored noopener noreferrer"
+                    className="inline-flex rounded-full border border-blue-500/50 bg-blue-500/10 px-5 py-2.5 text-sm font-bold text-blue-200 transition hover:border-blue-400 hover:bg-blue-500/20 hover:text-white"
+                  >
+                    Visit Fix Access
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div className="mb-12">
           <h2 className="mb-6 text-2xl font-black text-white">Guide previews</h2>
