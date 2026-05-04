@@ -7,12 +7,21 @@ import {
   normalizeFinancialProject,
   upsertSavedFinancialProject,
 } from "@/lib/financial-projects";
+import {
+  calculateBreakEven,
+  calculateRevenueBreakdown,
+  DEFAULT_PLATFORM_FEE_PERCENT,
+  sanitizeMoney,
+  sanitizePercent,
+} from "@/lib/break-even/calculateBreakEven";
 
 const MAX_MONEY_VALUE = 1_000_000_000;
 const MAX_COPIES_VALUE = 1_000_000_000;
-const PLATFORM_FEE_PERCENT = 30;
+const PLATFORM_FEE_PERCENT = DEFAULT_PLATFORM_FEE_PERCENT;
 const PLANNING_DEFAULTS_STORAGE_KEY = "hm_planning_defaults";
 const LAUNCH_BUDGET_DRAFT_STORAGE_KEY = "hm_launch_budget_draft";
+const PENDING_PUBLIC_BREAK_EVEN_CALCULATION_STORAGE_KEY =
+  "hm_pending_break_even_calculation";
 
 const toFiniteNumber = (value: unknown, fallback = 0): number => {
   const numeric = typeof value === "number" ? value : Number(value);
@@ -35,12 +44,6 @@ const parseNumericInput = (
 
 const normalizePercentInputString = (value: string, fallback = 0): string =>
   parseNumericInput(value, { min: 0, max: 100, fallback }).toString();
-
-const sanitizePercent = (value: number): number =>
-  clampNumber(toFiniteNumber(value, 0), 0, 100);
-
-const sanitizeMoney = (value: number): number =>
-  clampNumber(toFiniteNumber(value, 0), 0, MAX_MONEY_VALUE);
 
 const sanitizeCount = (value: number): number =>
   clampNumber(toFiniteNumber(value, 0), 0, MAX_COPIES_VALUE);
@@ -66,62 +69,30 @@ const formatCurrencyWithDecimals = (value: number): string => {
   }).format(safeValue);
 };
 
-// Calculation helpers
-type RevenueBreakdown = {
-  grossPrice: number;
-  platformCut: number;
-  netAfterPlatformCut: number;
-  publisherTake: number;
-  estimatedWithholdingTax: number;
-  estimatedRefundImpact: number;
-  developerNetPerCopy: number;
+interface PublicBreakEvenCalculation {
+  developmentCost: number;
+  marketingCost: number;
+  otherCosts: number;
+  price: number;
+  platformFeePercent: number;
+  refundRate: number;
+  publisherSplitPercent: number;
+}
+
+type PublicBreakEvenCalculationDraft = {
+  developmentCost?: unknown;
+  marketingCost?: unknown;
+  otherCosts?: unknown;
+  price?: unknown;
+  platformFeePercent?: unknown;
+  refundRate?: unknown;
+  publisherSplitPercent?: unknown;
 };
 
-const calculateRevenueBreakdown = (
-  pricePerCopy: number,
-  withholding: number,
-  refundRate: number,
-  publisherSplitPercent: number
-): RevenueBreakdown => {
-  const safePrice = sanitizeMoney(pricePerCopy);
-  const safeWithholding = sanitizePercent(withholding);
-  const safeRefundRate = sanitizePercent(refundRate);
-  const safePublisherSplitPercent = sanitizePercent(publisherSplitPercent);
-
-  const platformCut = safePrice * (PLATFORM_FEE_PERCENT / 100);
-  const netAfterPlatformCut = safePrice - platformCut;
-  const publisherTake =
-    netAfterPlatformCut * (safePublisherSplitPercent / 100);
-  const developerNetAfterPublisher = netAfterPlatformCut - publisherTake;
-  const afterWithholding =
-    developerNetAfterPublisher * (1 - safeWithholding / 100);
-  const afterRefunds = afterWithholding * (1 - safeRefundRate / 100);
-  const estimatedWithholdingTax = developerNetAfterPublisher - afterWithholding;
-  const estimatedRefundImpact = afterWithholding - afterRefunds;
-
-  return {
-    grossPrice: safePrice,
-    platformCut,
-    netAfterPlatformCut,
-    publisherTake,
-    estimatedWithholdingTax,
-    estimatedRefundImpact,
-    developerNetPerCopy: afterRefunds,
-  };
-};
-
-const calculateBreakEven = (
-  totalCost: number,
-  netRevenuePerCopy: number
-): number | null => {
-  const safeTotalCost = sanitizeMoney(totalCost);
-  const safeNetRevenuePerCopy = toFiniteNumber(netRevenuePerCopy, 0);
-  if (safeNetRevenuePerCopy <= 0) return null;
-
-  const result = Math.ceil(safeTotalCost / safeNetRevenuePerCopy);
-  if (!Number.isFinite(result) || result <= 0) return null;
-  return sanitizeCount(result);
-};
+const isPublicBreakEvenCalculationDraft = (
+  value: unknown
+): value is PublicBreakEvenCalculationDraft =>
+  typeof value === "object" && value !== null;
 
 interface ExpenseRow {
   id: string;
@@ -180,10 +151,6 @@ type CompetitorComparisonResult = {
   pricing_rationale: string;
   lowConfidence: boolean;
 };
-
-type CompetitorComparisonErrorCode =
-  | "COMPETITOR_CREDIT_RACE"
-  | "COMPETITOR_CREDIT_DEDUCTION_FAILED";
 
 type CompetitorFindResponse = {
   sourceGameTitle: string;
@@ -780,6 +747,8 @@ export default function LaunchBudgetPage() {
   const [competitorComparisonResult, setCompetitorComparisonResult] =
     useState<CompetitorComparisonResult | null>(null);
   const [hasLoadedDraft, setHasLoadedDraft] = useState(false);
+  const [pendingPublicCalculation, setPendingPublicCalculation] =
+    useState<PublicBreakEvenCalculation | null>(null);
 
   // Post-launch actuals
   const [actualLaunchPrice, setActualLaunchPrice] = useState("1");
@@ -847,6 +816,58 @@ export default function LaunchBudgetPage() {
       // Ignore invalid draft data and keep current in-page defaults.
     } finally {
       setHasLoadedDraft(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const raw = window.localStorage.getItem(
+        PENDING_PUBLIC_BREAK_EVEN_CALCULATION_STORAGE_KEY
+      );
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw);
+      if (!isPublicBreakEvenCalculationDraft(parsed)) return;
+
+      setPendingPublicCalculation({
+        developmentCost: parseNumericInput(String(parsed.developmentCost ?? ""), {
+          min: 0,
+          max: MAX_MONEY_VALUE,
+          fallback: 0,
+        }),
+        marketingCost: parseNumericInput(String(parsed.marketingCost ?? ""), {
+          min: 0,
+          max: MAX_MONEY_VALUE,
+          fallback: 0,
+        }),
+        otherCosts: parseNumericInput(String(parsed.otherCosts ?? ""), {
+          min: 0,
+          max: MAX_MONEY_VALUE,
+          fallback: 0,
+        }),
+        price: parseNumericInput(String(parsed.price ?? ""), {
+          min: 0,
+          max: MAX_MONEY_VALUE,
+          fallback: 0,
+        }),
+        platformFeePercent: parseNumericInput(
+          String(parsed.platformFeePercent ?? ""),
+          { min: 0, max: 100, fallback: DEFAULT_PLATFORM_FEE_PERCENT }
+        ),
+        refundRate: parseNumericInput(String(parsed.refundRate ?? ""), {
+          min: 0,
+          max: 100,
+          fallback: 0,
+        }),
+        publisherSplitPercent: parseNumericInput(
+          String(parsed.publisherSplitPercent ?? ""),
+          { min: 0, max: 100, fallback: 0 }
+        ),
+      });
+    } catch {
+      // Ignore invalid preview draft.
     }
   }, []);
 
@@ -921,6 +942,36 @@ export default function LaunchBudgetPage() {
           : exp
       )
     );
+  };
+
+  const importPendingPublicCalculation = () => {
+    if (!pendingPublicCalculation) return;
+
+    setExpenses([
+      { id: "1", name: "Development", amount: pendingPublicCalculation.developmentCost },
+      { id: "2", name: "Marketing", amount: pendingPublicCalculation.marketingCost },
+      { id: "3", name: "Other", amount: pendingPublicCalculation.otherCosts },
+    ]);
+    setPrice1(pendingPublicCalculation.price.toString());
+    setPrice2(pendingPublicCalculation.price.toString());
+    setPrice3(pendingPublicCalculation.price.toString());
+    setRefundRate(pendingPublicCalculation.refundRate.toString());
+    setPublisherSplitPercent(pendingPublicCalculation.publisherSplitPercent.toString());
+    setPendingPublicCalculation(null);
+    try {
+      window.localStorage.removeItem(PENDING_PUBLIC_BREAK_EVEN_CALCULATION_STORAGE_KEY);
+    } catch {
+      // Ignore if storage cleanup fails.
+    }
+  };
+
+  const dismissPendingPublicCalculation = () => {
+    setPendingPublicCalculation(null);
+    try {
+      window.localStorage.removeItem(PENDING_PUBLIC_BREAK_EVEN_CALCULATION_STORAGE_KEY);
+    } catch {
+      // Ignore if storage cleanup fails.
+    }
   };
 
   // Remove expense
@@ -1423,6 +1474,30 @@ export default function LaunchBudgetPage() {
           <p className="mb-4 text-xs text-amber-300" role="status">
             {localDataNotice}
           </p>
+        )}
+        {pendingPublicCalculation && (
+          <div className="mb-4 rounded-2xl border border-blue-500/30 bg-slate-900/70 p-4 text-sm text-slate-200">
+            <p className="font-semibold text-blue-200">Preview calculation ready to import</p>
+            <p className="mt-2 text-slate-300">
+              We found a public preview calculation saved in your browser. Import it into your dashboard budget form or dismiss it.
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                onClick={importPendingPublicCalculation}
+                className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition hover:bg-blue-500"
+              >
+                Import preview calculation
+              </button>
+              <button
+                type="button"
+                onClick={dismissPendingPublicCalculation}
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-blue-500/50"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
         )}
         <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
           <div>

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import BreakEvenCalculator from "@/components/break-even/BreakEvenCalculator";
 import PublicSiteHeader from "@/components/public-site-header";
 
 const landingScreenshots = {
@@ -161,6 +162,12 @@ export default function LandingPage() {
               Start free. Upgrade later when you want saved projects, dashboard access, and competitor pricing tools.
             </p>
           </div>
+
+          <section className="mt-12 fade-in px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-6xl">
+              <BreakEvenCalculator mode="public" />
+            </div>
+          </section>
 
           </div>
 
