@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import posthog from "posthog-js";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { TurnstileWidget } from "@/components/turnstile-widget";
 import { shouldBypassTurnstile } from "@/lib/turnstile-bypass";
 import { createClient } from "@/utils/supabase/client";
@@ -80,6 +80,19 @@ export default function SignUpPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetNonce, setTurnstileResetNonce] = useState(0);
+  const nextPath = useMemo(() => {
+    if (typeof window === "undefined") {
+      return "/dashboard/budgeter";
+    }
+
+    const candidate = new URLSearchParams(window.location.search).get("next");
+    if (!candidate || !candidate.startsWith("/") || candidate.startsWith("//")) {
+      return "/dashboard/budgeter";
+    }
+
+    return candidate;
+  }, []);
+
   const isTurnstileEnabled =
     Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim()) &&
     !shouldBypassTurnstile({
@@ -182,7 +195,10 @@ export default function SignUpPage() {
           <Link href="/landing" className="text-sm font-semibold text-slate-300 transition hover:text-blue-400">
             Back to home
           </Link>
-          <Link href="/login" className="text-sm font-semibold text-blue-300 transition hover:text-blue-200">
+          <Link
+            href={`/login?next=${encodeURIComponent(nextPath)}`}
+            className="text-sm font-semibold text-blue-300 transition hover:text-blue-200"
+          >
             Already have an account? Log in
           </Link>
         </div>

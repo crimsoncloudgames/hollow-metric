@@ -8,6 +8,7 @@ import {
   FINANCIAL_PROJECTS_UPDATED_EVENT,
   fetchSavedFinancialProjectsState,
   type FinancialProject,
+  type FinancialProjectAccessState,
 } from "@/lib/financial-projects";
 import { createClient } from "@/utils/supabase/client";
 
@@ -47,6 +48,7 @@ function formatBillingStatusLabel(status: string | null | undefined, fallback = 
 
 export default function DashboardPage() {
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("starter");
+  const [access, setAccess] = useState<FinancialProjectAccessState | null>(null);
   const [billingStatus, setBillingStatus] = useState("Loading...");
   const [projects, setProjects] = useState<FinancialProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,37 +96,6 @@ export default function DashboardPage() {
           return;
         }
 
-        const { data: entitlement, error: entitlementError } = await supabase
-          .from("user_entitlements")
-          .select("tier, premium_access, billing_state")
-          .eq("user_id", session.user.id)
-          .maybeSingle();
-
-        if (!mounted) {
-          return;
-        }
-
-        if (entitlementError) {
-          throw entitlementError;
-        }
-
-        const normalizedBillingState =
-          typeof entitlement?.billing_state === "string"
-            ? entitlement.billing_state.trim().toLowerCase()
-            : "";
-        const hasPaidAccess =
-          entitlement?.tier === "pro" &&
-          entitlement.premium_access === true &&
-          normalizedBillingState === "active";
-        const derivedBillingStatus = entitlement
-          ? formatBillingStatusLabel(entitlement.billing_state, "Unknown")
-          : "No billing record";
-
-        if (!hasPaidAccess) {
-          applyLockedDashboardState(derivedBillingStatus);
-          return;
-        }
-
         const result = await fetchSavedFinancialProjectsState(session.access_token);
 
         if (!result || !result.access || !Array.isArray(result.projects)) {
@@ -135,6 +106,7 @@ export default function DashboardPage() {
           return;
         }
 
+        setAccess(result.access);
         setSubscriptionTier(result.access.subscriptionTier === "launch-planner" ? "launch-planner" : "starter");
         setBillingStatus(
           typeof result.access.billingStatus === "string" && result.access.billingStatus.trim()
@@ -193,7 +165,7 @@ export default function DashboardPage() {
   }, []);
 
   const displayBillingStatus = isLoading ? "Loading..." : billingStatus;
-  const canAccessLibrary = subscriptionTier !== "starter";
+  const canAccessLibrary = projects.length > 0 || access?.canAccessLibrary === true;
   const activeProject = canAccessLibrary ? projects[0] ?? null : null;
   const recentCount = canAccessLibrary ? projects.length : 0;
   const warningCount =
@@ -365,12 +337,12 @@ export default function DashboardPage() {
       {!isLoading && !loadError && recentCount === 0 && (
         <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8 text-center sm:p-12">
           <p className="text-slate-200 font-semibold mb-2">
-            {canAccessLibrary ? "No saved launch budgets yet." : "Saved launch budgets unlock on Launch Planner."}
+            {canAccessLibrary ? "No saved launch budgets yet." : "Create a free account to save 1 project."}
           </p>
           <p className="text-slate-500 text-sm mb-6">
             {canAccessLibrary
               ? "Build or update your launch budget to save the current project into Financial Library."
-              : "Starter includes calculator access only. Upgrade to Launch Planner to unlock saved projects."}
+              : "Create a free account to save 1 project. Upgrade to save more projects and use advanced planning tools."}
           </p>
           <Link
             href="/dashboard/budgeter"

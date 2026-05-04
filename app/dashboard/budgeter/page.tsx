@@ -6,6 +6,8 @@ import { createClient } from "@/utils/supabase/client";
 import {
   normalizeFinancialProject,
   upsertSavedFinancialProject,
+  fetchSavedFinancialProjectsState,
+  type FinancialProjectAccessState,
 } from "@/lib/financial-projects";
 import {
   calculateBreakEven,
@@ -84,7 +86,9 @@ type PublicBreakEvenCalculationDraft = {
   marketingCost?: unknown;
   otherCosts?: unknown;
   price?: unknown;
+  gamePrice?: unknown;
   platformFeePercent?: unknown;
+  platformFee?: unknown;
   refundRate?: unknown;
   publisherSplitPercent?: unknown;
 };
@@ -550,6 +554,10 @@ export default function LaunchBudgetPage() {
   const [isLoadingBillingContext, setIsLoadingBillingContext] = useState(true);
   const [billingContextError, setBillingContextError] = useState<string | null>(null);
   const [localDataNotice, setLocalDataNotice] = useState<string | null>(null);
+  const [projectAccess, setProjectAccess] = useState<FinancialProjectAccessState | null>(null);
+  const [savedProjectCount, setSavedProjectCount] = useState<number>(0);
+  const [isLoadingProjectAccess, setIsLoadingProjectAccess] = useState(true);
+  const [projectAccessError, setProjectAccessError] = useState<string | null>(null);
   const billingContextLoadPromiseRef = useRef<Promise<void> | null>(null);
   const pendingBillingContextRefreshRef = useRef(false);
   const isPaidTier = subscriptionTier !== "starter";
@@ -683,6 +691,60 @@ export default function LaunchBudgetPage() {
       pendingBillingContextRefreshRef.current = false;
       window.removeEventListener("focus", refresh);
       window.removeEventListener("pageshow", refresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProjectAccess = async () => {
+      if (!mounted) {
+        return;
+      }
+
+      setIsLoadingProjectAccess(true);
+      setProjectAccessError(null);
+
+      try {
+        const result = await fetchSavedFinancialProjectsState();
+
+        if (!mounted) {
+          return;
+        }
+
+        setProjectAccess(result.access);
+        setSavedProjectCount(result.projects.length);
+      } catch (error) {
+        console.error("Failed to load saved project access for launch budget page", error);
+        if (!mounted) {
+          return;
+        }
+        setProjectAccessError(
+          "We couldn't verify your saved project access right now. Saving may be unavailable until we finish checking your account."
+        );
+        setProjectAccess({
+          subscriptionTier: "starter",
+          billingStatus: "Unavailable",
+          canAccessLibrary: true,
+          canSaveProjects: true,
+          projectLimit: 1,
+        });
+        setSavedProjectCount(0);
+      } finally {
+        if (mounted) {
+          setIsLoadingProjectAccess(false);
+        }
+      }
+    };
+
+    void loadProjectAccess();
+    window.addEventListener("focus", loadProjectAccess);
+    window.addEventListener("pageshow", loadProjectAccess);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", loadProjectAccess);
+      window.removeEventListener("pageshow", loadProjectAccess);
     };
   }, []);
 
@@ -847,13 +909,15 @@ export default function LaunchBudgetPage() {
           max: MAX_MONEY_VALUE,
           fallback: 0,
         }),
-        price: parseNumericInput(String(parsed.price ?? ""), {
-          min: 0,
-          max: MAX_MONEY_VALUE,
-          fallback: 0,
-        }),
+        price: parseNumericInput(
+          String(parsed.gamePrice ?? parsed.price ?? ""), {
+            min: 0,
+            max: MAX_MONEY_VALUE,
+            fallback: 0,
+          }
+        ),
         platformFeePercent: parseNumericInput(
-          String(parsed.platformFeePercent ?? ""),
+          String(parsed.platformFeePercent ?? parsed.platformFee ?? ""),
           { min: 0, max: 100, fallback: DEFAULT_PLATFORM_FEE_PERCENT }
         ),
         refundRate: parseNumericInput(String(parsed.refundRate ?? ""), {
@@ -958,6 +1022,9 @@ export default function LaunchBudgetPage() {
     setRefundRate(pendingPublicCalculation.refundRate.toString());
     setPublisherSplitPercent(pendingPublicCalculation.publisherSplitPercent.toString());
     setPendingPublicCalculation(null);
+    setLocalDataNotice(
+      "Your landing page calculation has been imported. Save it to keep it in your account."
+    );
     try {
       window.localStorage.removeItem(PENDING_PUBLIC_BREAK_EVEN_CALCULATION_STORAGE_KEY);
     } catch {
@@ -1140,10 +1207,11 @@ export default function LaunchBudgetPage() {
     calculations.witholdingRate,
   ]);
 
+  const canSaveProjects = projectAccess?.canSaveProjects ?? false;
   const saveProjectDisabled =
-    isLoadingBillingContext ||
-    !isPaidTier ||
+    isLoadingProjectAccess ||
     isSavingProject ||
+    !canSaveProjects ||
     trimmedProjectName.length === 0 ||
     calculations.totalCost <= 0 ||
     calculations.breakEvenResults
@@ -1151,25 +1219,34 @@ export default function LaunchBudgetPage() {
       .some((result) => result === null);
 
   const handleSaveProject = async () => {
-    if (isSavingProject || isLoadingBillingContext) {
+    if (isSavingProject || isLoadingProjectAccess) {
       return;
     }
 
     setSaveProjectFeedback(null);
 
+    try {
+      const supabase = createClient();
+      const userResult = supabase ? await supabase.auth.getUser() : null;
+      const userId = userResult?.data?.user?.id;
+      console.log("Save Project debug", {
+        userIdExists: Boolean(userId),
+        userId,
+        projectAccess,
+        projectLimit: projectAccess?.projectLimit,
+        currentSavedProjectCount: savedProjectCount,
+        requestedAction: savedProjectCount > 0 ? "update" : "create",
+      });
+    } catch (error) {
+      console.log("Save Project debug: failed to read auth state", {
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+
     if (!trimmedProjectName) {
       setSaveProjectFeedback({
         tone: "error",
         message: "Enter a project name before saving.",
-      });
-      return;
-    }
-
-    if (!isPaidTier) {
-      setSaveProjectFeedback({
-        tone: "error",
-        message:
-          "Project saving is currently available on Launch Planner while billing access is enabled.",
       });
       return;
     }
@@ -1263,12 +1340,23 @@ export default function LaunchBudgetPage() {
           responseBody: rawResponse,
           status: response.status,
         });
+        console.log("Save Project debug: api response", {
+          status: response.status,
+          success: result?.success === true,
+          error: result?.error,
+        });
         setSaveProjectFeedback({
           tone: "error",
           message: getFriendlySaveProjectError(response.status, responseMessage),
         });
         return;
       }
+
+      console.log("Save Project debug: api response", {
+        status: response.status,
+        success: true,
+        projectId: (result.project as Record<string, unknown> | null)?.id,
+      });
 
       const savedProject = normalizeFinancialProject(result.project as Record<string, unknown>);
       upsertSavedFinancialProject(savedProject);
@@ -1477,9 +1565,9 @@ export default function LaunchBudgetPage() {
         )}
         {pendingPublicCalculation && (
           <div className="mb-4 rounded-2xl border border-blue-500/30 bg-slate-900/70 p-4 text-sm text-slate-200">
-            <p className="font-semibold text-blue-200">Preview calculation ready to import</p>
+            <p className="font-semibold text-blue-200">Landing page calculation imported</p>
             <p className="mt-2 text-slate-300">
-              We found a public preview calculation saved in your browser. Import it into your dashboard budget form or dismiss it.
+              We found a landing page calculation saved in your browser. Import it into your dashboard budget form or dismiss it.
             </p>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
@@ -1502,11 +1590,11 @@ export default function LaunchBudgetPage() {
         <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
           <div>
             <p className="font-semibold text-slate-400">Starter</p>
-            <p className="text-slate-600">Starter includes calculator access only</p>
+            <p className="text-slate-600">Starter includes 1 saved project and calculator access</p>
           </div>
           <div>
             <p className="font-semibold text-slate-400">Launch Planner</p>
-            <p className="text-slate-600">Launch Planner includes 1 active saved project budget</p>
+            <p className="text-slate-600">Launch Planner includes saved project storage and advanced planning tools</p>
           </div>
           <div>
             <p className="font-semibold text-slate-400">More Plans</p>
@@ -1523,11 +1611,11 @@ export default function LaunchBudgetPage() {
               Save the current launch budget inputs and break-even snapshot to your account.
             </p>
             <p className="mt-2 text-xs text-slate-500">
-              {isLoadingBillingContext
-                ? "Checking your plan access before project saving is enabled."
-                : isPaidTier
-                ? "Launch Planner includes 1 saved project. Saving here updates that project with your latest inputs."
-                : "Project saving is not included on Starter."}
+              {isLoadingProjectAccess
+                ? "Checking your saved project access before project saving is enabled."
+                : projectAccess?.subscriptionTier === "launch-planner"
+                ? "Launch Planner includes saved projects and advanced planning tools."
+                : "Starter includes 1 saved project. Saving here creates or updates that project with your latest inputs."}
             </p>
           </div>
           <div className="flex flex-col gap-3 w-full sm:max-w-xs">
@@ -1544,7 +1632,7 @@ export default function LaunchBudgetPage() {
                 placeholder="e.g. Launch Budget Project"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
-                disabled={!isPaidTier || isSavingProject}
+                disabled={isSavingProject}
                 className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all disabled:opacity-50"
               />
             </div>

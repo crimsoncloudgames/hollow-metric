@@ -186,25 +186,19 @@ function normalizeFinancialProjectAccessState(
     Math.round(
       toFiniteNumber(
         value.projectLimit,
-        subscriptionTier === "launch-planner" ? 1 : 0
+        subscriptionTier === "launch-planner" ? 1 : 1
       )
     )
   );
-  const canAccessLibrary =
-    subscriptionTier === "launch-planner" &&
-    value.canAccessLibrary === true &&
-    requestedProjectLimit > 0;
-  const canSaveProjects =
-    subscriptionTier === "launch-planner" &&
-    value.canSaveProjects === true &&
-    requestedProjectLimit > 0;
+  const canAccessLibrary = requestedProjectLimit > 0;
+  const canSaveProjects = requestedProjectLimit > 0;
 
   return {
     subscriptionTier,
     billingStatus,
     canAccessLibrary,
     canSaveProjects,
-    projectLimit: canAccessLibrary || canSaveProjects ? requestedProjectLimit : 0,
+    projectLimit: requestedProjectLimit,
   };
 }
 

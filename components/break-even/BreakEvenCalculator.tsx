@@ -3,7 +3,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import "@/instrumentation-client";
-import posthog from "posthog-js";
 import {
   calculateBreakEven,
   calculateRevenueBreakdown,
@@ -132,12 +131,11 @@ export default function BreakEvenCalculator({ mode }: BreakEvenCalculatorProps) 
         developmentCost: totals.development,
         marketingCost: totals.marketing,
         otherCosts: totals.other,
-        price: totals.pricePoint,
-        platformFeePercent: STEAM_PLATFORM_FEE_PERCENT,
+        gamePrice: totals.pricePoint,
         refundRate: totals.refundPercent,
-        withholdingTax: totals.withholdingPercent,
+        withholdingRate: totals.withholdingPercent,
         publisherSplitPercent: totals.publisherPercent,
-        createdAt: new Date().toISOString(),
+        platformFee: STEAM_PLATFORM_FEE_PERCENT,
       };
       window.localStorage.setItem(
         PENDING_BREAK_EVEN_CALCULATION_STORAGE_KEY,
@@ -148,7 +146,7 @@ export default function BreakEvenCalculator({ mode }: BreakEvenCalculatorProps) 
     }
 
     const returnPath = "/dashboard/budgeter";
-    router.push(`/signup?returnPath=${encodeURIComponent(returnPath)}`);
+    router.push(`/signup?next=${encodeURIComponent(returnPath)}`);
   };
 
   const getTotalCostRange = (totalCost: number): string => {
@@ -335,16 +333,31 @@ export default function BreakEvenCalculator({ mode }: BreakEvenCalculatorProps) 
         <div className={`grid gap-6 lg:grid-cols-3 ${shouldBlurResults ? "pointer-events-none select-none opacity-60 blur-sm" : ""}`}>
           <div className="rounded-3xl bg-slate-900/80 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Total cost</p>
+            {mode === "public" ? (
+              <p className="mt-2 text-center text-[11px] leading-5 text-slate-500">
+                (How much it costs you to make.)
+              </p>
+            ) : null}
             <p className="mt-4 text-3xl font-black text-white">{formatCurrency(totals.totalCost)}</p>
           </div>
           <div className="rounded-3xl bg-slate-900/80 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Net per copy</p>
+            {mode === "public" ? (
+              <p className="mt-2 text-center text-[11px] leading-5 text-slate-500">
+                (How much you get per copy sold.)
+              </p>
+            ) : null}
             <p className="mt-4 text-3xl font-black text-white">
               {formatCurrencyWithDecimals(totals.revenueBreakdown.developerNetPerCopy)}
             </p>
           </div>
           <div className="rounded-3xl bg-slate-900/80 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Break-even copies</p>
+            {mode === "public" ? (
+              <p className="mt-2 text-center text-[11px] leading-5 text-slate-500">
+                (How many copies you need to sell to break even.)
+              </p>
+            ) : null}
             <p className="mt-4 text-3xl font-black text-white">
               {totals.breakEvenCopies === null ? "—" : totals.breakEvenCopies.toLocaleString()}
             </p>
@@ -362,7 +375,7 @@ export default function BreakEvenCalculator({ mode }: BreakEvenCalculatorProps) 
         <div className="mt-6 rounded-[2rem] border border-blue-500/20 bg-blue-500/10 p-6 text-slate-200">
           <p className="text-lg font-bold text-white">Want to save this and keep planning?</p>
           <p className="mt-2 text-sm leading-6 text-slate-300">
-            Create a free account to save your inputs and return to this model later.
+            Create a free account to save 1 project and return to your launch math later.
           </p>
           <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row sm:justify-center">
             <button

@@ -117,9 +117,9 @@ function deriveFinancialProjectAccess(
     return {
       subscriptionTier: "starter",
       billingStatus: "No billing record",
-      canAccessLibrary: false,
-      canSaveProjects: false,
-      projectLimit: 0,
+      canAccessLibrary: true,
+      canSaveProjects: true,
+      projectLimit: 1,
     };
   }
 
@@ -135,9 +135,9 @@ function deriveFinancialProjectAccess(
   return {
     subscriptionTier: hasPaidAccess ? "launch-planner" : "starter",
     billingStatus: formatBillingStatusLabel(entitlement.billing_state, "Unknown"),
-    canAccessLibrary: hasPaidAccess,
-    canSaveProjects: hasPaidAccess,
-    projectLimit: hasPaidAccess ? 1 : 0,
+    canAccessLibrary: true,
+    canSaveProjects: true,
+    projectLimit: 1,
   };
 }
 

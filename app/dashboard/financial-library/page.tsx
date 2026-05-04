@@ -366,16 +366,12 @@ export default function FinancialLibraryPage() {
     };
   }, []);
 
-  const canAccessLibrary = subscriptionTier !== "starter";
+  const canAccessLibrary = projects.length > 0 || subscriptionTier !== "starter";
   const currentPlanLabel = subscriptionTier === "launch-planner" ? "Launch Planner" : "Starter";
 
   const visibleProjects = useMemo(() => {
-    if (subscriptionTier === "launch-planner") {
-      return projects.slice(0, 1).map((project) => normalizeProjectForDisplay(project));
-    }
-
-    return [];
-  }, [projects, subscriptionTier]);
+    return projects.slice(0, 1).map((project) => normalizeProjectForDisplay(project));
+  }, [projects]);
 
   const hasSavedProject = visibleProjects.length > 0;
 
@@ -385,12 +381,6 @@ export default function FinancialLibraryPage() {
     }
 
     setLimitMessage(null);
-
-    if (subscriptionTier === "starter") {
-      setLimitMessage("Upgrade to Launch Planner to unlock saved projects and Financial Library access.");
-      return;
-    }
-
     router.push("/dashboard/budgeter");
   };
 
@@ -474,8 +464,8 @@ export default function FinancialLibraryPage() {
           </div>
           <p className="text-xs text-slate-500">
             {canAccessLibrary
-              ? "Project saving is unlocked for your active Launch Planner access."
-              : "An active Launch Planner subscription unlocks saved projects and Financial Library access."}
+              ? "Project saving is available for your current plan."
+              : "Create a free account to save 1 project. Upgrade to save more projects and use advanced planning tools."}
           </p>
         </div>
       </div>
@@ -545,7 +535,7 @@ export default function FinancialLibraryPage() {
             <p className="text-xs text-slate-500">
               {subscriptionTier === "launch-planner"
                 ? "Launch Planner: up to 1 saved project"
-                : "Starter: project saving locked"}
+                : "Starter: 1 saved project included"}
             </p>
           </div>
 
