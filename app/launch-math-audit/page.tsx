@@ -198,9 +198,9 @@ function LaunchMathAuditPageContent() {
 
         <section className="mt-10 rounded-[2rem] border border-slate-800 bg-slate-900/60 p-6 sm:p-8">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-300">One-Time Paid Service</p>
-          <h1 className="mt-3 text-3xl font-black text-white sm:text-4xl">Indie Game Launch Math Audit</h1>
+          <h1 className="mt-3 text-3xl font-black text-white sm:text-4xl">Launch Math Audit</h1>
           <p className="mt-4 max-w-4xl text-sm leading-7 text-slate-300 sm:text-base">
-            Need someone to do the launch math for you? I will check your pricing, comparable games, break-even risk, estimated budget, and budget assumptions, then email you a written report within 48 hours after payment.
+            A focused pricing and break-even review for indie developers before launch. Submit your game, budget, planned price, and biggest concern. I’ll review the launch math and send you a written report within 48 hours.
           </p>
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <button
@@ -211,12 +211,12 @@ function LaunchMathAuditPageContent() {
               }}
               className="inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
             >
-              Get Audit
+              Get audit for $24.99
             </button>
-            <p className="text-sm font-semibold text-slate-200">One-time written audit: $99</p>
+            <p className="text-sm font-semibold text-slate-200">Limited-time launch offer: $24.99</p>
           </div>
           <p className="mt-2 text-xs leading-6 text-slate-400">
-            Written report emailed within 48 hours after payment.
+            Written report delivered by email within 48 hours after payment.
           </p>
         </section>
 
@@ -433,8 +433,8 @@ function LaunchMathAuditPageContent() {
                 {isSubmitting ? "Opening Checkout..." : "Get Audit"}
               </button>
               <div className="text-xs text-slate-400">
-                <p>One-time payment handled through Paddle.</p>
-                <p className="mt-1">After payment, your report will be sent to the email you entered above.</p>
+                <p>Limited-time launch offer: $24.99. One-time payment handled through Paddle.</p>
+                <p className="mt-1">Written report delivered by email within 48 hours after payment.</p>
               </div>
             </div>
           </form>

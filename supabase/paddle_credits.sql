@@ -1,6 +1,8 @@
 create table if not exists public.user_credits (
   user_id uuid primary key references auth.users(id) on delete cascade,
   balance integer not null default 0 check (balance >= 0),
+  subscription_balance integer not null default 0 check (subscription_balance >= 0),
+  purchased_balance integer not null default 0 check (purchased_balance >= 0),
   updated_at timestamptz not null default now()
 );
 
@@ -11,6 +13,7 @@ create table if not exists public.credit_transactions (
   paddle_transaction_id text not null unique,
   price_ids text[] not null default '{}',
   credits_added integer not null check (credits_added > 0),
+  transaction_type text not null default 'credit_pack_purchase',
   created_at timestamptz not null default now()
 );
 

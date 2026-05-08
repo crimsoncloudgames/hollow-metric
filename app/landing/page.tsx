@@ -308,17 +308,17 @@ export default function LandingPage() {
                   Need someone to do the launch math for you?
                 </h2>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base">
-                  If you do not want to build the plan yourself, get a one-time Hollow Metric Launch Math Audit. I will check your planned price, comparable games, break-even risk, estimated budget, and biggest concern, then email you a written report within 48 hours after payment.
+                  If you do not want to build the plan yourself, get a Launch Math Audit for $24.99. I’ll check your planned price, comparable games, break-even risk, estimated budget, and biggest concern, then email you a written report within 48 hours.
                 </p>
               </div>
 
               <div className="rounded-[1.5rem] border border-blue-500/20 bg-blue-600/10 p-5 text-left lg:text-center">
-                <p className="text-sm font-semibold text-blue-200">One-time audit: $99</p>
+                <p className="text-sm font-semibold text-blue-200">Limited-time launch offer: $24.99</p>
                 <Link
                   href="/launch-math-audit"
                   className="mt-4 inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-500"
                 >
-                  Get a Launch Math Audit
+                  Get audit for $24.99
                 </Link>
               </div>
             </div>

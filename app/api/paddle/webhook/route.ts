@@ -71,6 +71,13 @@ type CreditPurchaseFulfillment = {
   credits_added: number;
 };
 
+type SubscriptionCreditResetFulfillment = {
+  user_id: string;
+  paddle_transaction_id: string;
+  price_ids: string[];
+  credits_to_set: number;
+};
+
 type LaunchMathAuditFulfillment = {
   request_id: number;
   paddle_transaction_id: string;
@@ -103,8 +110,6 @@ const SUBSCRIPTION_EVENT_TYPES = new Set([
 ]);
 
 const CREDIT_PACK_TRANSACTION_COMPLETED_EVENT_TYPE = "transaction.completed";
-const PRO_UPGRADE_BONUS_CREDITS = 3;
-const PRO_UPGRADE_BONUS_TRANSACTION_PREFIX = "bonus_pro_upgrade";
 const LAUNCH_MATH_AUDIT_PENDING_PAYMENT_STATUS = "pending_payment";
 const LAUNCH_MATH_AUDIT_PAID_STATUS = "paid";
 
@@ -344,6 +349,16 @@ type Database = {
           paddle_transaction_id: string;
           price_ids: string[];
           credits_to_add: number;
+        };
+        Returns: JsonValue;
+      };
+      fulfill_paddle_subscription_credit_reset: {
+        Args: {
+          target_user_id: string;
+          paddle_event_id: string;
+          paddle_transaction_id: string;
+          price_ids: string[];
+          credits_to_set: number;
         };
         Returns: JsonValue;
       };
@@ -611,18 +626,7 @@ function resolveCreditPackCredits(priceIds: string[]) {
   return { ok: true as const, creditsAdded };
 }
 
-function buildProUpgradeBonusTransactionId(userId: string) {
-  return `${PRO_UPGRADE_BONUS_TRANSACTION_PREFIX}:${userId}`;
-}
 
-function buildProUpgradeBonusCreditGrant(userId: string): CreditPurchaseFulfillment {
-  return {
-    user_id: userId,
-    paddle_transaction_id: buildProUpgradeBonusTransactionId(userId),
-    price_ids: [],
-    credits_added: PRO_UPGRADE_BONUS_CREDITS,
-  };
-}
 
 async function resolveSubscriptionPlanKey(
   supabase: SupabaseClient<Database>,
@@ -919,6 +923,83 @@ function extractLaunchMathAuditFulfillment(
     row: {
       request_id: requestId,
       paddle_transaction_id: transactionId,
+    },
+  };
+}
+
+function isSubscriptionScheduledForCancellation(
+  subscription: {
+    cancel_at_period_end: boolean | null;
+    raw_snapshot: JsonValue;
+  },
+): boolean {
+  if (subscription.cancel_at_period_end === true) {
+    return true;
+  }
+
+  const snapshot = asRecord(subscription.raw_snapshot);
+  const scheduledChange = asRecord(snapshot?.scheduled_change);
+
+  return readString(scheduledChange?.action) === "cancel";
+}
+
+async function resolveSubscriptionRenewalFulfillment(
+  supabase: SupabaseClient<Database>,
+  event: PaddleWebhookEvent,
+): Promise<
+  | { ok: true; row: SubscriptionCreditResetFulfillment }
+  | { ok: false; reason: string; skip: boolean }
+> {
+  const data = asRecord(event.data);
+  if (!data) {
+    return { ok: false, reason: "missing transaction data object", skip: false };
+  }
+
+  const subscriptionId = readString(data.subscription_id);
+  if (!subscriptionId) {
+    return { ok: false, reason: "missing subscription id", skip: true };
+  }
+
+  const { data: subscription, error } = await supabase
+    .from("billing_subscriptions")
+    .select("user_id, plan_key, status_normalized, cancel_at_period_end, raw_snapshot")
+    .eq("paddle_subscription_id", subscriptionId)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, reason: `failed to lookup subscription: ${error.message}`, skip: false };
+  }
+
+  if (!subscription) {
+    return { ok: false, reason: "subscription not found", skip: true };
+  }
+
+  if (subscription.plan_key !== "pro") {
+    return { ok: false, reason: "subscription is not a pro plan", skip: true };
+  }
+
+  if (subscription.status_normalized !== "active") {
+    return { ok: false, reason: "subscription is not active", skip: true };
+  }
+
+  if (isSubscriptionScheduledForCancellation(subscription)) {
+    return { ok: false, reason: "subscription is scheduled to cancel", skip: true };
+  }
+
+  const transactionId = readString(data.id);
+  if (!transactionId) {
+    return { ok: false, reason: "missing transaction id", skip: false };
+  }
+
+  const priceIds = extractTransactionItemPriceIds(data);
+
+  return {
+    ok: true,
+    row: {
+      user_id: subscription.user_id,
+      paddle_transaction_id: transactionId,
+      price_ids: priceIds,
+      credits_to_set: 3,
     },
   };
 }
@@ -1280,6 +1361,31 @@ async function fulfillCreditPurchase(
   };
 }
 
+async function fulfillSubscriptionCreditReset(
+  supabase: SupabaseClient<Database>,
+  paddleEventId: string,
+  row: SubscriptionCreditResetFulfillment,
+) {
+  const { data, error } = await supabase.rpc("fulfill_paddle_subscription_credit_reset", {
+    target_user_id: row.user_id,
+    paddle_event_id: paddleEventId,
+    paddle_transaction_id: row.paddle_transaction_id,
+    price_ids: row.price_ids,
+    credits_to_set: row.credits_to_set,
+  });
+
+  if (error) {
+    return { ok: false as const, error };
+  }
+
+  const result = asRecord(data);
+
+  return {
+    ok: true as const,
+    duplicate: readBoolean(result?.duplicate) ?? false,
+  };
+}
+
 async function markWebhookEventProcessed(
   supabase: SupabaseClient<Database>,
   paddleEventId: string,
@@ -1516,6 +1622,120 @@ export async function POST(request: Request) {
           duplicate: persistResult.duplicate,
           launchMathAuditFulfilled: false,
           skipped: "malformed_launch_math_audit_transaction_payload",
+        },
+        { status: 200 },
+      );
+    }
+
+    const subscriptionRenewalExtracted = await resolveSubscriptionRenewalFulfillment(
+      supabase,
+      parsedEvent,
+    );
+
+    if (subscriptionRenewalExtracted.ok) {
+      const fulfillmentResult = await fulfillSubscriptionCreditReset(
+        supabase,
+        eventId,
+        subscriptionRenewalExtracted.row,
+      );
+
+      if (!fulfillmentResult.ok) {
+        const errorMessage = [
+          "Failed to fulfill Pro subscription credit reset.",
+          fulfillmentResult.error.message,
+          fulfillmentResult.error.details,
+          fulfillmentResult.error.hint,
+        ]
+          .filter((value): value is string => Boolean(value && value.trim()))
+          .join(" ");
+
+        console.error("Failed to fulfill Paddle subscription renewal credit reset", {
+          paddleEventId: eventId,
+          eventType,
+          paddleTransactionId: subscriptionRenewalExtracted.row.paddle_transaction_id,
+          userId: subscriptionRenewalExtracted.row.user_id,
+          error: fulfillmentResult.error,
+        });
+
+        await recordWebhookError(supabase, eventId, errorMessage);
+
+        return NextResponse.json(
+          { error: "Failed to fulfill Pro subscription credit reset." },
+          { status: 500 },
+        );
+      }
+
+      const processedAt = new Date().toISOString();
+      const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, processedAt);
+
+      if (!markProcessedResult.ok) {
+        const errorMessage = [
+          "Failed to finalize webhook processing state.",
+          markProcessedResult.error.message,
+          markProcessedResult.error.details,
+          markProcessedResult.error.hint,
+        ]
+          .filter((value): value is string => Boolean(value && value.trim()))
+          .join(" ");
+
+        console.error("Failed to mark Paddle subscription renewal webhook event as processed", {
+          paddleEventId: eventId,
+          eventType,
+          error: markProcessedResult.error,
+        });
+
+        await recordWebhookError(supabase, eventId, errorMessage);
+
+        return NextResponse.json(
+          { error: "Failed to finalize webhook processing state." },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          paddleEventId: eventId,
+          duplicate: fulfillmentResult.duplicate,
+          subscriptionCreditResetFulfilled: !fulfillmentResult.duplicate,
+          skipped: fulfillmentResult.duplicate ? "duplicate_subscription_credit_reset" : undefined,
+        },
+        { status: 200 },
+      );
+    }
+
+    if (!subscriptionRenewalExtracted.skip) {
+      console.error("Malformed Paddle subscription renewal transaction payload", {
+        paddleEventId: eventId,
+        eventType,
+        reason: subscriptionRenewalExtracted.reason,
+      });
+
+      await recordWebhookError(supabase, eventId, subscriptionRenewalExtracted.reason);
+
+      const processedAt = new Date().toISOString();
+      const markProcessedResult = await markWebhookEventProcessed(supabase, eventId, processedAt);
+
+      if (!markProcessedResult.ok) {
+        console.error("Failed to mark malformed Paddle subscription renewal webhook event as processed", {
+          paddleEventId: eventId,
+          eventType,
+          error: markProcessedResult.error,
+        });
+
+        return NextResponse.json(
+          { error: "Failed to finalize webhook processing state." },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          paddleEventId: eventId,
+          duplicate: persistResult.duplicate,
+          subscriptionCreditResetFulfilled: false,
+          skipped: "malformed_subscription_renewal_transaction_payload",
         },
         { status: 200 },
       );
@@ -1925,52 +2145,6 @@ export async function POST(request: Request) {
       );
     }
 
-    let bonusCreditResult: Awaited<ReturnType<typeof fulfillCreditPurchase>> | null = null;
-
-    if (extracted.row.plan_key === "pro" && extracted.row.status_normalized === "active") {
-      bonusCreditResult = await fulfillCreditPurchase(
-        supabase,
-        eventId,
-        buildProUpgradeBonusCreditGrant(extracted.row.user_id),
-      );
-
-      if (!bonusCreditResult.ok) {
-        if (isDeletedAuthUserReference(bonusCreditResult.error)) {
-          return markWebhookDeletedUserSkipped(
-            supabase,
-            eventId,
-            eventType,
-            extracted.row.user_id,
-            persistResult.duplicate,
-          );
-        }
-
-        const errorMessage = [
-          "Failed to grant pro upgrade bonus credits.",
-          bonusCreditResult.error.message,
-          bonusCreditResult.error.details,
-          bonusCreditResult.error.hint,
-        ]
-          .filter((value): value is string => Boolean(value && value.trim()))
-          .join(" ");
-
-        console.error("Failed to grant pro upgrade bonus credits", {
-          paddleEventId: eventId,
-          eventType,
-          paddleSubscriptionId: extracted.row.paddle_subscription_id,
-          userId: extracted.row.user_id,
-          error: bonusCreditResult.error,
-        });
-
-        await recordWebhookError(supabase, eventId, errorMessage);
-
-        return NextResponse.json(
-          { error: "Failed to grant pro upgrade bonus credits." },
-          { status: 500 },
-        );
-      }
-    }
-
     if (entitlementResult.activated) {
       await capturePostHogServerEvent({
         event: "subscription_activated",
@@ -2021,7 +2195,7 @@ export async function POST(request: Request) {
         paddleEventId: eventId,
         duplicate: persistResult.duplicate,
         subscriptionSynced: true,
-        bonusCreditGranted: bonusCreditResult ? !bonusCreditResult.duplicate : false,
+        subscriptionCreditResetFulfilled: false,
       },
       { status: 200 },
     );

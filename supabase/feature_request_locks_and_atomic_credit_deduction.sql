@@ -102,10 +102,18 @@ begin
   end if;
 
   update public.user_credits
-  set balance = balance - credits_to_consume,
+  set subscription_balance = greatest(subscription_balance - credits_to_consume, 0),
+      purchased_balance = greatest(
+        purchased_balance - greatest(credits_to_consume - subscription_balance, 0),
+        0
+      ),
+      balance = greatest(subscription_balance - credits_to_consume, 0) + greatest(
+        purchased_balance - greatest(credits_to_consume - subscription_balance, 0),
+        0
+      ),
       updated_at = now()
   where user_id = current_user_id
-    and balance >= credits_to_consume
+    and subscription_balance + purchased_balance >= credits_to_consume
   returning balance into remaining_balance;
 
   if remaining_balance is null then

@@ -1,9 +1,9 @@
-create or replace function public.fulfill_paddle_credit_purchase(
+create or replace function public.fulfill_paddle_subscription_credit_reset(
   target_user_id uuid,
   paddle_event_id text,
   paddle_transaction_id text,
   price_ids text[],
-  credits_to_add integer
+  credits_to_set integer
 )
 returns jsonb
 language plpgsql
@@ -21,8 +21,8 @@ begin
     raise exception 'paddle_transaction_id is required';
   end if;
 
-  if credits_to_add is null or credits_to_add <= 0 then
-    raise exception 'credits_to_add must be greater than zero';
+  if credits_to_set is null or credits_to_set <= 0 then
+    raise exception 'credits_to_set must be greater than zero';
   end if;
 
   insert into public.credit_transactions (
@@ -38,8 +38,8 @@ begin
     paddle_event_id,
     paddle_transaction_id,
     coalesce(price_ids, array[]::text[]),
-    credits_to_add,
-    'credit_pack_purchase'
+    credits_to_set,
+    'subscription_credit_reset'
   )
   on conflict (paddle_transaction_id) do nothing;
 
@@ -61,14 +61,14 @@ begin
   )
   values (
     target_user_id,
-    credits_to_add,
-    credits_to_add,
+    credits_to_set,
     0,
+    credits_to_set,
     now()
   )
   on conflict (user_id) do update
-    set balance = public.user_credits.balance + excluded.balance,
-        purchased_balance = public.user_credits.purchased_balance + excluded.purchased_balance,
+    set subscription_balance = excluded.subscription_balance,
+        balance = public.user_credits.purchased_balance + excluded.subscription_balance,
         updated_at = now();
 
   return jsonb_build_object(
