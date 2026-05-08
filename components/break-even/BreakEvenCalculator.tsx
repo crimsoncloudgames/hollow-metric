@@ -373,9 +373,9 @@ export default function BreakEvenCalculator({ mode }: BreakEvenCalculatorProps) 
 
       {mode === "public" ? (
         <div className="mt-6 rounded-[2rem] border border-blue-500/20 bg-blue-500/10 p-6 text-slate-200">
-          <p className="text-lg font-bold text-white">Want to save this and keep planning?</p>
+          <p className="text-lg font-bold text-white">Like this result? Save your project.</p>
           <p className="mt-2 text-sm leading-6 text-slate-300">
-            Create a free account to save 1 project and return to your launch math later.
+            Create a free account to save this project and return to your launch math later.
           </p>
           <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row sm:justify-center">
             <button

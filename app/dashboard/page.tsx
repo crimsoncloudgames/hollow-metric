@@ -259,6 +259,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Link
           href="/dashboard/budgeter"
+          prefetch={true}
           className="group relative rounded-3xl border border-blue-600/40 bg-gradient-to-br from-blue-600/20 to-blue-600/5 p-6 transition-all hover:border-blue-600/60 hover:from-blue-600/30 hover:shadow-xl hover:shadow-blue-600/20 sm:p-8"
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -280,6 +281,7 @@ export default function DashboardPage() {
 
         <Link
           href="/dashboard/financial-library"
+          prefetch={true}
           className="group rounded-3xl border border-slate-800 bg-slate-900/60 p-6 transition-all hover:border-blue-600/40 hover:shadow-xl hover:shadow-blue-600/10 sm:p-8"
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

@@ -152,19 +152,19 @@ export default function LandingPage() {
 
             <div className="mt-8 flex items-center justify-center">
               <Link
-                href="/signup"
+                href="#free-calculator"
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-blue-600 px-7 py-4 text-sm font-bold text-white transition hover:bg-blue-500 sm:w-auto"
               >
-                Build Your Free Break-Even Model
+                Check My Break-Even for Free
               </Link>
             </div>
             <p className="mt-3 text-center text-xs text-slate-500">
-              Start free. Upgrade later when you want saved projects, dashboard access, and competitor pricing tools.
+              No account needed to preview your break-even number. Create a free account only when you want to save your project.
             </p>
           </div>
 
           <section className="mt-12 fade-in px-4 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-6xl">
+            <div className="mx-auto max-w-6xl" id="free-calculator">
               <BreakEvenCalculator mode="public" />
             </div>
           </section>
@@ -218,6 +218,7 @@ export default function LandingPage() {
                         width={card.screenshot.width}
                         height={card.screenshot.height}
                         sizes="(min-width: 1280px) 46vw, (min-width: 768px) 92vw, 96vw"
+                        loading="lazy"
                         className="h-auto w-full"
                       />
                     </button>
@@ -428,6 +429,7 @@ export default function LandingPage() {
               width={activeScreenshot.screenshot.width}
               height={activeScreenshot.screenshot.height}
               sizes="(min-width: 1280px) 80vw, 96vw"
+              loading="lazy"
               className="h-auto max-h-[85vh] w-full rounded-xl object-contain"
             />
           </div>

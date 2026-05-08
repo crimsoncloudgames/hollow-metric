@@ -31,18 +31,12 @@ export const metadata: Metadata = {
     title: "Hollow Metric",
     description:
       "Launch budget and break-even planning for indie game developers and small teams.",
-    images: [
-      {
-        url: "/og/hollowmetric-preview.png",
-      },
-    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Hollow Metric",
     description:
       "Launch budget and break-even planning for indie game developers and small teams.",
-    images: ["/og/hollowmetric-preview.png"],
   },
   robots: {
     index: true,

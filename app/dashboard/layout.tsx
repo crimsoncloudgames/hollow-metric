@@ -362,6 +362,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="min-w-0">
             <Link
               href="/dashboard"
+              prefetch={true}
               onClick={() => setMobileNavigationMenuPath(null)}
               className="inline-flex min-w-0 items-center gap-3"
             >
@@ -434,6 +435,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   onClick={() => setMobileNavigationMenuPath(null)}
                   className={[
                     "flex items-center gap-3 rounded-2xl px-3 py-3 border transition-all duration-200 font-semibold sm:col-span-2 md:col-span-1 lg:col-span-1",
@@ -473,6 +475,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {showUpgradeButton ? (
             <Link
               href="/dashboard/settings#subscription"
+              prefetch={true}
               onClick={() => setMobileNavigationMenuPath(null)}
               className="mt-1 flex items-center justify-center gap-2 rounded-2xl border border-blue-600/40 bg-blue-600/10 px-3 py-3 text-sm font-semibold text-blue-300 transition-all duration-200 hover:bg-blue-600/20 sm:col-span-2 md:col-span-1 lg:col-span-1"
             >

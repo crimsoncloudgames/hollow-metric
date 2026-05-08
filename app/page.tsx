@@ -1,40 +1,29 @@
 import type { Metadata } from "next";
 import LandingPage from "./landing/page";
-
-const PUBLIC_TITLE = "Hollow Metric | Launch planning for indie game developers";
-const PUBLIC_DESCRIPTION =
-  "Launch planning, break-even modeling, and pricing analysis for indie developers making launch decisions.";
-const PUBLIC_URL = "https://www.hollowmetric.com/";
-const PUBLIC_IMAGE_URL = "https://www.hollowmetric.com/og/hollowmetric-preview.png";
+import { SITE_COPY } from "@/lib/site-copy";
 
 export const dynamic = "force-static";
 export const revalidate = false;
 
 export const metadata: Metadata = {
   title: {
-    absolute: PUBLIC_TITLE,
+    absolute: SITE_COPY.title,
   },
-  description: PUBLIC_DESCRIPTION,
+  description: SITE_COPY.description,
   alternates: {
-    canonical: PUBLIC_URL,
+    canonical: SITE_COPY.url,
   },
   openGraph: {
-    title: PUBLIC_TITLE,
-    description: PUBLIC_DESCRIPTION,
-    url: PUBLIC_URL,
-    siteName: "Hollow Metric",
+    title: SITE_COPY.title,
+    description: SITE_COPY.description,
+    url: SITE_COPY.url,
+    siteName: SITE_COPY.siteName,
     type: "website",
-    images: [
-      {
-        url: PUBLIC_IMAGE_URL,
-      },
-    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: PUBLIC_TITLE,
-    description: PUBLIC_DESCRIPTION,
-    images: [PUBLIC_IMAGE_URL],
+    title: SITE_COPY.title,
+    description: SITE_COPY.description,
   },
 };
 
