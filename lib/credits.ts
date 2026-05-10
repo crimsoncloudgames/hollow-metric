@@ -201,19 +201,55 @@ async function deductCredit(
     credits_to_consume: creditCost,
   });
 
-  const result =
-    data && typeof data === "object"
-      ? (data as { ok?: unknown; remaining_balance?: unknown })
-      : null;
-  const interpretedStatus = error
-    ? 500
-    : result?.ok !== true || result.remaining_balance === undefined
-      ? 409
-      : 200;
-  const interpretedRemainingBalance =
-    result?.remaining_balance === undefined
-      ? null
-      : normalizeCreditsBalance(result.remaining_balance);
+  const normalizeRpcData = (rawData: unknown) => {
+    let normalizedData = rawData;
+    let ok: boolean | null = null;
+    let remainingBalance: number | null = null;
+
+    const readRecord = (record: unknown) => {
+      if (!record || typeof record !== "object") {
+        return;
+      }
+
+      const entry = record as Record<string, unknown>;
+      if (typeof entry.ok === "boolean") {
+        ok = entry.ok;
+      }
+
+      const balanceValue =
+        typeof entry.remaining_balance === "number" && Number.isFinite(entry.remaining_balance)
+          ? entry.remaining_balance
+          : typeof entry.balance === "number" && Number.isFinite(entry.balance)
+            ? entry.balance
+            : null;
+
+      if (balanceValue !== null) {
+        remainingBalance = normalizeCreditsBalance(balanceValue);
+      }
+    };
+
+    if (typeof rawData === "number" && Number.isFinite(rawData)) {
+      remainingBalance = normalizeCreditsBalance(rawData);
+      return { normalizedData, ok, remainingBalance };
+    }
+
+    if (Array.isArray(rawData) && rawData.length > 0) {
+      normalizedData = rawData;
+      for (const item of rawData) {
+        readRecord(item);
+        if (remainingBalance !== null && ok !== null) {
+          break;
+        }
+      }
+      return { normalizedData, ok, remainingBalance };
+    }
+
+    readRecord(rawData);
+    return { normalizedData, ok, remainingBalance };
+  };
+
+  const { normalizedData, ok, remainingBalance } = normalizeRpcData(data);
+  const interpretedStatus = error ? 500 : remainingBalance === null ? 409 : 200;
 
   console.info("Credit deduction RPC result", {
     source: authContext?.source ?? "unknown",
@@ -221,8 +257,10 @@ async function deductCredit(
     creditCost,
     rawRpcData: data ?? null,
     rawRpcError: error ?? null,
+    normalizedRpcData: normalizedData,
+    normalizedOk: ok,
     interpretedStatus,
-    interpretedRemainingBalance,
+    interpretedRemainingBalance: remainingBalance,
   });
 
   if (error) {
@@ -239,7 +277,7 @@ async function deductCredit(
     };
   }
 
-  if (result?.ok !== true || result.remaining_balance === undefined) {
+  if (remainingBalance === null) {
     return {
       ok: false,
       status: 409,
@@ -249,7 +287,7 @@ async function deductCredit(
 
   return {
     ok: true,
-    remainingBalance: normalizeCreditsBalance(result.remaining_balance),
+    remainingBalance,
   };
 }
 

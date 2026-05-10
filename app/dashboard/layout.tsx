@@ -205,6 +205,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     let mounted = true;
 
+    const supabase = createClient();
+
     const handleAuthFailure = (error: unknown) => {
       console.error("Failed to verify dashboard auth state", error);
 
@@ -220,45 +222,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace("/login");
     };
 
-    const loadUser = async () => {
+    const loadInitialSession = async () => {
       try {
-        const supabase = createClient();
         if (!supabase) {
-          if (!mounted) return;
-          setUserLabel("Account");
-          setUserEmail(null);
-          setIsAuthenticated(false);
-          setIsAuthChecked(true);
-          router.replace("/login");
-          return;
+          throw new Error("missing dashboard auth client");
         }
 
         const {
-          data: { user },
-        } = await supabase.auth.getUser();
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
 
         if (!mounted) return;
 
-        if (user?.email) {
-          setUserLabel(user.email);
-          setUserEmail(user.email);
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        if (!session?.user) {
+          handleAuthFailure(new Error("No authenticated user available."));
+          return;
+        }
+
+        if (session.user.email) {
+          setUserLabel(session.user.email);
+          setUserEmail(session.user.email);
         } else {
           setUserLabel("Account");
           setUserEmail(null);
         }
 
-        if (!user) {
-          setShowUpgradeButton(false);
-          setIsAuthenticated(false);
-          setIsAuthChecked(true);
-          router.replace("/login");
-          return;
-        }
-
         const { data: entitlement, error: entitlementError } = await supabase
           .from("user_entitlements")
           .select("tier, premium_access, billing_state")
-          .eq("user_id", user.id)
+          .eq("user_id", session.user.id)
           .maybeSingle();
 
         if (!mounted) return;
@@ -287,8 +284,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
     };
 
-    const supabase = createClient();
-    const authSubscription = supabase?.auth.onAuthStateChange((event, session) => {
+    const authSubscription = supabase?.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
       if (event === "SIGNED_OUT" || !session?.user) {
@@ -305,6 +301,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
         posthog.identify(session.user.id, { email: session.user.email });
+
+        // Load user entitlements when session is available
+        try {
+          const { data: entitlement, error: entitlementError } = await supabase!
+            .from("user_entitlements")
+            .select("tier, premium_access, billing_state")
+            .eq("user_id", session.user.id)
+            .maybeSingle();
+
+          if (!mounted) return;
+
+          if (entitlementError) {
+            if (isMissingEntitlementRowError(entitlementError)) {
+              setShowUpgradeButton(true);
+            } else {
+              if (!isIgnorableEntitlementLoadError(entitlementError)) {
+                console.warn(
+                  "Dashboard navigation entitlement check is unavailable",
+                  entitlementError
+                );
+              }
+
+              setShowUpgradeButton(false);
+            }
+          } else {
+            setShowUpgradeButton(!hasLaunchPlannerAccess(entitlement));
+          }
+        } catch (error) {
+          console.error("Failed to load entitlements:", error);
+          setShowUpgradeButton(false);
+        }
       }
 
       if (session.user.email) {
@@ -317,21 +344,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setIsAuthChecked(true);
     });
 
-    const refresh = () => {
-      void loadUser();
-    };
-
-    void loadUser();
-    window.addEventListener("focus", refresh);
-    window.addEventListener("pageshow", refresh);
-    const intervalId = window.setInterval(refresh, 15000);
+    void loadInitialSession();
 
     return () => {
       mounted = false;
       authSubscription?.data.subscription.unsubscribe();
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("pageshow", refresh);
-      window.clearInterval(intervalId);
     };
   }, [router]);
 

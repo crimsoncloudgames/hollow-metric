@@ -115,6 +115,17 @@ type RerankSelection = {
   selected: boolean;
 };
 
+type ModelRerankSelection = {
+  appId: string;
+  fitLabel: FitLabel;
+  reason: string;
+  coreLoopFit: number;
+  structureFit: number;
+  playerRoleFit: number;
+  commercialAudienceFit: number;
+  themeOnlyRisk: number;
+};
+
 function normalizeText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -542,7 +553,34 @@ async function requestCandidateTitles(source: SteamStoreSnapshot): Promise<strin
       {
         role: "system",
         content:
-          `You find genuinely comparable Steam games for pricing research. Return strict JSON only: {"candidates":["Game Title"]}. Return between ${MIN_CANDIDATE_TITLES} and ${MAX_CANDIDATE_TITLES} candidate titles. A comparable game must share: (1) the core player activity — what the player spends most of their time doing (managing, exploring, surviving, solving, building, fighting, serving, making narrative choices, etc.); (2) the structural gameplay category (narrative-driven, roguelite run-based, management sim, sandbox, puzzle platformer, action-adventure, deckbuilder, survival, extraction shooter, co-op, etc.); (3) a plausible cross-shopping buying position on Steam. Do NOT suggest games that match only on setting or world theme (pirate, office, horror, sci-fi, and similar surface labels), visual style, art direction, or broad genre labels when the underlying player activity differs. A pirate-themed game is not a comparable for another pirate-themed game if one is naval action combat and the other is a narrative adventure — what the player actually does must be similar.`,
+          `You find genuinely comparable Steam games for pricing research. Return strict JSON only: {"candidates":["Game Title"]}. Return between ${MIN_CANDIDATE_TITLES} and ${MAX_CANDIDATE_TITLES} candidate titles.
+
+A comparable game must match the source game's commercial shape, not just its theme.
+
+Prioritize in this order:
+1. Core player activity: what the player repeatedly does moment-to-moment.
+2. Gameplay structure: management sim, service sim, narrative choice game, puzzle adventure, roguelite, survival, etc.
+3. Player role: who the player is and what responsibility they have.
+4. Commercial audience: whether the same Steam buyer would reasonably cross-shop both games.
+
+For service, request-handling, workplace, customer, employee, choice-driven, or light-management games, prioritize games where the player actively serves, manages, responds, handles requests, makes tradeoffs, or deals with consequences.
+
+Reject games that only match:
+- setting
+- theme
+- humor
+- coffee
+- office
+- visual style
+- broad tags like Casual, Funny, Simulation, or Adventure
+
+Do not suggest puzzle/adventure games as comparables for service/management games unless the player activity and structure are also strongly similar.
+
+A game sharing an office theme is not enough.
+A game sharing coffee is not enough.
+A game sharing comedy is not enough.
+
+The player must be doing similar things for similar commercial reasons.`,
       },
       {
         role: "user",
@@ -573,15 +611,15 @@ async function requestCandidateTitles(source: SteamStoreSnapshot): Promise<strin
 
   const candidateTitles = Array.isArray(parsed.candidates)
     ? uniqueStrings(
-        parsed.candidates.flatMap((entry) => {
-          if (typeof entry === "string") {
-            const title = normalizeText(entry);
-            return title ? [title] : [];
-          }
+      parsed.candidates.flatMap((entry) => {
+        if (typeof entry === "string") {
+          const title = normalizeText(entry);
+          return title ? [title] : [];
+        }
 
-          return [];
-        })
-      ).slice(0, MAX_CANDIDATE_TITLES)
+        return [];
+      })
+    ).slice(0, MAX_CANDIDATE_TITLES)
     : [];
 
   if (candidateTitles.length < MIN_CANDIDATE_TITLES) {
@@ -793,6 +831,44 @@ async function rerankValidatedCompetitors(
   const openai = getOpenAIClient();
   const candidateByAppId = new Map(candidates.map((c) => [c.appId, c]));
 
+  const clampScore = (value: number): number => {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    return Math.max(0, Math.min(100, Math.round(value)));
+  };
+
+  const readScore = (record: Record<string, unknown>, key: string): number => {
+    const value = record[key];
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return Math.max(0, Math.min(10, value));
+    }
+
+    return 0;
+  };
+
+  const passesStrictThresholds = (entry: ModelRerankSelection): boolean => {
+    return (
+      entry.coreLoopFit >= 7 &&
+      entry.structureFit >= 6 &&
+      entry.playerRoleFit >= 6 &&
+      entry.commercialAudienceFit >= 6 &&
+      entry.themeOnlyRisk <= 4
+    );
+  };
+
+  const calculateFitScore = (entry: ModelRerankSelection): number => {
+    return clampScore(
+      entry.coreLoopFit * 3 +
+      entry.structureFit * 2 +
+      entry.playerRoleFit * 2 +
+      entry.commercialAudienceFit * 2 -
+      entry.themeOnlyRisk * 2
+    );
+  };
+
   try {
     const response = await openai.chat.completions.create({
       model: MODEL_NAME,
@@ -802,7 +878,7 @@ async function rerankValidatedCompetitors(
         {
           role: "system",
           content:
-            'You are selecting the most comparable Steam games to a source game for pricing research. Return strict JSON only: {"selected":[{"appId":"string","fitLabel":"Strong|Medium","reason":"string"}]}. Use only the provided appIds. Do not invent games. Select up to 3. Return fewer if fewer are genuinely comparable — do not pad with thematic or loosely adjacent matches.\n\nA good comparable shares: (1) what the player spends most of their time doing (core gameplay loop); (2) structural gameplay category (narrative-driven, roguelite run-based, management sim, sandbox, puzzle progression, action-platformer, deckbuilder, survival, extraction shooter, co-op, or equivalent); (3) similar player fantasy or emotional experience; (4) plausible customer cross-shopping position on Steam.\n\n"Strong": clearly comparable on most dimensions above. "Medium": comparable on core loop and structure but differs in scope, pacing, or depth. Do NOT include a game whose primary connection to the source is shared setting, world theme, aesthetic, or art style — if the core player activity differs fundamentally, exclude it entirely. Prefer 2 Strong results over 3 that include a theme-only filler. Your reason must describe the gameplay and structural match, not the thematic or visual similarity.',
+            'You are selecting the most comparable Steam games to a source game for pricing research. Return strict JSON only: {"selected":[{"appId":"string","fitLabel":"Strong|Medium|Weak","coreLoopFit":0,"structureFit":0,"playerRoleFit":0,"commercialAudienceFit":0,"themeOnlyRisk":0,"reason":"string"}]}.\n\nUse only the provided appIds. Do not invent games. Score every selected candidate honestly.\n\nScore definitions:\n- coreLoopFit: 0-10. Does the player repeatedly do similar actions?\n- structureFit: 0-10. Is the game structure similar, such as service sim, management sim, narrative choice, puzzle adventure, etc.?\n- playerRoleFit: 0-10. Is the player responsibility/role similar?\n- commercialAudienceFit: 0-10. Would the same Steam buyer realistically cross-shop both games?\n- themeOnlyRisk: 0-10. Higher means the match is mainly based on theme, setting, humor, coffee, office, tags, or aesthetic instead of gameplay.\n\nStrict selection rules:\n- Select up to 3.\n- Return fewer than 3 if only fewer are genuinely comparable.\n- Do not pad with weak or thematic matches.\n- A candidate should only be Strong or Medium if coreLoopFit >= 7, structureFit >= 6, playerRoleFit >= 6, commercialAudienceFit >= 6, and themeOnlyRisk <= 4.\n- Strong should usually have coreLoopFit >= 8 and structureFit >= 7.\n- If a game mainly matches setting, humor, office, coffee, art style, or broad tags, mark it Weak or omit it.\n- Puzzle/adventure games should not be selected for service/management/request-handling games unless the core player activity is also similar.\n\nThe reason must explain what the player actually does in both games and why buyers would cross-shop them.',
         },
         {
           role: "user",
@@ -832,7 +908,6 @@ async function rerankValidatedCompetitors(
     const rawContent = response.choices[0]?.message?.content?.trim();
 
     if (!rawContent) {
-      // Model call returned no content: fail closed, no pricing.
       return fallbackRerankSelection(source, candidates);
     }
 
@@ -840,7 +915,6 @@ async function rerankValidatedCompetitors(
     const rawSelected = Array.isArray(parsed.selected) ? parsed.selected : [];
     const allowedIds = new Set(candidates.map((candidate) => candidate.appId));
 
-    // Model-selected entries: the model is the authority for which are comparable.
     const modelSelected = rawSelected
       .flatMap((entry) => {
         if (!entry || typeof entry !== "object") {
@@ -854,35 +928,57 @@ async function rerankValidatedCompetitors(
           return [];
         }
 
-        const rawLabel = record.fitLabel;
-        const fitLabel: FitLabel =
-          rawLabel === "Strong" || rawLabel === "Medium" ? rawLabel : "Weak";
-        const reason =
-          typeof record.reason === "string" && record.reason.trim().length > 0
-            ? normalizeText(record.reason)
-            : "Selected as a close gameplay and customer-intent competitor.";
-
         const candidate = candidateByAppId.get(appId);
         const hasParsablePrice =
-          candidate !== undefined &&
-          parseComparablePrice(candidate.originalListPrice) !== null;
+          candidate !== undefined && parseComparablePrice(candidate.originalListPrice) !== null;
 
-        // Selected = model said Strong or Medium AND has a usable list price.
-        const isSelected = fitLabel !== "Weak" && hasParsablePrice;
+        const rawLabel = record.fitLabel;
+        const modelLabel: FitLabel =
+          rawLabel === "Strong" || rawLabel === "Medium" || rawLabel === "Weak"
+            ? rawLabel
+            : "Weak";
+
+        const scoredEntry: ModelRerankSelection = {
+          appId,
+          fitLabel: modelLabel,
+          reason:
+            typeof record.reason === "string" && record.reason.trim().length > 0
+              ? normalizeText(record.reason)
+              : "Scored as a possible comparable, but no detailed reason was provided.",
+          coreLoopFit: readScore(record, "coreLoopFit"),
+          structureFit: readScore(record, "structureFit"),
+          playerRoleFit: readScore(record, "playerRoleFit"),
+          commercialAudienceFit: readScore(record, "commercialAudienceFit"),
+          themeOnlyRisk: readScore(record, "themeOnlyRisk"),
+        };
+
+        const fitScore = calculateFitScore(scoredEntry);
+        const passesThresholds = passesStrictThresholds(scoredEntry);
+
+        let fitLabel: FitLabel = "Weak";
+
+        if (passesThresholds && fitScore >= 75 && scoredEntry.coreLoopFit >= 8 && scoredEntry.structureFit >= 7) {
+          fitLabel = "Strong";
+        } else if (passesThresholds && fitScore >= 60) {
+          fitLabel = "Medium";
+        }
+
+        const selected = fitLabel !== "Weak" && hasParsablePrice;
 
         return [
           {
             appId,
-            fitLabel: (isSelected ? fitLabel : "Weak") as FitLabel,
-            fitScore: fitLabel === "Strong" ? 90 : fitLabel === "Medium" ? 70 : 0,
-            reason,
-            selected: isSelected,
+            fitLabel,
+            fitScore,
+            reason: scoredEntry.reason,
+            selected,
           },
         ];
       })
-      .slice(0, 3); // Model already ranks them; honour that order.
+      .filter((entry) => entry.selected)
+      .sort((left, right) => right.fitScore - left.fitScore)
+      .slice(0, 3);
 
-    // Append remaining candidates with heuristic scores for display, never selected.
     const selectedAppIds = new Set(modelSelected.map((s) => s.appId));
     const displayOnly = fallbackRerankSelection(source, candidates)
       .filter((entry) => !selectedAppIds.has(entry.appId))
@@ -890,7 +986,6 @@ async function rerankValidatedCompetitors(
 
     return [...modelSelected, ...displayOnly];
   } catch {
-    // On any failure, return all candidates as display-only (fail closed).
     return fallbackRerankSelection(source, candidates);
   }
 }
@@ -936,7 +1031,10 @@ function mapValidatedCompetitors(
     });
 }
 
-function buildSimplePricing(comparables: PricedComparable[]): PricingSummary {
+function buildSimplePricing(
+  comparables: PricedComparable[],
+  forceDirectionalLowConfidence = false
+): PricingSummary {
   const numericPrices = comparables
     .map((entry) => ({
       title: entry.title,
@@ -949,19 +1047,20 @@ function buildSimplePricing(comparables: PricedComparable[]): PricingSummary {
     throw new Error("Insufficient priced competitors to build a recommendation.");
   }
 
-  const lowConfidence = numericPrices.length < MIN_VALID_COMPETITORS;
+  const lowConfidence = forceDirectionalLowConfidence || numericPrices.length < MIN_VALID_COMPETITORS;
   const minPrice = numericPrices[0].numericPrice;
   const maxPrice = numericPrices[numericPrices.length - 1].numericPrice;
-  // For 3 comparables: median index 1. For 2 comparables: average of both.
   const midpointPrice =
     numericPrices.length === 2
       ? (minPrice + maxPrice) / 2
       : numericPrices[Math.floor(numericPrices.length / 2)].numericPrice;
   const recommended = pickPriceFromLadder(midpointPrice);
 
-  const rationale = lowConfidence
-    ? `Low-confidence result based on only ${numericPrices.length} comparable game${numericPrices.length === 1 ? "" : "s"} instead of the standard 3. Recommended launch price is derived from the midpoint (${formatUsdPrice(midpointPrice)}) of the available original non-discounted list prices. Consider this a rough directional estimate only.`
-    : `Recommended launch price is centered on the median original non-discounted list price (${formatUsdPrice(midpointPrice)}) across the three selected validated competitors, with min and max based on their observed original list prices.`;
+  const rationale = forceDirectionalLowConfidence
+    ? `Directional, low-confidence pricing context based on limited strict comparable confidence. The estimate uses ${numericPrices.length} priced comparable game${numericPrices.length === 1 ? "" : "s"} and the midpoint (${formatUsdPrice(midpointPrice)}) of their original non-discounted list prices. Treat this as a directional guide rather than a precise recommendation.`
+    : lowConfidence
+      ? `Low-confidence result based on only ${numericPrices.length} comparable game${numericPrices.length === 1 ? "" : "s"} instead of the standard 3. Recommended launch price is derived from the midpoint (${formatUsdPrice(midpointPrice)}) of the available original non-discounted list prices. Consider this a rough directional estimate only.`
+      : `Recommended launch price is centered on the median original non-discounted list price (${formatUsdPrice(midpointPrice)}) across the selected validated competitors, with min and max based on their observed original list prices.`;
 
   return {
     minimum_price: formatUsdPrice(minPrice),
@@ -1001,7 +1100,7 @@ export async function findCompetitorsForSteamUrl(url: string): Promise<FindCompe
   const reranked = await rerankValidatedCompetitors(source, resolvedCandidates);
   const initialCompetitors = mapValidatedCompetitors(resolvedCandidates, reranked);
 
-  const selectedIds = initialCompetitors
+  const strictSelectedComparables = initialCompetitors
     .filter(
       (entry) =>
         entry.selected &&
@@ -1009,21 +1108,62 @@ export async function findCompetitorsForSteamUrl(url: string): Promise<FindCompe
         parseComparablePrice(entry.originalListPrice) !== null
     )
     .sort((left, right) => right.fitScore - left.fitScore)
-    .slice(0, MIN_VALID_COMPETITORS)
-    .map((entry) => entry.appId);
+    .slice(0, MIN_VALID_COMPETITORS);
 
-  const selectedSet = new Set(selectedIds);
-  const competitors = initialCompetitors.map((entry) => ({
+  const pricedCandidates = initialCompetitors
+    .filter((entry) => parseComparablePrice(entry.originalListPrice) !== null)
+    .sort((left, right) => right.fitScore - left.fitScore);
+
+  let finalSelectedComparables = strictSelectedComparables.slice();
+  const finalSelectedIds = new Set(finalSelectedComparables.map((entry) => entry.appId));
+  let fallbackUsed = false;
+
+  if (finalSelectedComparables.length < MIN_PRICING_COMPETITORS) {
+    fallbackUsed = true;
+
+    for (const candidate of pricedCandidates) {
+      if (finalSelectedIds.has(candidate.appId)) {
+        continue;
+      }
+
+      finalSelectedComparables.push({
+        ...candidate,
+        selected: true,
+        reason:
+          candidate.reason && candidate.reason.trim().length > 0
+            ? `${candidate.reason} Included as low-confidence pricing context because strict comparable confidence was limited.`
+            : "Included as low-confidence pricing context because strict comparable confidence was limited.",
+      });
+      finalSelectedIds.add(candidate.appId);
+
+      if (finalSelectedComparables.length >= MIN_VALID_COMPETITORS) {
+        break;
+      }
+    }
+  }
+
+  const selectedSet = new Set(finalSelectedComparables.map((entry) => entry.appId));
+  const competitors = initialCompetitors.map((entry) => {
+    if (!selectedSet.has(entry.appId)) {
+      return entry;
+    }
+
+    const selectedCandidate = finalSelectedComparables.find((candidate) => candidate.appId === entry.appId);
+
+    return {
+      ...entry,
+      selected: true,
+      reason:
+        selectedCandidate?.reason && selectedCandidate.reason.trim().length > 0
+          ? selectedCandidate.reason
+          : entry.reason,
+    };
+  });
+
+  const selectedComparables = finalSelectedComparables.map((entry) => ({
     ...entry,
-    selected: selectedSet.has(entry.appId),
+    selected: true,
   }));
-
-  const selectedComparables = competitors.filter(
-    (entry) =>
-      entry.selected &&
-      entry.fitLabel !== "Weak" &&
-      parseComparablePrice(entry.originalListPrice) !== null
-  );
 
   const enoughComparables = selectedComparables.length >= MIN_PRICING_COMPETITORS;
 
@@ -1036,7 +1176,7 @@ export async function findCompetitorsForSteamUrl(url: string): Promise<FindCompe
     enoughComparables,
     insufficientDataReason: enoughComparables
       ? null
-      : "Fewer than 2 validated selected competitors had usable original non-discounted list prices.",
+      : "Fewer than 2 resolved competitors had usable original non-discounted list prices.",
     disclaimer: DISCLAIMER,
     _debugRejectedCandidates: debugRejected,
   };
@@ -1086,16 +1226,58 @@ export async function buildPricingFromCompetitors(
     throw new Error("Selected competitors must be present in the validated competitors list.");
   }
 
-  if (
-    selectedCandidates.some(
-      (entry) => !entry.selected || entry.fitLabel === "Weak" || parseComparablePrice(entry.originalListPrice) === null
-    )
-  ) {
-    throw new Error("Selected competitors failed validation checks for pricing.");
+  const pricedCandidates = Array.from(dedupedByAppId.values()).filter(
+    (entry) => parseComparablePrice(entry.originalListPrice) !== null
+  );
+
+  if (pricedCandidates.length < MIN_PRICING_COMPETITORS) {
+    throw new Error("Insufficient priced competitor data to calculate a recommendation.");
+  }
+
+  const strictSelectedCandidates = selectedCandidates.filter(
+    (entry) =>
+      entry.selected === true &&
+      entry.fitLabel !== "Weak" &&
+      parseComparablePrice(entry.originalListPrice) !== null
+  );
+
+  const pricedCandidatesByScore = pricedCandidates
+    .slice()
+    .sort((left, right) => right.fitScore - left.fitScore);
+
+  let finalSelectedCandidates = strictSelectedCandidates.slice();
+  let lowConfidenceFallback = false;
+
+  if (finalSelectedCandidates.length < MIN_PRICING_COMPETITORS) {
+    lowConfidenceFallback = true;
+
+    for (const candidate of pricedCandidatesByScore) {
+      if (finalSelectedCandidates.some((entry) => entry.appId === candidate.appId)) {
+        continue;
+      }
+
+      const fallbackReason = candidate.reason
+        ? `${candidate.reason} This competitor is included as low-confidence pricing context because strict comparable confidence was limited.`
+        : "Included as low-confidence pricing context because strict comparable confidence was limited.";
+
+      finalSelectedCandidates.push({
+        ...candidate,
+        selected: true,
+        reason: fallbackReason,
+      });
+
+      if (finalSelectedCandidates.length >= MIN_PRICING_COMPETITORS) {
+        break;
+      }
+    }
+  }
+
+  if (finalSelectedCandidates.length < MIN_PRICING_COMPETITORS) {
+    throw new Error("Insufficient priced competitor data to calculate a recommendation.");
   }
 
   const refreshedComparables = await Promise.all(
-    selectedCandidates.map(async (entry) => {
+    finalSelectedCandidates.map(async (entry) => {
       const details = await fetchSteamAppDetails(entry.appId);
 
       if (!details) {
@@ -1131,7 +1313,7 @@ export async function buildPricingFromCompetitors(
     throw new Error("Insufficient priced competitor data to calculate a recommendation.");
   }
 
-  const pricing = buildSimplePricing(comparables);
+  const pricing = buildSimplePricing(comparables, lowConfidenceFallback);
 
   return {
     sourceGameTitle,
