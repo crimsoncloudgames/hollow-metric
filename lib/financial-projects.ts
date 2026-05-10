@@ -14,6 +14,7 @@ export type FinancialProject = {
   pricePoints: number[];
   breakEvenResults: number[];
   netRevenuePerCopy?: number[];
+  currentWishlists?: number;
   planningReview?: {
     healthScore: number;
     salesTargetPressure: string;
@@ -48,6 +49,7 @@ export type FinancialProjectDraft = {
   pricePoints?: unknown;
   breakEvenResults?: unknown;
   netRevenuePerCopy?: unknown;
+  currentWishlists?: unknown;
   planningReview?: unknown;
   postLaunchActuals?: unknown;
 };
@@ -261,6 +263,9 @@ export function normalizeFinancialProject(draft: FinancialProjectDraft): Financi
     pricePoints,
     breakEvenResults,
     ...(netRevenuePerCopy.length > 0 ? { netRevenuePerCopy } : {}),
+    ...(draft.currentWishlists && toNonNegativeCount(draft.currentWishlists) > 0
+      ? { currentWishlists: toNonNegativeCount(draft.currentWishlists) }
+      : {}),
     planningReview: planningReview
       ? {
           healthScore: toNonNegativeCount(planningReview.healthScore),

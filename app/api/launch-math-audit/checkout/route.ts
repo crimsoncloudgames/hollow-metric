@@ -13,6 +13,7 @@ type LaunchMathAuditCheckoutPayload = {
   estimatedBudget?: string;
   biggestConcern?: string;
   referralCode?: string;
+  currentWishlists?: string;
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -27,6 +28,7 @@ type NormalizedCheckoutPayload = {
   estimatedBudget: string;
   biggestConcern: string;
   referralCode: string | null;
+  currentWishlists: number | null;
 };
 
 function normalizeText(input: string | undefined, maxLength: number) {
@@ -36,6 +38,12 @@ function normalizeText(input: string | undefined, maxLength: number) {
 function normalizeOptionalText(input: string | undefined, maxLength: number) {
   const value = normalizeText(input, maxLength);
   return value || null;
+}
+
+function normalizeOptionalWishlists(input: string | undefined): number | null {
+  if (!input || input.trim() === "") return null;
+  const num = Number(input.trim());
+  return Number.isFinite(num) && num >= 0 ? Math.floor(num) : null;
 }
 
 function normalizePayload(payload: LaunchMathAuditCheckoutPayload): NormalizedCheckoutPayload {
@@ -49,6 +57,7 @@ function normalizePayload(payload: LaunchMathAuditCheckoutPayload): NormalizedCh
     estimatedBudget: normalizeText(payload.estimatedBudget, 120),
     biggestConcern: normalizeText(payload.biggestConcern, 3000),
     referralCode: normalizeOptionalText(payload.referralCode, 120),
+    currentWishlists: normalizeOptionalWishlists(payload.currentWishlists),
   };
 }
 
@@ -142,6 +151,7 @@ export async function POST(request: Request) {
       estimated_budget: normalizedPayload.estimatedBudget,
       biggest_concern: normalizedPayload.biggestConcern,
       referral_code: normalizedPayload.referralCode,
+      current_wishlists: normalizedPayload.currentWishlists,
       status: "pending_payment",
     })
     .select("id")

@@ -132,6 +132,7 @@ type LaunchBudgetDraft = {
   actualRefundRate?: unknown;
   actualGrossRevenue?: unknown;
   actualNetRevenue?: unknown;
+  currentWishlists?: unknown;
 };
 
 type SaveProjectFeedback = {
@@ -329,9 +330,9 @@ const getBudgetHealthSummary = (review: PlanningReview): string => {
 const getSalesTargetPressureSummary = (review: PlanningReview): string => {
   switch (review.targetPressure) {
     case "Lighter":
-      return "Your sales target looks relatively manageable on paper.";
+      return "Your break-even target looks lighter on paper based on the current inputs.";
     case "Moderate":
-      return "Your sales target is achievable but demands careful planning.";
+      return "Your break-even target is achievable but demands careful planning.";
     case "Heavy":
       return "Your current target will require strong sales execution to stay on track.";
     case "Very Heavy":
@@ -414,7 +415,8 @@ const generatePlanningReview = (
   pricePoints: number[],
   breakEvenResults: (number | null)[],
   refundRate: number,
-  netRevenuesPerCopy: number[]
+  netRevenuesPerCopy: number[],
+  currentWishlists?: number
 ): PlanningReview => {
   const insights: string[] = [];
   let healthScore = 70;
@@ -535,6 +537,26 @@ const generatePlanningReview = (
     insights.push(
       "Your refund and chargeback assumption is aggressive. Industry rates vary widely."
     );
+  }
+
+  // 7. Wishlist analysis
+  if (currentWishlists && currentWishlists > 0) {
+    const lowestBreakEven = validResults.length > 0 ? Math.min(...validResults) : null;
+    if (lowestBreakEven) {
+      const wishlistCoverageRatio = currentWishlists / lowestBreakEven;
+
+      if (wishlistCoverageRatio < 0.5) {
+        insights.push("Your current wishlist count is below half of the lowest break-even target. This does not mean the launch cannot work, but it suggests the sales target needs more validation or a lower cost/price-risk plan.");
+      } else if (wishlistCoverageRatio >= 0.5 && wishlistCoverageRatio < 1) {
+        insights.push("Your current wishlist count is below the lowest break-even target, so the plan still carries sales pressure. Pricing and marketing assumptions should be treated carefully.");
+      } else if (wishlistCoverageRatio >= 1 && wishlistCoverageRatio < 3) {
+        insights.push("Your current wishlist count is at least near the lowest break-even target. This makes the break-even target look lighter on paper, but wishlists do not guarantee sales.");
+      } else if (wishlistCoverageRatio >= 3) {
+        insights.push("Your current wishlist count is several times higher than the lowest break-even target. This is a healthier planning signal, but conversion still depends on launch quality, pricing, audience fit, and visibility.");
+      }
+    }
+  } else {
+    insights.push("Wishlist count was not provided, so this review only compares price, cost, and break-even math.");
   }
 
   // Ensure score is in valid range
@@ -798,6 +820,7 @@ export default function LaunchBudgetPage() {
   const [price1, setPrice1] = useState("12.99");
   const [price2, setPrice2] = useState("16.99");
   const [price3, setPrice3] = useState("19.99");
+  const [currentWishlists, setCurrentWishlists] = useState("");
   const [projectName, setProjectName] = useState("Launch Budget Project");
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [saveProjectFeedback, setSaveProjectFeedback] =
@@ -871,6 +894,7 @@ export default function LaunchBudgetPage() {
       setActualRefundRate(sanitizeStoredText(parsed.actualRefundRate, ""));
       setActualGrossRevenue(sanitizeStoredText(parsed.actualGrossRevenue, ""));
       setActualNetRevenue(sanitizeStoredText(parsed.actualNetRevenue, ""));
+      setCurrentWishlists(sanitizeStoredText(parsed.currentWishlists, ""));
     } catch {
       setLocalDataNotice((current) =>
         current ?? "Your saved budget draft could not be restored, so the page started with default values."
@@ -1059,6 +1083,7 @@ export default function LaunchBudgetPage() {
     const witholdingRate = parsePercentInput(withholding);
     const refundRateNum = parsePercentInput(refundRate);
     const publisherSplitPercentNum = parsePercentInput(publisherSplitPercent);
+    const currentWishlistsNum = parseNumericInput(currentWishlists, { min: 0, max: MAX_COPIES_VALUE, fallback: 0 });
 
     const revenueBreakdowns = pricePoints.map((price) =>
       calculateRevenueBreakdown(
@@ -1083,8 +1108,13 @@ export default function LaunchBudgetPage() {
       pricePoints,
       breakEvenResults,
       refundRateNum,
-      netRevenuesPerCopy
+      netRevenuesPerCopy,
+      currentWishlistsNum > 0 ? currentWishlistsNum : undefined
     );
+
+    // Calculate valid results for UI display
+    const validResults = breakEvenResults.filter((be) => be !== null) as number[];
+    const lowestBreakEven = validResults.length > 0 ? Math.min(...validResults) : null;
 
     return {
       totalCost,
@@ -1095,9 +1125,12 @@ export default function LaunchBudgetPage() {
       witholdingRate,
       refundRateNum,
       publisherSplitPercentNum,
+      currentWishlistsNum,
+      validResults,
+      lowestBreakEven,
       planningReview,
     };
-  }, [expenses, refundRate, withholding, publisherSplitPercent, price1, price2, price3]);
+  }, [expenses, refundRate, withholding, publisherSplitPercent, price1, price2, price3, currentWishlists]);
 
   const activePriceCount = isPaidTier ? 3 : 1;
   const visiblePricePoints = calculations.pricePoints.slice(0, activePriceCount);
@@ -1280,6 +1313,7 @@ export default function LaunchBudgetPage() {
       pricePoints: calculations.pricePoints.slice(0, activePriceCount),
       breakEvenResults: resolvedBreakEvenResults,
       netRevenuePerCopy: calculations.netRevenuesPerCopy.slice(0, activePriceCount),
+      currentWishlists: calculations.currentWishlistsNum > 0 ? calculations.currentWishlistsNum : undefined,
       planningReview: {
         healthScore: calculations.planningReview.healthScore,
         salesTargetPressure: calculations.planningReview.targetPressure,
@@ -1996,6 +2030,31 @@ export default function LaunchBudgetPage() {
         </div>
       </div>
 
+      <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
+        <h2 className="text-2xl font-black text-white mb-6">Launch Interest Context</h2>
+        <p className="text-sm text-slate-400 mb-6">
+          Optional planning context. Current wishlists can help compare your break-even target against launch interest.
+        </p>
+
+        <div className="max-w-xs">
+          <label htmlFor="current-wishlists" className="block text-sm font-semibold text-slate-300 mb-2">
+            Current Steam wishlists
+          </label>
+          <input
+            id="current-wishlists"
+            type="number"
+            min="0"
+            placeholder="e.g. 2500"
+            value={currentWishlists}
+            onChange={(e) => setCurrentWishlists(e.target.value)}
+            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white placeholder-slate-600 focus:border-blue-600/50 focus:outline-none focus:ring-1 focus:ring-blue-600/30 transition-all"
+          />
+          <p className="text-xs text-slate-500 mt-2">
+            Optional. Used to compare your break-even target against current launch interest. Not a sales forecast.
+          </p>
+        </div>
+      </div>
+
       {/* SECTION 4: PRICE POINT INPUTS */}
       <div className="rounded-3xl border border-slate-800 bg-slate-900/50 p-6 sm:p-8">
         <h2 className="text-2xl font-black text-white mb-6">Price Point Comparison</h2>
@@ -2232,6 +2291,32 @@ export default function LaunchBudgetPage() {
             </p>
           </div>
         </div>
+
+        {calculations.currentWishlistsNum > 0 && (
+          <div className="rounded-2xl bg-slate-800/30 border border-slate-700 p-6">
+            <p className="text-sm font-black text-white mb-4">Launch Interest Context</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-xs text-slate-400 mb-1">Current Steam wishlists</p>
+                <p className="text-xl font-black text-white">{calculations.currentWishlistsNum.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-1">Lowest break-even target</p>
+                <p className="text-xl font-black text-white">
+                  {calculations.lowestBreakEven ? calculations.lowestBreakEven.toLocaleString() : "—"} copies
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-1">Wishlist coverage</p>
+                <p className="text-xl font-black text-blue-300">
+                  {calculations.lowestBreakEven
+                    ? `${(calculations.currentWishlistsNum / calculations.lowestBreakEven).toFixed(1)}×`
+                    : "—"}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
           <div className="rounded-2xl bg-slate-800/30 border border-slate-700 p-6">
             <p className="text-sm font-black text-white mb-4 flex items-center gap-2">

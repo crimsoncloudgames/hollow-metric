@@ -16,6 +16,7 @@ type LaunchMathAuditFormState = {
   estimatedBudget: string;
   biggestConcern: string;
   referralCode: string;
+  currentWishlists: string;
 };
 
 type LaunchMathAuditFieldErrors = Partial<Record<keyof LaunchMathAuditFormState, string>>;
@@ -40,6 +41,7 @@ const INITIAL_FORM_STATE: LaunchMathAuditFormState = {
   estimatedBudget: "",
   biggestConcern: "",
   referralCode: "",
+  currentWishlists: "",
 };
 
 function normalizeErrorMessage(error: unknown) {
@@ -78,6 +80,14 @@ function validateLaunchMathAuditForm(formState: LaunchMathAuditFormState) {
 
   if (!formState.biggestConcern.trim()) {
     errors.biggestConcern = "Tell me the biggest concern you want checked.";
+  }
+
+  const currentWishlists = formState.currentWishlists.trim();
+  if (currentWishlists) {
+    const wishlistsNum = Number(currentWishlists);
+    if (isNaN(wishlistsNum) || wishlistsNum < 0) {
+      errors.currentWishlists = "Enter a valid number of wishlists (0 or more).";
+    }
   }
 
   return errors;
@@ -345,6 +355,28 @@ function LaunchMathAuditPageContent() {
                 aria-describedby={fieldErrors.steamUrl ? "launch-audit-steam-url-error" : undefined}
               />
               {fieldErrors.steamUrl ? <p id="launch-audit-steam-url-error" className="mt-2 text-sm text-rose-300" role="alert">{fieldErrors.steamUrl}</p> : null}
+            </div>
+
+            <div>
+              <label htmlFor="launch-audit-current-wishlists" className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Current Steam wishlists</label>
+              <input
+                id="launch-audit-current-wishlists"
+                name="currentWishlists"
+                type="number"
+                min="0"
+                value={formState.currentWishlists}
+                onChange={(event) => {
+                  setFormState((prev) => ({ ...prev, currentWishlists: event.target.value }));
+                  if (fieldErrors.currentWishlists) {
+                    setFieldErrors((prev) => ({ ...prev, currentWishlists: undefined }));
+                  }
+                }}
+                className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+                aria-invalid={Boolean(fieldErrors.currentWishlists)}
+                aria-describedby={fieldErrors.currentWishlists ? "launch-audit-current-wishlists-error" : "launch-audit-current-wishlists-helper"}
+              />
+              <p id="launch-audit-current-wishlists-helper" className="mt-2 text-xs text-slate-400">Optional. Helps compare your break-even target against current launch interest. This does not predict sales.</p>
+              {fieldErrors.currentWishlists ? <p id="launch-audit-current-wishlists-error" className="mt-2 text-sm text-rose-300" role="alert">{fieldErrors.currentWishlists}</p> : null}
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2">
