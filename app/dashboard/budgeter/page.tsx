@@ -582,99 +582,97 @@ export default function LaunchBudgetPage() {
   const [projectAccessError, setProjectAccessError] = useState<string | null>(null);
   const billingContextLoadPromiseRef = useRef<Promise<void> | null>(null);
   const pendingBillingContextRefreshRef = useRef(false);
+  const billingContextTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [billingContextRetryCount, setBillingContextRetryCount] = useState(0);
   const isPaidTier = subscriptionTier !== "starter";
   const currentPlanLabel = isLoadingBillingContext
-    ? "Checking access..."
+    ? billingContextError
+      ? "Access check failed"
+      : "Checking access..."
     : subscriptionTier === "launch-planner"
       ? "Launch Planner"
       : "Starter";
 
-  useEffect(() => {
-    let mounted = true;
+  const retryBillingContext = () => {
+    setBillingContextRetryCount(prev => prev + 1);
+    void loadBillingContext();
+  };
 
-    const loadBillingContext = () => {
-      if (billingContextLoadPromiseRef.current) {
-        pendingBillingContextRefreshRef.current = true;
-        return billingContextLoadPromiseRef.current;
+  const loadBillingContext = async () => {
+    if (billingContextLoadPromiseRef.current) {
+      pendingBillingContextRefreshRef.current = true;
+      return billingContextLoadPromiseRef.current;
+    }
+
+    const request = (async () => {
+      setBillingContextError(null);
+      setIsLoadingBillingContext(true);
+
+      // Clear any existing timeout
+      if (billingContextTimeoutRef.current) {
+        clearTimeout(billingContextTimeoutRef.current);
+        billingContextTimeoutRef.current = null;
       }
 
-      const request = (async () => {
-        setBillingContextError(null);
-        setIsLoadingBillingContext(true);
+      // Set a timeout for the entire operation
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        billingContextTimeoutRef.current = setTimeout(() => {
+          reject(new Error("Access check timed out after 10 seconds"));
+        }, 10000);
+      });
 
-        try {
-          const supabase = createClient();
-          if (!supabase) {
-            if (mounted) {
-              setSubscriptionTier("starter");
-              setBillingContextError(
-                "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
-              );
-            }
-            return;
-          }
+      try {
+        const supabase = createClient();
+        if (!supabase) {
+          setSubscriptionTier("starter");
+          setBillingContextError(
+            "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+          );
+          return;
+        }
 
-          const {
-            data: { user },
-            error: userError,
-          } = await supabase.auth.getUser();
+        // Race the auth check against the timeout
+        const authResult = await Promise.race([
+          supabase.auth.getUser(),
+          timeoutPromise
+        ]);
 
-          if (!mounted) {
-            return;
-          }
+        const {
+          data: { user },
+          error: userError,
+        } = authResult;
 
-          if (userError) {
-            console.error("Failed to load current user for launch budget page", userError);
-            setSubscriptionTier("starter");
-            setBillingContextError(
-              getFriendlyBudgeterLoadError(
-                userError,
-                "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
-              )
-            );
-            return;
-          }
+        if (userError) {
+          console.error("Failed to load current user for launch budget page", userError);
+          setSubscriptionTier("starter");
+          setBillingContextError(
+            getFriendlyBudgeterLoadError(
+              userError,
+              "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+            )
+          );
+          return;
+        }
 
-          if (!user) {
-            setSubscriptionTier("starter");
-            return;
-          }
+        if (!user) {
+          setSubscriptionTier("starter");
+          return;
+        }
 
-          const { data: entitlement, error } = await supabase
+        // Race the entitlements check against the timeout
+        const entitlementResult = await Promise.race([
+          supabase
             .from("user_entitlements")
             .select("tier, premium_access, billing_state")
             .eq("user_id", user.id)
-            .maybeSingle();
+            .maybeSingle(),
+          timeoutPromise
+        ]);
 
-          if (!mounted) {
-            return;
-          }
+        const { data: entitlement, error } = entitlementResult;
 
-          if (error) {
-            console.error("Failed to load live billing state for launch budget page", error);
-            setSubscriptionTier("starter");
-            setBillingContextError(
-              getFriendlyBudgeterLoadError(
-                error,
-                "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
-              )
-            );
-            return;
-          }
-
-          const hasPaidAccess =
-            entitlement?.tier === "pro" &&
-            entitlement.premium_access === true &&
-            entitlement.billing_state === "active";
-
-          setSubscriptionTier(hasPaidAccess ? "launch-planner" : "starter");
-        } catch (error) {
+        if (error) {
           console.error("Failed to load live billing state for launch budget page", error);
-
-          if (!mounted) {
-            return;
-          }
-
           setSubscriptionTier("starter");
           setBillingContextError(
             getFriendlyBudgeterLoadError(
@@ -682,35 +680,72 @@ export default function LaunchBudgetPage() {
               "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
             )
           );
-        } finally {
-          billingContextLoadPromiseRef.current = null;
-
-          if (mounted) {
-            setIsLoadingBillingContext(false);
-          }
-
-          if (mounted && pendingBillingContextRefreshRef.current) {
-            pendingBillingContextRefreshRef.current = false;
-            void loadBillingContext();
-          }
+          return;
         }
-      })();
 
-      billingContextLoadPromiseRef.current = request;
-      return request;
-    };
+        const hasPaidAccess =
+          entitlement?.tier === "pro" &&
+          entitlement.premium_access === true &&
+          entitlement.billing_state === "active";
+
+        setSubscriptionTier(hasPaidAccess ? "launch-planner" : "starter");
+        setBillingContextRetryCount(0); // Reset retry count on success
+      } catch (error) {
+        console.error("Failed to load live billing state for launch budget page", error);
+
+        setSubscriptionTier("starter");
+        const isTimeout = error instanceof Error && error.message.includes("timed out");
+        setBillingContextError(
+          isTimeout
+            ? "Access check timed out. Please check your connection and try again."
+            : getFriendlyBudgeterLoadError(
+                error,
+                "We couldn't verify your current plan right now. Budget calculations still work, but save access may be unavailable."
+              )
+        );
+      } finally {
+        // Clear the timeout
+        if (billingContextTimeoutRef.current) {
+          clearTimeout(billingContextTimeoutRef.current);
+          billingContextTimeoutRef.current = null;
+        }
+
+        billingContextLoadPromiseRef.current = null;
+        setIsLoadingBillingContext(false);
+
+        if (pendingBillingContextRefreshRef.current) {
+          pendingBillingContextRefreshRef.current = false;
+          void loadBillingContext();
+        }
+      }
+    })();
+
+    billingContextLoadPromiseRef.current = request;
+    return request;
+  };
+
+  useEffect(() => {
+    let mounted = true;
 
     const refresh = () => {
-      void loadBillingContext();
+      if (mounted) {
+        void loadBillingContext();
+      }
     };
 
-    void loadBillingContext();
+    if (mounted) {
+      void loadBillingContext();
+    }
     window.addEventListener("focus", refresh);
     window.addEventListener("pageshow", refresh);
 
     return () => {
       mounted = false;
       pendingBillingContextRefreshRef.current = false;
+      if (billingContextTimeoutRef.current) {
+        clearTimeout(billingContextTimeoutRef.current);
+        billingContextTimeoutRef.current = null;
+      }
       window.removeEventListener("focus", refresh);
       window.removeEventListener("pageshow", refresh);
     };
@@ -1588,9 +1623,21 @@ export default function LaunchBudgetPage() {
           </p>
         </div>
         {billingContextError && (
-          <p className="mb-4 text-xs text-amber-300" role="alert">
-            {billingContextError}
-          </p>
+          <div className="mb-4 flex flex-col gap-2">
+            <p className="text-xs text-amber-300" role="alert">
+              {billingContextError}
+            </p>
+            <button
+              onClick={retryBillingContext}
+              disabled={isLoadingBillingContext}
+              className="inline-flex w-fit items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-600 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoadingBillingContext ? (
+                <LoaderCircle size={12} className="animate-spin" />
+              ) : null}
+              {isLoadingBillingContext ? "Retrying…" : "Retry access check"}
+            </button>
+          </div>
         )}
         {localDataNotice && (
           <p className="mb-4 text-xs text-amber-300" role="status">

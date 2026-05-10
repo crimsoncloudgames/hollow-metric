@@ -790,30 +790,126 @@ function overlapRatio(source: string[], candidate: string[]): number {
   return shared / Math.max(sourceSet.size, candidateSet.size);
 }
 
-// Debug-only heuristic scorer. Never selects competitors for pricing.
+// Scope-aware fallback selection that evaluates production scope, session structure, and complexity fit
 function fallbackRerankSelection(
   source: SteamStoreSnapshot,
   candidates: ResolvedCompetitorSnapshot[]
 ): RerankSelection[] {
+  // Analyze source game scope characteristics
+  const sourceText = `${source.shortDescription} ${source.aboutThisGame}`.toLowerCase();
+  const sourceGenres = source.genres.map(g => g.toLowerCase());
+  const sourceCategories = source.categories.map(c => c.toLowerCase());
+
+  // Determine source game scope indicators
+  const isLargeScope = /\b(tycoon|empire|civilization|city|world|kingdom|colony|civilization|management|business|economy|industry|corporate|studio|publisher|AAA|blockbuster)\b/i.test(sourceText) ||
+                      sourceGenres.some(g => /\b(strategy|simulation|management|tycoon|empire)\b/i.test(g));
+  const isSmallScope = /\b(indie|small|cozy|short|prototype|experimental|narrative|story|adventure|puzzle|casual|arcade)\b/i.test(sourceText) ||
+                      sourceCategories.some(c => /\bsingle-player|short\b/i.test(c));
+  const isServiceSim = /\b(service|sim|simulation|management|restaurant|shop|store|hotel|hospital|airport|farm|cafe|bar|pub|bakery|coffee|office|work|job|employee|staff|customer|client|visitor|guest)\b/i.test(sourceText);
+  const isNarrative = /\b(story|narrative|choice|dialogue|character|plot|adventure|RPG|role-playing|visual novel|interactive fiction)\b/i.test(sourceText);
+  const isSystemic = /\b(system|economy|resource|production|supply|chain|building|construction|expansion|growth|progression|upgrade|research|technology)\b/i.test(sourceText);
+  const isCasual = /\b(casual|quick|short|simple|easy|relaxed|chill|fun|arcade|puzzle|match|platform|runner)\b/i.test(sourceText);
+
   return candidates
     .map((candidate) => {
+      const candidateText = `${candidate.shortDescription} ${candidate.aboutThisGame}`.toLowerCase();
+      const candidateGenres = candidate.genres.map(g => g.toLowerCase());
+      const candidateCategories = candidate.categories.map(c => c.toLowerCase());
+
+      // Analyze candidate scope characteristics
+      const candidateIsLargeScope = /\b(tycoon|empire|civilization|city|world|kingdom|colony|civilization|management|business|economy|industry|corporate|studio|publisher|AAA|blockbuster)\b/i.test(candidateText) ||
+                                   candidateGenres.some(g => /\b(strategy|simulation|management|tycoon|empire)\b/i.test(g));
+      const candidateIsSmallScope = /\b(indie|small|cozy|short|prototype|experimental|narrative|story|adventure|puzzle|casual|arcade)\b/i.test(candidateText) ||
+                                   candidateCategories.some(c => /\bsingle-player|short\b/i.test(c));
+      const candidateIsServiceSim = /\b(service|sim|simulation|management|restaurant|shop|store|hotel|hospital|airport|farm|cafe|bar|pub|bakery|coffee|office|work|job|employee|staff|customer|client|visitor|guest)\b/i.test(candidateText);
+      const candidateIsNarrative = /\b(story|narrative|choice|dialogue|character|plot|adventure|RPG|role-playing|visual novel|interactive fiction)\b/i.test(candidateText);
+      const candidateIsSystemic = /\b(system|economy|resource|production|supply|chain|building|construction|expansion|growth|progression|upgrade|research|technology)\b/i.test(candidateText);
+      const candidateIsCasual = /\b(casual|quick|short|simple|easy|relaxed|chill|fun|arcade|puzzle|match|platform|runner)\b/i.test(candidateText);
+
+      // Calculate scope fit scores (0-10 scale)
+      let productionScopeFit = 5; // Start neutral
+      let sessionStructureFit = 5;
+      let complexityFit = 5;
+
+      // Production scope fit - penalize large scope games for small scope sources and vice versa
+      if (isLargeScope && candidateIsSmallScope) {
+        productionScopeFit = 2; // Large scope source with small scope candidate = poor fit
+      } else if (isSmallScope && candidateIsLargeScope) {
+        productionScopeFit = 2; // Small scope source with large scope candidate = poor fit
+      } else if (isLargeScope && candidateIsLargeScope) {
+        productionScopeFit = 8; // Both large scope = good fit
+      } else if (isSmallScope && candidateIsSmallScope) {
+        productionScopeFit = 8; // Both small scope = good fit
+      }
+
+      // Session structure fit - penalize mismatched game types
+      if (isServiceSim && candidateIsNarrative) {
+        sessionStructureFit = 3; // Service sim vs narrative = poor fit
+      } else if (isNarrative && candidateIsServiceSim) {
+        sessionStructureFit = 3; // Narrative vs service sim = poor fit
+      } else if (isServiceSim && candidateIsServiceSim) {
+        sessionStructureFit = 9; // Both service sim = excellent fit
+      } else if (isNarrative && candidateIsNarrative) {
+        sessionStructureFit = 9; // Both narrative = excellent fit
+      } else if (isSystemic && candidateIsSystemic) {
+        sessionStructureFit = 8; // Both systemic = good fit
+      } else if (isCasual && candidateIsCasual) {
+        sessionStructureFit = 8; // Both casual = good fit
+      }
+
+      // Complexity fit - consider scope and systemic nature
+      if (isLargeScope && isSystemic && candidateIsLargeScope && candidateIsSystemic) {
+        complexityFit = 9; // Complex large systemic games match well
+      } else if (isSmallScope && isCasual && candidateIsSmallScope && candidateIsCasual) {
+        complexityFit = 9; // Simple small casual games match well
+      } else if (isLargeScope && candidateIsSmallScope) {
+        complexityFit = 2; // Large scope source with small scope candidate = complexity mismatch
+      } else if (isSmallScope && candidateIsLargeScope) {
+        complexityFit = 2; // Small scope source with large scope candidate = complexity mismatch
+      }
+
+      // Calculate overall fit score with scope weighting
+      const scopeFitScore = (productionScopeFit * 4 + sessionStructureFit * 4 + complexityFit * 2) / 10; // 0-10 scale
+
+      // Traditional heuristic scores for baseline
       const genreRatio = overlapRatio(source.genres, candidate.genres);
       const categoryRatio = overlapRatio(source.categories, candidate.categories);
-      const textRatio = textOverlapRatio(
-        `${source.shortDescription} ${source.aboutThisGame}`,
-        `${candidate.shortDescription} ${candidate.aboutThisGame}`
-      );
-      const fitScore = Math.round(
+      const textRatio = textOverlapRatio(sourceText, candidateText);
+      const heuristicScore = Math.round(
         Math.min(100, genreRatio * 100 * 0.55 + categoryRatio * 100 * 0.25 + textRatio * 100 * 0.20)
       );
-      const fitLabel: FitLabel = fitScore >= 78 ? "Strong" : fitScore >= 64 ? "Medium" : "Weak";
+
+      // Combined score: 70% scope fit, 30% traditional heuristic
+      const combinedScore = Math.round(scopeFitScore * 7 + heuristicScore * 0.3);
+
+      // Determine fit label based on combined score and scope fit requirements
+      let fitLabel: FitLabel = "Weak";
+      let selected = false;
+      let reason = "Fallback selection with scope analysis.";
+
+      // Only select if scope fit is adequate and combined score meets threshold
+      if (productionScopeFit >= 3 && sessionStructureFit >= 3 && complexityFit >= 3) {
+        if (combinedScore >= 75) {
+          fitLabel = "Strong";
+          selected = true;
+          reason = `Strong scope fit (${productionScopeFit}/10 production, ${sessionStructureFit}/10 structure, ${complexityFit}/10 complexity) with good overall similarity.`;
+        } else if (combinedScore >= 60) {
+          fitLabel = "Medium";
+          selected = true;
+          reason = `Medium scope fit (${productionScopeFit}/10 production, ${sessionStructureFit}/10 structure, ${complexityFit}/10 complexity) with reasonable overall similarity.`;
+        } else {
+          reason = `Weak overall fit despite adequate scope compatibility (${productionScopeFit}/10 production, ${sessionStructureFit}/10 structure, ${complexityFit}/10 complexity).`;
+        }
+      } else {
+        reason = `Insufficient scope compatibility (${productionScopeFit}/10 production, ${sessionStructureFit}/10 structure, ${complexityFit}/10 complexity) for fallback pricing context.`;
+      }
 
       return {
         appId: candidate.appId,
         fitLabel,
-        fitScore,
-        reason: "Heuristic score (debug only — not used for selection).",
-        selected: false, // Never selects; display/debug context only.
+        fitScore: combinedScore,
+        reason,
+        selected,
       };
     })
     .sort((left, right) => right.fitScore - left.fitScore)
@@ -1121,25 +1217,44 @@ export async function findCompetitorsForSteamUrl(url: string): Promise<FindCompe
   if (finalSelectedComparables.length < MIN_PRICING_COMPETITORS) {
     fallbackUsed = true;
 
-    for (const candidate of pricedCandidates) {
-      if (finalSelectedIds.has(candidate.appId)) {
-        continue;
+    // Only use fallback candidates that meet minimum scope similarity requirements
+    const viableFallbackCandidates = pricedCandidates.filter((candidate) => {
+      // Must have at least Medium fit or Strong fit with adequate scope compatibility
+      if (candidate.fitLabel === "Strong") {
+        return true;
       }
+      if (candidate.fitLabel === "Medium") {
+        // For Medium fit, check if the reason indicates adequate scope compatibility
+        const reason = candidate.reason.toLowerCase();
+        return reason.includes("production") && reason.includes("structure") && reason.includes("complexity") &&
+               !reason.includes("insufficient scope compatibility");
+      }
+      return false;
+    });
 
-      finalSelectedComparables.push({
-        ...candidate,
-        selected: true,
-        reason:
-          candidate.reason && candidate.reason.trim().length > 0
-            ? `${candidate.reason} Included as low-confidence pricing context because strict comparable confidence was limited.`
-            : "Included as low-confidence pricing context because strict comparable confidence was limited.",
-      });
-      finalSelectedIds.add(candidate.appId);
+    // If we have viable fallback candidates, use them
+    if (viableFallbackCandidates.length > 0) {
+      for (const candidate of viableFallbackCandidates) {
+        if (finalSelectedIds.has(candidate.appId)) {
+          continue;
+        }
 
-      if (finalSelectedComparables.length >= MIN_VALID_COMPETITORS) {
-        break;
+        finalSelectedComparables.push({
+          ...candidate,
+          selected: true,
+          reason:
+            candidate.reason && candidate.reason.trim().length > 0
+              ? `${candidate.reason} Included as low-confidence pricing context because strict comparable confidence was limited.`
+              : "Included as low-confidence pricing context because strict comparable confidence was limited.",
+        });
+        finalSelectedIds.add(candidate.appId);
+
+        if (finalSelectedComparables.length >= MIN_VALID_COMPETITORS) {
+          break;
+        }
       }
     }
+    // If no viable fallback candidates, we'll handle this below
   }
 
   const selectedSet = new Set(finalSelectedComparables.map((entry) => entry.appId));
@@ -1167,6 +1282,15 @@ export async function findCompetitorsForSteamUrl(url: string): Promise<FindCompe
 
   const enoughComparables = selectedComparables.length >= MIN_PRICING_COMPETITORS;
 
+  let insufficientDataReason: string | null = null;
+  if (!enoughComparables) {
+    if (fallbackUsed && finalSelectedComparables.length === 0) {
+      insufficientDataReason = "No competitors met minimum scope and gameplay similarity requirements for pricing context. Consider broadening your game's core mechanics or target audience for better comparable discovery.";
+    } else {
+      insufficientDataReason = "Fewer than 2 resolved competitors had usable original non-discounted list prices.";
+    }
+  }
+
   return {
     sourceGameTitle: source.title,
     sourceAppId: source.appId,
@@ -1174,9 +1298,7 @@ export async function findCompetitorsForSteamUrl(url: string): Promise<FindCompe
     selectedCompetitorAppIds: selectedComparables.map((entry) => entry.appId),
     selectedComparables,
     enoughComparables,
-    insufficientDataReason: enoughComparables
-      ? null
-      : "Fewer than 2 resolved competitors had usable original non-discounted list prices.",
+    insufficientDataReason,
     disclaimer: DISCLAIMER,
     _debugRejectedCandidates: debugRejected,
   };
@@ -1247,6 +1369,15 @@ export async function buildPricingFromCompetitors(
 
   let finalSelectedCandidates = strictSelectedCandidates.slice();
   let lowConfidenceFallback = false;
+
+  // Check if any selected candidates were included via fallback (indicated by "low-confidence pricing context" in reason)
+  const hasFallbackCandidates = selectedCandidates.some(candidate =>
+    candidate.reason && candidate.reason.includes("low-confidence pricing context")
+  );
+
+  if (hasFallbackCandidates) {
+    lowConfidenceFallback = true;
+  }
 
   if (finalSelectedCandidates.length < MIN_PRICING_COMPETITORS) {
     lowConfidenceFallback = true;
